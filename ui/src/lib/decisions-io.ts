@@ -13,8 +13,13 @@ import { formatDateTime } from '@/lib/format'
 import type { DecisionsState } from '@/state/decisions'
 import { DECISION_ACTIONS, REASON_CODES } from '@/types/decision'
 import type { DecisionAction, DecisionRecord, ReasonCode } from '@/types/decision'
-import { DECISIONS_FORMAT, DECISIONS_FORMAT_VERSION } from '@/types/decisions-file'
-import type { DecisionsFile } from '@/types/decisions-file'
+import type { SamplesState } from '@/state/samples'
+import {
+  DECISIONS_FORMAT,
+  DECISIONS_FORMAT_VERSION,
+  SAMPLE_OUTCOMES,
+} from '@/types/decisions-file'
+import type { DecisionsFile, SampleReview } from '@/types/decisions-file'
 import type { Finding, RunInfo } from '@/types/finding'
 
 /** Felder, die der Umschlag kennt – alles andere kommt in den Bericht. */
@@ -28,6 +33,7 @@ const ENVELOPE_FIELDS = new Set<string>([
   'exported_at',
   'exported_by',
   'decisions',
+  'sample_reviewed',
 ])
 
 /** Felder, die ein Entscheidungssatz kennt. */
@@ -37,6 +43,17 @@ const RECORD_FIELDS = new Set<string>([
   'reason_code',
   'reason',
   'assigned_to',
+  'by',
+  'at',
+])
+
+/** Felder, die ein Stichproben-Satz kennt. */
+const SAMPLE_FIELDS = new Set<string>([
+  'rule_id',
+  'outcome',
+  'sampled_finding_ids',
+  'applied_finding_ids',
+  'blocked_by_finding_id',
   'by',
   'at',
 ])
@@ -53,9 +70,13 @@ export function decisionsFileName(run: RunInfo): string {
 export function buildDecisionsFile(
   run: RunInfo,
   decisions: DecisionsState,
+  samples: SamplesState,
   exportedBy: string,
   now: () => string = () => new Date().toISOString(),
 ): DecisionsFile {
+  const reviews = Object.values(samples).sort((a, b) =>
+    a.rule_id < b.rule_id ? -1 : a.rule_id > b.rule_id ? 1 : 0,
+  )
   return {
     format: DECISIONS_FORMAT,
     format_version: DECISIONS_FORMAT_VERSION,
@@ -69,6 +90,9 @@ export function buildDecisionsFile(
     decisions: Object.values(decisions).sort((a, b) =>
       a.finding_id < b.finding_id ? -1 : a.finding_id > b.finding_id ? 1 : 0,
     ),
+    // Das Feld erscheint erst, wenn es etwas zu berichten gibt – eine leere Liste
+    // in jeder Datei wäre nur Rauschen für den Leser.
+    ...(reviews.length === 0 ? {} : { sample_reviewed: reviews }),
   }
 }
 
@@ -92,6 +116,12 @@ export interface ImportReport {
   runMismatch: { file: string; loaded: string } | null
   /** Felder, die dieser Leser nicht kennt – gelesen wurden sie nicht. */
   unknownFields: string[]
+  /** Stichproben-Sätze in der Datei (`sample_reviewed`). */
+  samplesTotal: number
+  /** Davon mit einer Regel im geladenen Lauf – nur diese werden angewandt. */
+  samplesApplied: number
+  /** `rule_id`s ohne Finding im geladenen Lauf. */
+  missingSampleRules: string[]
   exportedBy: string
   exportedAt: string
 }
@@ -156,6 +186,67 @@ function checkRecord(
   }
 }
 
+/** Liste von Texten, sonst Abbruch – eine halb gelesene Stichprobe wäre wertlos. */
+function requireStringList(
+  value: Record<string, unknown>,
+  where: string,
+  field: string,
+): string[] {
+  const found = value[field]
+  if (!Array.isArray(found) || found.some((entry) => typeof entry !== 'string')) {
+    throw new LoadError(`${where}: ${field} ist keine Liste von finding_ids`)
+  }
+  return found as string[]
+}
+
+/**
+ * Prüft einen Stichproben-Satz. Er kam additiv dazu (Aufgabe 7) und ändert die
+ * Version nicht – ein älterer Leser nennt ihn als unbekanntes Feld und liest die
+ * Entscheidungen weiter.
+ */
+function checkSample(
+  value: unknown,
+  index: number,
+  unknownFields: Set<string>,
+): SampleReview {
+  const at = `Stichprobe ${index + 1}`
+  if (!isRecord(value)) throw new LoadError(`${at}: kein Objekt`)
+
+  const ruleId = requireString(value, at, 'rule_id')
+  const where = ruleId
+
+  for (const key of Object.keys(value)) {
+    if (!SAMPLE_FIELDS.has(key)) unknownFields.add(`sample_reviewed[].${key}`)
+  }
+
+  const outcome = requireString(value, where, 'outcome')
+  if (!SAMPLE_OUTCOMES.includes(outcome as SampleReview['outcome'])) {
+    throw new LoadError(`${where}: unbekannter outcome: ${outcome}`)
+  }
+
+  const timestamp = requireString(value, where, 'at')
+  try {
+    formatDateTime(timestamp)
+  } catch {
+    throw new LoadError(`${where}: at ist kein UTC-Zeitstempel (erwartet …Z)`)
+  }
+
+  const blockedBy = value.blocked_by_finding_id
+  if (blockedBy != null && typeof blockedBy !== 'string') {
+    throw new LoadError(`${where}: blocked_by_finding_id ist kein Text`)
+  }
+
+  return {
+    rule_id: ruleId,
+    outcome: outcome as SampleReview['outcome'],
+    sampled_finding_ids: requireStringList(value, where, 'sampled_finding_ids'),
+    applied_finding_ids: requireStringList(value, where, 'applied_finding_ids'),
+    blocked_by_finding_id: (blockedBy ?? null) as string | null,
+    by: requireString(value, where, 'by'),
+    at: timestamp,
+  }
+}
+
 /**
  * Liest eine Entscheidungsdatei gegen den geladenen Lauf.
  *
@@ -169,7 +260,7 @@ export function parseDecisionsFile(
   text: string,
   run: RunInfo,
   findings: readonly Finding[],
-): { records: DecisionsState; report: ImportReport } {
+): { records: DecisionsState; samples: SamplesState; report: ImportReport } {
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
@@ -190,6 +281,10 @@ export function parseDecisionsFile(
   }
   if (!Array.isArray(parsed.decisions)) {
     throw new LoadError('Pflichtfeld fehlt oder ist keine Liste: decisions')
+  }
+  // Das Feld ist optional; steht es da, muss es eine Liste sein.
+  if (parsed.sample_reviewed != null && !Array.isArray(parsed.sample_reviewed)) {
+    throw new LoadError('sample_reviewed ist keine Liste')
   }
 
   const unknownFields = new Set<string>()
@@ -217,15 +312,40 @@ export function parseDecisionsFile(
     else missing.push(record.finding_id)
   }
 
+  const parsedSamples = (parsed.sample_reviewed ?? []).map(
+    (entry: unknown, index: number) => checkSample(entry, index, unknownFields),
+  )
+  const seenRules = new Set<string>()
+  for (const review of parsedSamples) {
+    if (seenRules.has(review.rule_id)) {
+      throw new LoadError(`rule_id kommt in sample_reviewed doppelt vor: ${review.rule_id}`)
+    }
+    seenRules.add(review.rule_id)
+  }
+
+  // Eine Stichprobe gehört zu einer Regel des Laufs; kennt der Lauf die Regel
+  // nicht, wird der Satz nicht angewandt – aber genannt (Regel 4).
+  const knownRules = new Set(findings.map((finding) => finding.rule_id))
+  const samples: Record<string, SampleReview> = {}
+  const missingSampleRules: string[] = []
+  for (const review of parsedSamples) {
+    if (knownRules.has(review.rule_id)) samples[review.rule_id] = review
+    else missingSampleRules.push(review.rule_id)
+  }
+
   const fileRunId = typeof parsed.run_id === 'string' ? parsed.run_id : ''
   return {
     records,
+    samples,
     report: {
       total: parsedRecords.length,
       applied: Object.keys(records).length,
       missing,
       runMismatch: fileRunId === run.run_id ? null : { file: fileRunId, loaded: run.run_id },
       unknownFields: [...unknownFields].sort(),
+      samplesTotal: parsedSamples.length,
+      samplesApplied: Object.keys(samples).length,
+      missingSampleRules,
       exportedBy: typeof parsed.exported_by === 'string' ? parsed.exported_by : '',
       exportedAt: typeof parsed.exported_at === 'string' ? parsed.exported_at : '',
     },
@@ -245,6 +365,14 @@ export function describeImport(report: ImportReport): string[] {
   )
   if (report.missing.length > 0) {
     lines.push(`Ohne Finding: ${report.missing.join(', ')}`)
+  }
+  if (report.samplesTotal > 0) {
+    lines.push(
+      `${report.samplesApplied} von ${report.samplesTotal} geprüften Stichproben übernommen.`,
+    )
+  }
+  if (report.missingSampleRules.length > 0) {
+    lines.push(`Ohne Regel im geladenen Lauf: ${report.missingSampleRules.join(', ')}`)
   }
   if (report.runMismatch != null) {
     lines.push(

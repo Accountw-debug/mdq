@@ -17,8 +17,10 @@ import {
 } from '@/lib/decisions-io'
 import type { DecisionsState } from '@/state/decisions'
 import { decisionsReducer } from '@/state/decisions'
+import { NO_SAMPLES, type SamplesState } from '@/state/samples'
 import type { DecisionRecord } from '@/types/decision'
 import { DECISIONS_FORMAT, DECISIONS_FORMAT_VERSION } from '@/types/decisions-file'
+import type { SampleReview } from '@/types/decisions-file'
 import type { Finding, RunInfo } from '@/types/finding'
 
 const RUN: RunInfo = {
@@ -32,8 +34,25 @@ const RUN: RunInfo = {
 
 const CLOCK = () => '2026-08-30T09:15:00.000Z'
 
-function finding(findingId: string): Finding {
-  return { finding_id: findingId } as Finding
+function finding(findingId: string, ruleId = 'AR-VAL-001'): Finding {
+  return { finding_id: findingId, rule_id: ruleId } as Finding
+}
+
+function review(overrides: Partial<SampleReview> = {}): SampleReview {
+  return {
+    rule_id: 'AR-VAL-001',
+    outcome: 'released',
+    sampled_finding_ids: ['F-000000000001'],
+    applied_finding_ids: ['F-000000000002'],
+    blocked_by_finding_id: null,
+    by: 'V. Test',
+    at: '2026-08-30T09:14:00.000Z',
+    ...overrides,
+  }
+}
+
+function samples(...reviews: SampleReview[]): SamplesState {
+  return Object.fromEntries(reviews.map((entry) => [entry.rule_id, entry]))
 }
 
 function record(overrides: Partial<DecisionRecord> = {}): DecisionRecord {
@@ -71,7 +90,7 @@ function fileJson(overrides: Record<string, unknown> = {}): string {
 
 describe('buildDecisionsFile', () => {
   it('trägt Format, Version und den Lauf-Kopf', () => {
-    const file = buildDecisionsFile(RUN, state(record()), 'V. Test', CLOCK)
+    const file = buildDecisionsFile(RUN, state(record()), NO_SAMPLES, 'V. Test', CLOCK)
     expect(file.format).toBe(DECISIONS_FORMAT)
     expect(file.format_version).toBe(DECISIONS_FORMAT_VERSION)
     expect(file.run_id).toBe('demo-2026-08-30')
@@ -87,16 +106,16 @@ describe('buildDecisionsFile', () => {
       record({ finding_id: 'F-3a9f1c2d4e5b' }),
       record({ finding_id: 'F-e2f7b19c4d83' }),
     )
-    const first = serializeDecisionsFile(buildDecisionsFile(RUN, decisions, 'V. Test', CLOCK))
+    const first = serializeDecisionsFile(buildDecisionsFile(RUN, decisions, NO_SAMPLES, 'V. Test', CLOCK))
     // Andere Einfügereihenfolge, gleiche Datei.
     const shuffled = state(
       record({ finding_id: 'F-e2f7b19c4d83' }),
       record({ finding_id: 'F-3a9f1c2d4e5b' }),
       record({ finding_id: 'F-c41d7e9b2a60' }),
     )
-    const second = serializeDecisionsFile(buildDecisionsFile(RUN, shuffled, 'V. Test', CLOCK))
+    const second = serializeDecisionsFile(buildDecisionsFile(RUN, shuffled, NO_SAMPLES, 'V. Test', CLOCK))
     expect(first).toBe(second)
-    expect(buildDecisionsFile(RUN, decisions, 'V. Test', CLOCK).decisions.map((d) => d.finding_id)).toEqual([
+    expect(buildDecisionsFile(RUN, decisions, NO_SAMPLES, 'V. Test', CLOCK).decisions.map((d) => d.finding_id)).toEqual([
       'F-3a9f1c2d4e5b',
       'F-c41d7e9b2a60',
       'F-e2f7b19c4d83',
@@ -105,6 +124,78 @@ describe('buildDecisionsFile', () => {
 
   it('benennt die Datei nach dem Lauf', () => {
     expect(decisionsFileName(RUN)).toBe('decisions-demo-2026-08-30.json')
+  })
+})
+
+describe('Stichproben im Vertrag (`sample_reviewed`)', () => {
+  it('schreibt das Feld erst, wenn eine Stichprobe geprüft wurde', () => {
+    const ohne = buildDecisionsFile(RUN, state(record()), NO_SAMPLES, 'V. Test', CLOCK)
+    expect(ohne.sample_reviewed).toBeUndefined()
+
+    const mit = buildDecisionsFile(RUN, state(record()), samples(review()), 'V. Test', CLOCK)
+    expect(mit.sample_reviewed).toHaveLength(1)
+  })
+
+  it('liest zurück, was geschrieben wurde – Freigabe wie Sperre', () => {
+    const geprueft = samples(
+      review(),
+      review({
+        rule_id: 'AP-VAL-002',
+        outcome: 'blocked',
+        applied_finding_ids: [],
+        blocked_by_finding_id: 'F-000000000003',
+      }),
+    )
+    const text = serializeDecisionsFile(
+      buildDecisionsFile(RUN, state(record()), geprueft, 'V. Test', CLOCK),
+    )
+    const { samples: gelesen, report } = parseDecisionsFile(text, RUN, [
+      finding('F-000000000001'),
+      finding('F-000000000003', 'AP-VAL-002'),
+    ])
+    expect(gelesen).toEqual(geprueft)
+    expect(report.samplesTotal).toBe(2)
+    expect(report.samplesApplied).toBe(2)
+    expect(report.missingSampleRules).toEqual([])
+  })
+
+  it('nennt Stichproben zu Regeln, die der Lauf nicht kennt (Regel 4)', () => {
+    const text = serializeDecisionsFile(
+      buildDecisionsFile(
+        RUN,
+        state(record()),
+        samples(review({ rule_id: 'ZZ-XXX-009' })),
+        'V. Test',
+        CLOCK,
+      ),
+    )
+    const { samples: gelesen, report } = parseDecisionsFile(text, RUN, [
+      finding('F-000000000001'),
+    ])
+    expect(gelesen).toEqual({})
+    expect(report.missingSampleRules).toEqual(['ZZ-XXX-009'])
+    expect(describeImport(report)).toContain(
+      '0 von 1 geprüften Stichproben übernommen.',
+    )
+    expect(describeImport(report)).toContain('Ohne Regel im geladenen Lauf: ZZ-XXX-009')
+  })
+
+  it('bricht bei unbekanntem outcome ab, statt die Sperre zu verlieren', () => {
+    const text = fileJson({ sample_reviewed: [{ ...review(), outcome: 'irgendwas' }] })
+    expect(() => parseDecisionsFile(text, RUN, [finding('F-000000000001')])).toThrow(LoadError)
+  })
+
+  it('bricht bei doppelter rule_id ab', () => {
+    const text = fileJson({ sample_reviewed: [review(), review()] })
+    expect(() => parseDecisionsFile(text, RUN, [finding('F-000000000001')])).toThrow(
+      /rule_id kommt in sample_reviewed doppelt vor/,
+    )
+  })
+
+  it('nennt unbekannte Felder eines Stichproben-Satzes, statt sie stumm zu schlucken', () => {
+    const text = fileJson({ sample_reviewed: [{ ...review(), erfunden: true }] })
+    const { report } = parseDecisionsFile(text, RUN, [finding('F-000000000001')])
+    expect(report.unknownFields).toContain('sample_reviewed[].erfunden')
   })
 })
 
@@ -125,7 +216,7 @@ describe('Rundlauf Export → Import', () => {
         assigned_to: 'Team Stammdaten',
       }),
     )
-    const text = serializeDecisionsFile(buildDecisionsFile(RUN, decisions, 'V. Test', CLOCK))
+    const text = serializeDecisionsFile(buildDecisionsFile(RUN, decisions, NO_SAMPLES, 'V. Test', CLOCK))
     const findings = [
       finding('F-000000000001'),
       finding('F-000000000002'),
@@ -142,7 +233,7 @@ describe('Rundlauf Export → Import', () => {
 
   it('stellt den Stand der Sitzung über den Reducer wieder her', () => {
     const decisions = state(record(), record({ finding_id: 'F-000000000002' }))
-    const text = serializeDecisionsFile(buildDecisionsFile(RUN, decisions, 'V. Test', CLOCK))
+    const text = serializeDecisionsFile(buildDecisionsFile(RUN, decisions, NO_SAMPLES, 'V. Test', CLOCK))
     const { records } = parseDecisionsFile(text, RUN, [
       finding('F-000000000001'),
       finding('F-000000000002'),
@@ -246,12 +337,14 @@ describe('parseDecisionsFile – Bericht statt Abbruch', () => {
   })
 
   it('nennt unbekannte Felder, statt sie stumm zu verwerfen (Regel 4)', () => {
+    // `sample_reviewed` stand hier, solange das Feld reserviert war; seit Aufgabe 7
+    // liest der Vertrag es, also braucht der Test ein anderes fremdes Feld.
     const text = fileJson({
-      sample_reviewed: ['F-000000000001'],
+      spaeter_erfunden: ['F-000000000001'],
       decisions: [{ ...record(), reviewed_twice: true }],
     })
     const { report } = parseDecisionsFile(text, RUN, [finding('F-000000000001')])
-    expect(report.unknownFields).toEqual(['decisions[].reviewed_twice', 'sample_reviewed'])
+    expect(report.unknownFields).toEqual(['decisions[].reviewed_twice', 'spaeter_erfunden'])
   })
 })
 

@@ -11,7 +11,10 @@ import type { RunInfo } from '@/types/finding'
 export interface DecisionsFileControls {
   /** Entscheidungen dieser Sitzung; bei 0 gibt es nichts zu sichern. */
   count: number
+  /** Zeilen der Bereinigungsliste: übernommene Massenänderungen (Aufgabe 7). */
+  cleanupCount: number
   onExport: () => void
+  onExportCleanup: () => void
   onImport: (file: File) => void
   /** Ergebnis des letzten Imports – Bericht oder Fehler. */
   message: { kind: 'error' | 'info'; lines: string[] } | null
@@ -33,6 +36,10 @@ export interface DecisionsFileControls {
  * `@/types/decisions-file`). Weil nichts im Browser liegen bleibt, ist die Datei der
  * einzige Weg, am nächsten Tag weiterzuarbeiten – sie gehört deshalb neben den
  * Datenstand und nicht in eine Ecke des Explorers.
+ *
+ * Daneben die Bereinigungsliste (CSV, Aufgabe 7): dieselbe Sitzung, ein anderer
+ * Leser. `decisions.json` kommt hierher zurück, die Bereinigungsliste geht ins
+ * SAP-Team und enthält nur die übernommenen Massenänderungen.
  */
 export function DataBanner({
   run,
@@ -158,6 +165,23 @@ export function DataBanner({
             Entscheidungen sichern
             {decisionsFile.count > 0 && (
               <span className="font-mono tabular-nums"> ({decisionsFile.count})</span>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="xs"
+            disabled={decisionsFile.cleanupCount === 0}
+            title={
+              decisionsFile.cleanupCount === 0
+                ? 'Noch keine übernommene Massenänderung in dieser Sitzung'
+                : undefined
+            }
+            onClick={decisionsFile.onExportCleanup}
+          >
+            <DownloadIcon data-icon="inline-start" />
+            Bereinigungsliste (CSV)
+            {decisionsFile.cleanupCount > 0 && (
+              <span className="font-mono tabular-nums"> ({decisionsFile.cleanupCount})</span>
             )}
           </Button>
         </div>

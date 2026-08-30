@@ -11,6 +11,18 @@ import type { Filters, Sort, SortColumn, SortDirection } from '@/lib/select-find
 import { DEFAULT_SORT, EMPTY_FILTERS } from '@/lib/select-findings'
 import type { ActionType } from '@/types/finding'
 
+/**
+ * Ein laufender Stichproben-Durchgang (Spec Sprint 5, Aufgabe 7): die gezogenen
+ * Findings und die Stelle, an der der Bearbeiter gerade steht. Solange er läuft,
+ * führen `J`/`K` und der Sprung nach einer Entscheidung durch die Stichprobe,
+ * nicht durch die ganze Liste.
+ */
+export interface SampleRun {
+  ruleId: string
+  ids: readonly string[]
+  index: number
+}
+
 export interface ExplorerState {
   tab: ActionType
   filters: Filters
@@ -25,6 +37,8 @@ export interface ExplorerState {
    * die nächste Handlung des Bearbeiters räumt ihn weg.
    */
   filtersResetNotice: boolean
+  /** `null`, solange keine Stichprobe geprüft wird. */
+  sample: SampleRun | null
 }
 
 export const INITIAL_EXPLORER_STATE: ExplorerState = {
@@ -35,6 +49,7 @@ export const INITIAL_EXPLORER_STATE: ExplorerState = {
   selectedId: null,
   drawerOpen: false,
   filtersResetNotice: false,
+  sample: null,
 }
 
 export type ExplorerAction =
@@ -54,6 +69,12 @@ export type ExplorerAction =
    */
   | { type: 'focus_finding'; findingId: string; actionType: ActionType }
   | { type: 'dismiss_notice' }
+  /** Stichprobe einer Regelgruppe beginnen; die Karte öffnet beim ersten Finding. */
+  | { type: 'start_sample'; ruleId: string; ids: readonly string[] }
+  /** Innerhalb der Stichprobe weiter oder zurück; an den Rändern bleibt es stehen. */
+  | { type: 'sample_step'; delta: number }
+  /** Stichprobe beenden – abgebrochen, gesperrt oder durchgelaufen. */
+  | { type: 'end_sample' }
   /** Nach einer Entscheidung: weiter zum nächsten offenen Finding. */
   | { type: 'advance'; visibleIds: readonly string[]; openIds: readonly string[] }
 
@@ -107,11 +128,14 @@ export function nextOpenId(
  */
 const CLEARED_SELECTION: Pick<
   ExplorerState,
-  'selectedId' | 'drawerOpen' | 'filtersResetNotice'
+  'selectedId' | 'drawerOpen' | 'filtersResetNotice' | 'sample'
 > = {
   selectedId: null,
   drawerOpen: false,
   filtersResetNotice: false,
+  // Ein Tab- oder Filterwechsel bricht eine laufende Stichprobe ab: sie gehört zu
+  // einer Regelgruppe, nicht zur Liste, die gerade zu sehen ist.
+  sample: null,
 }
 
 export function explorerReducer(state: ExplorerState, action: ExplorerAction): ExplorerState {
@@ -175,6 +199,7 @@ export function explorerReducer(state: ExplorerState, action: ExplorerAction): E
         search: '',
         selectedId: action.findingId,
         drawerOpen: true,
+        sample: null,
         // Nur melden, was tatsächlich verworfen wurde.
         filtersResetNotice: hasActiveFilters(state),
       }
@@ -183,10 +208,34 @@ export function explorerReducer(state: ExplorerState, action: ExplorerAction): E
       if (!state.filtersResetNotice) return state
       return { ...state, filtersResetNotice: false }
 
+    case 'start_sample': {
+      if (action.ids.length === 0) return state
+      return {
+        ...state,
+        selectedId: action.ids[0],
+        drawerOpen: true,
+        sample: { ruleId: action.ruleId, ids: action.ids, index: 0 },
+      }
+    }
+
+    case 'sample_step': {
+      const run = state.sample
+      if (run == null) return state
+      const index = Math.min(Math.max(run.index + action.delta, 0), run.ids.length - 1)
+      if (index === run.index) return state
+      return { ...state, selectedId: run.ids[index], sample: { ...run, index } }
+    }
+
+    case 'end_sample':
+      if (state.sample == null) return state
+      // Die Marke bleibt auf dem zuletzt geprüften Finding stehen.
+      return { ...state, sample: null, drawerOpen: false }
+
     case 'close_drawer':
       if (!state.drawerOpen) return state
       // Auswahl bleibt stehen, damit `J` dort weitermacht, wo der Drawer aufging.
-      return { ...state, drawerOpen: false }
+      // `Esc` bricht damit auch die Stichprobe ab – ohne etwas freizugeben.
+      return { ...state, drawerOpen: false, sample: null }
   }
 }
 

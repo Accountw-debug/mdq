@@ -349,13 +349,52 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   Abschnitt kein Zahlenknoten steht. Grund: der Score ist die eine Kennzahl auf diesem
   Bildschirm, die niemand nachrechnen kann – ein Platzhalterwert würde geglaubt.
 - **2026-08-30 · Der Anteil je Stufe steht als Bruch („3 von 6"), nicht als Prozentzahl.**
-  Bei sechs Findings ist „50 %" eine gerundete Behauptung über drei Stück. Der Balken ist
-  nur das Bild dazu; seine Breite darf gerundet werden, weil sie kein Wert ist. Alle vier
+  Bei sechs Findings ist „50 %" eine gerundete Behauptung über drei Stück. Alle vier
   Stufen stehen da, auch die leere: dass es keine Stufe A gibt, ist die Aussage.
+  **Nachtrag (Aufgabe 7, Freigabe Victor):** Der Balken daneben ist gestrichen. Bei vier
+  Zeilen mit zweistelligen Zahlen trug er nichts, was der Bruch nicht schon sagt, und ein
+  gerundetes Bild neben einer exakten Zahl lädt zum Ablesen des Bildes ein.
 - **2026-08-30 · Kategorien werden Währung für Währung verglichen, in der Reihenfolge des
   Laufs.** Bei einer Währung ist das schlicht „nach Betrag absteigend"; bei mehreren bleibt
   es eine feste Reihenfolge, ohne einen Kurs zu erfinden. Gleichstand geht nach
   Kategoriename, damit nichts der Einfügereihenfolge einer `Map` überlassen bleibt (Regel 9).
+- **2026-08-30 · Die Stichproben-Freigabe setzt `in_progress`, nicht `done`.** Freigabe
+  Victor; die Spec-Stelle in `docs/specs/SPRINT-5-UI.md` (Aufgabe 7: „alle Findings der
+  Gruppe auf `done`") gilt damit als überholt und ist beim Merge dort zu korrigieren.
+  Grund: `done` hieße „in SAP umgesetzt", und das weiß das UI nicht – es weiß nur, dass
+  entschieden wurde. `done` vergibt der nächste Lauf, in dem das Finding nicht mehr
+  auftaucht (dieselbe Regel wie bei der Einzelentscheidung seit Aufgabe 3). Verworfen:
+  eine vierte Aktion `release` mit eigenem Status – zwei Wege zu „übernommen" wären eine
+  Unterscheidung ohne Unterschied.
+- **2026-08-30 · Eine Ablehnung in der Stichprobe sperrt die Gruppenfreigabe für diesen
+  Lauf endgültig.** Freigabe Victor. Wenn die Regel schon an einem von zehn geprüften
+  Fällen falsch liegt, ist die Grundlage für „die anderen 230 stimmen auch" weg. Die
+  übrigen Findings bleiben einzeln entscheidbar, und die Sperre sagt das ausdrücklich –
+  sie nimmt Arbeit weg, keine Möglichkeiten. Der Ausgang steht in `decisions.json`
+  (`sample_reviewed`), sonst wäre „endgültig" nur bis zum Feierabend wahr. Verworfen:
+  eine neue Stichprobe nach einer Ablehnung ziehen zu lassen – das ist Würfeln, bis es
+  passt.
+- **2026-08-30 · Die Stichprobe wird aus den offenen, freigebbaren Findings der Gruppe
+  gezogen, mit Seed aus `run_id` und `rule_id`.** Gleicher Lauf und gleiche offene Menge
+  ergeben dieselbe Auswahl (Regel 9, kein `Math.random`); gemischt wird über die nach
+  `finding_id` sortierte Liste, damit die Sortierung der Tabelle die Auswahl nicht
+  verschiebt. Schadensklasse 1 ist weder Kandidat noch Ziel einer Freigabe (Regel 11) und
+  wird an der Gruppe genannt, nicht verschwiegen. Verworfen: aus allen Findings der Gruppe
+  zu ziehen – dann stünden schon entschiedene Fälle in der Stichprobe und eine alte
+  Ablehnung sperrte die Gruppe, ohne dass jemand etwas getan hat.
+- **2026-08-30 · Die Bereinigungsliste enthält nur die übernommenen Massenänderungen.**
+  Sie ist eine Arbeitsanweisung fürs SAP-Team, keine Bestandsaufnahme des Laufs; wer
+  nichts entschieden hat, bekommt keine Zeile. Freigabe Victor. Format: Trenner `;`,
+  CRLF, UTF-8 **mit** BOM (ohne BOM zerlegt Excel die Umlaute), Felder mit `;` oder `"`
+  nach RFC 4180 gequotet, Reihenfolge Regel → Geschäftspartner → `finding_id`. In den
+  Spalten stehen Schlüssel und Feldwerte, keine Namen oder Adressen. Verworfen: TSV
+  (unsichtbarer Trenner) und CSV ohne BOM (Umlaute kaputt beim Doppelklick).
+- **2026-08-30 · Stichproben liegen in einem eigenen Reducer neben den Entscheidungen.**
+  `state/samples.ts` statt einer erweiterten `DecisionsState`. Grund: eine Freigabe
+  *schreibt* Entscheidungen, ist aber selbst keine – und die Sperre nach einer Ablehnung
+  ließe sich aus den Entscheidungen gar nicht ablesen, weil sie keine erzeugt. Verworfen:
+  beides in einen zusammengesetzten Zustand zu ziehen; das hätte jede Stelle angefasst,
+  die heute mit `Record<finding_id, DecisionRecord>` arbeitet.
 
 ## Offene Fragen an die Engine-Session (`main`)
 
@@ -483,9 +522,18 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   über Währungen hinweg braucht entweder einen Kurs (den kein Feld liefert) oder eine
   Gruppierung der Liste je Währung; beides erst entscheiden, wenn ein Lauf zwei Währungen
   liefert.
-- **`sample_reviewed` schreibt Aufgabe 7.** Das Feld steht im Vertrag als reserviert; der
-  Import nennt es heute als unbekanntes Feld, sobald es in einer Datei auftaucht. Mit
-  Aufgabe 7 wird es gelesen – additiv, ohne Versionssprung.
+- **`sample_reviewed` ist seit Aufgabe 7 Teil des Vertrags** – additiv, `format_version`
+  bleibt 1. Ein Satz je Regelgruppe mit `outcome` (`released`/`blocked`), gezogener
+  Stichprobe, den freigegebenen Findings und dem Auslöser der Sperre. Ein älterer Leser
+  nennt das Feld als unbekannt und liest die Entscheidungen weiter.
+- **Der Stichproben-Durchgang ist nur in seinen Teilen getestet, nicht als Klickstrecke.**
+  *(2026-08-30, aus Aufgabe 7.)* `nextSampleStep`, `sampleProgress` und die beiden
+  `build*`-Funktionen sind reine Logik mit Tests; die Verdrahtung in `FindingsExplorer`
+  (Entscheidung → nächster Schritt → Rückfrage) prüft heute niemand automatisch, weil im
+  Projekt keine Testing Library steht und die Rauchtests nur statisches Markup rendern.
+  Das gilt genauso für den Sprung nach einer Einzelentscheidung seit Aufgabe 3. Wenn das
+  UI Produktcode bleibt, ist eine Interaktionsebene (Testing Library oder Playwright) die
+  nächste sinnvolle Investition – erst entscheiden, dann nachrüsten.
 
 ## Session-Notizen
 
@@ -579,3 +627,17 @@ Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
   (neu: `dashboard`, `Dashboard.render`, vier neue in `explorer`), `npm run lint` und
   `npm run build` ohne Befund. Nächster Schritt: Aufgabe 7 – Stichproben-Freigabe und Export
   (Bereinigungsliste CSV; `decisions.json` steht seit 5b, `sample_reviewed` kommt additiv dazu).
+- **2026-08-30 · Aufgabe 7 (Stichproben-Freigabe und Bereinigungsliste).** `src/lib/sampling.ts`
+  (Regelgruppen, Seed aus Lauf und Regel, Ziehung, Stand und Ausgang der Stichprobe,
+  Freigabe- und Sperrsätze), `src/lib/cleanup-csv.ts` (Bereinigungsliste), `src/state/samples.ts`,
+  `RuleGroups` und `ReleaseGroupDialog` im Explorer, `sample_reviewed` im Entscheidungs-Vertrag,
+  zweiter Sicherungsknopf im Datenstand-Banner. Freigabe setzt `in_progress`, eine Ablehnung
+  in der Stichprobe sperrt die Gruppe für den Lauf, Schadensklasse 1 bleibt außen vor.
+  Mit den Beispielen gibt es keine Stufe-A-Gruppe: der Tab Massenänderung zeigt den
+  Leerzustand mit Erklärung, der CSV-Knopf ist gesperrt. Zusätzlich der Balken der
+  Stufenverteilung gestrichen (Freigabe Victor), der Bruch bleibt. 291 Tests grün
+  (neu: `sampling`, `cleanup-csv`, `samples`, `RuleGroups.render`, sieben neue in
+  `explorer` und `decisions-io`), `npm run lint` und `npm run build` ohne Befund.
+  Nächster Schritt: Testlauf mit zwei Buchhaltern (Zeit je Entscheidung, Rückfragen,
+  Missverständnisse) und Merge-Vorbereitung – Schema-Rückmeldungen gehen als Aufgabe an
+  die Engine-Session, nicht von hier aus ins Schema.

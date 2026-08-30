@@ -320,3 +320,67 @@ describe('Sprung aus dem Dashboard', () => {
     ).toBe(false)
   })
 })
+
+describe('Stichproben-Durchgang', () => {
+  const start: ExplorerAction = {
+    type: 'start_sample',
+    ruleId: 'AR-CMP-001',
+    ids: [IDS[0], IDS[1]],
+  }
+
+  it('öffnet die Karte beim ersten gezogenen Finding', () => {
+    const state = explorerReducer(INITIAL_EXPLORER_STATE, start)
+    expect(state.sample).toEqual({ ruleId: 'AR-CMP-001', ids: [IDS[0], IDS[1]], index: 0 })
+    expect(state.selectedId).toBe(IDS[0])
+    expect(state.drawerOpen).toBe(true)
+  })
+
+  it('beginnt ohne gezogene Findings gar nicht', () => {
+    expect(
+      explorerReducer(INITIAL_EXPLORER_STATE, { type: 'start_sample', ruleId: 'R', ids: [] }),
+    ).toBe(INITIAL_EXPLORER_STATE)
+  })
+
+  it('führt durch die Stichprobe und bleibt an ihren Rändern stehen', () => {
+    const zweites = reduce(INITIAL_EXPLORER_STATE, start, { type: 'sample_step', delta: 1 })
+    expect(zweites.selectedId).toBe(IDS[1])
+    // Hinter dem letzten gezogenen Finding geht es nicht weiter.
+    expect(explorerReducer(zweites, { type: 'sample_step', delta: 1 })).toBe(zweites)
+    const zurueck = explorerReducer(zweites, { type: 'sample_step', delta: -1 })
+    expect(zurueck.selectedId).toBe(IDS[0])
+    expect(explorerReducer(zurueck, { type: 'sample_step', delta: -1 })).toBe(zurueck)
+  })
+
+  it('schließt die Karte am Ende der Stichprobe, die Marke bleibt stehen', () => {
+    const beendet = reduce(INITIAL_EXPLORER_STATE, start, { type: 'end_sample' })
+    expect(beendet.sample).toBeNull()
+    expect(beendet.drawerOpen).toBe(false)
+    expect(beendet.selectedId).toBe(IDS[0])
+  })
+
+  it('bricht bei Esc und bei jedem Tab- oder Filterwechsel ab', () => {
+    // Eine Stichprobe läuft im Tab Massenänderung – von dort weg bricht sie ab.
+    const laufend = reduce(INITIAL_EXPLORER_STATE, { type: 'set_tab', tab: 'mass_change' }, start)
+    expect(explorerReducer(laufend, { type: 'close_drawer' }).sample).toBeNull()
+    expect(explorerReducer(laufend, { type: 'set_tab', tab: 'review' }).sample).toBeNull()
+    expect(
+      explorerReducer(laufend, { type: 'set_filter', key: 'tier', value: 'A' }).sample,
+    ).toBeNull()
+    expect(
+      explorerReducer(laufend, {
+        type: 'focus_finding',
+        findingId: IDS[2],
+        actionType: 'review',
+      }).sample,
+    ).toBeNull()
+  })
+
+  it('kennt ohne laufende Stichprobe keinen Schritt', () => {
+    expect(explorerReducer(INITIAL_EXPLORER_STATE, { type: 'sample_step', delta: 1 })).toBe(
+      INITIAL_EXPLORER_STATE,
+    )
+    expect(explorerReducer(INITIAL_EXPLORER_STATE, { type: 'end_sample' })).toBe(
+      INITIAL_EXPLORER_STATE,
+    )
+  })
+})

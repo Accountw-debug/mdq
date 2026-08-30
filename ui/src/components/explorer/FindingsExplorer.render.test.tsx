@@ -15,6 +15,7 @@ import { FindingsExplorer } from '@/components/explorer/FindingsExplorer'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { DecisionsState } from '@/state/decisions'
 import { NO_DECISIONS, applyDecisions } from '@/state/decisions'
+import { NO_SAMPLES } from '@/state/samples'
 import type { ExplorerState } from '@/state/explorer'
 import { INITIAL_EXPLORER_STATE } from '@/state/explorer'
 import type { ActionType, Finding } from '@/types/finding'
@@ -32,11 +33,13 @@ function render(state: Partial<ExplorerState> = {}, decisions: DecisionsState = 
       <FindingsExplorer
         findings={applyDecisions(examples, decisions)}
         decisions={decisions}
+        samples={NO_SAMPLES}
         reviewer="V. Test"
         state={{ ...INITIAL_EXPLORER_STATE, ...state }}
         dispatch={() => {}}
         onDecide={() => {}}
         onClearDecision={() => {}}
+        onSampleOutcome={() => {}}
       />
     </TooltipProvider>,
   )

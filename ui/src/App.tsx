@@ -12,9 +12,12 @@ import {
   serializeDecisionsFile,
   type ImportReport,
 } from '@/lib/decisions-io'
+import { buildCleanupCsv, cleanupFileName, cleanupFindings } from '@/lib/cleanup-csv'
 import { NO_DECISIONS, applyDecisions, decisionsReducer, type DecisionsState } from '@/state/decisions'
+import { NO_SAMPLES, samplesReducer, type SamplesState } from '@/state/samples'
 import { INITIAL_EXPLORER_STATE, explorerReducer } from '@/state/explorer'
 import type { DecisionRecord } from '@/types/decision'
+import type { SampleReview } from '@/types/decisions-file'
 import type { Finding } from '@/types/finding'
 
 interface Loaded {
@@ -40,6 +43,8 @@ function App() {
   const [view, setView] = useState<View>('findings')
   const [explorer, dispatch] = useReducer(explorerReducer, INITIAL_EXPLORER_STATE)
   const [decisions, dispatchDecisions] = useReducer(decisionsReducer, NO_DECISIONS)
+  /** Geprüfte Stichproben je Regelgruppe – eigener Zustand, siehe `@/state/samples`. */
+  const [samples, dispatchSamples] = useReducer(samplesReducer, NO_SAMPLES)
   /** `decision.by` ist im Schema Pflicht – ohne Namen keine Entscheidung. */
   const [reviewer, setReviewer] = useState('')
   /** Ergebnis des letzten Imports: Bericht oder Fehler, beides steht im Banner. */
@@ -51,7 +56,7 @@ function App() {
    * dieser Sitzung schon entschieden wurde (Freigabe Victor, 2026-08-30).
    */
   const [pendingImport, setPendingImport] = useState<
-    { records: DecisionsState; report: ImportReport } | null
+    { records: DecisionsState; samples: SamplesState; report: ImportReport } | null
   >(null)
 
   // Die Liste zeigt die Findings des Laufs mit den Entscheidungen dieser Sitzung
@@ -68,6 +73,19 @@ function App() {
   const onClearDecision = useCallback((findingId: string) => {
     dispatchDecisions({ type: 'clear', findingId })
   }, [])
+
+  /**
+   * Ausgang einer Stichprobe (Aufgabe 7): der Satz und, bei einer Freigabe, die
+   * Entscheidungen der ganzen Gruppe. Beides in einem Zug – die Freigabe ohne
+   * ihre Begründung wäre eine Reihe unerklärter Entscheidungen.
+   */
+  const onSampleOutcome = useCallback(
+    (review: SampleReview, records: readonly DecisionRecord[]) => {
+      for (const record of records) dispatchDecisions({ type: 'record', record })
+      dispatchSamples({ type: 'record', review })
+    },
+    [],
+  )
 
   /**
    * Klick auf ein Finding im Dashboard: hinüber in die Liste und die Karte öffnen.
@@ -107,6 +125,7 @@ function App() {
         // Entscheidungen gehören zu einem Lauf; ein neuer Lauf beginnt ohne sie –
         // und ohne den Bericht des Imports, der zum alten Lauf gehörte.
         dispatchDecisions({ type: 'reset' })
+        dispatchSamples({ type: 'reset' })
         setImportResult(null)
         setPendingImport(null)
       },
@@ -129,8 +148,9 @@ function App() {
    * dort nichts steht – ein getippter Name wird nie stillschweigend überschrieben.
    */
   const applyImport = useCallback(
-    (result: { records: DecisionsState; report: ImportReport }) => {
+    (result: { records: DecisionsState; samples: SamplesState; report: ImportReport }) => {
       dispatchDecisions({ type: 'import', records: result.records })
+      dispatchSamples({ type: 'import', reviews: result.samples })
       setImportResult({ kind: 'report', report: result.report })
       setPendingImport(null)
       setReviewer((current) =>
@@ -148,21 +168,48 @@ function App() {
         .then((text) => {
           const result = parseDecisionsFile(text, loaded.run.run, loaded.run.findings)
           // Ersetzen ist endgültig, solange nichts gesichert ist – deshalb die Rückfrage.
-          if (Object.keys(decisions).length > 0) setPendingImport(result)
+          // Eine gesperrte Gruppe zählt mit: sie hat keine Entscheidung geschrieben
+          // und ginge sonst unbemerkt verloren.
+          if (Object.keys(decisions).length + Object.keys(samples).length > 0) {
+            setPendingImport(result)
+          }
           else applyImport(result)
         })
         .catch((cause: unknown) =>
           setImportResult({ kind: 'error', message: (cause as Error).message }),
         )
     },
-    [applyImport, decisions, loaded],
+    [applyImport, decisions, loaded, samples],
   )
 
   const onExportDecisions = useCallback(() => {
     if (loaded == null) return
-    const file = buildDecisionsFile(loaded.run.run, decisions, reviewer)
-    downloadJson(decisionsFileName(loaded.run.run), serializeDecisionsFile(file))
-  }, [decisions, loaded, reviewer])
+    const file = buildDecisionsFile(loaded.run.run, decisions, samples, reviewer)
+    downloadFile(
+      decisionsFileName(loaded.run.run),
+      serializeDecisionsFile(file),
+      'application/json',
+    )
+  }, [decisions, loaded, reviewer, samples])
+
+  /**
+   * Bereinigungsliste: die übernommenen Massenänderungen als CSV. Grundlage sind
+   * die Findings des Laufs, nicht die überlagerte Liste – entschieden hat, was in
+   * der Entscheidungs-Map steht.
+   */
+  const onExportCleanup = useCallback(() => {
+    if (loaded == null) return
+    downloadFile(
+      cleanupFileName(loaded.run.run),
+      buildCleanupCsv(loaded.run.findings, decisions),
+      'text/csv;charset=utf-8',
+    )
+  }, [decisions, loaded])
+
+  const cleanupCount = useMemo(
+    () => (loaded == null ? 0 : cleanupFindings(loaded.run.findings, decisions).length),
+    [decisions, loaded],
+  )
 
   if (fatalError) {
     return (
@@ -192,7 +239,9 @@ function App() {
       onReviewerChange={setReviewer}
       decisionsFile={{
         count: Object.keys(decisions).length,
+        cleanupCount,
         onExport: onExportDecisions,
+        onExportCleanup,
         onImport: onImportDecisions,
         message:
           importResult == null
@@ -209,11 +258,13 @@ function App() {
         <FindingsExplorer
           findings={findings}
           decisions={decisions}
+          samples={samples}
           reviewer={reviewer}
           state={explorer}
           dispatch={dispatch}
           onDecide={onDecide}
           onClearDecision={onClearDecision}
+          onSampleOutcome={onSampleOutcome}
         />
       )}
       {view === 'dashboard' && (
@@ -241,8 +292,8 @@ function App() {
  * ein Klick auf einen unsichtbaren Link, fertig – die Datei entsteht im Browser
  * und geht nirgendwo hin (Spec Sprint 5: kein Backend).
  */
-function downloadJson(fileName: string, text: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
+function downloadFile(fileName: string, text: string, mimeType: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: mimeType }))
   const link = document.createElement('a')
   link.href = url
   link.download = fileName

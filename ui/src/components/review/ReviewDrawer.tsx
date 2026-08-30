@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { ReviewCard } from '@/components/review/ReviewCard'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import type { SampleInfo } from '@/components/review/ReviewCard'
 import type { DecisionRecord } from '@/types/decision'
 import type { Finding } from '@/types/finding'
 
@@ -16,6 +17,7 @@ export function ReviewDrawer({
   decision,
   reviewer,
   open,
+  sample,
   onOpenChange,
   onDecide,
   onClearDecision,
@@ -26,6 +28,8 @@ export function ReviewDrawer({
   decision: DecisionRecord | undefined
   reviewer: string
   open: boolean
+  /** Gesetzt, solange eine Stichprobe läuft – die Karte sagt dann, wo im Durchgang. */
+  sample?: SampleInfo | null
   onOpenChange: (open: boolean) => void
   onDecide: (record: DecisionRecord) => void
   onClearDecision: (findingId: string) => void
@@ -58,6 +62,7 @@ export function ReviewDrawer({
               finding={finding}
               decision={decision}
               reviewer={reviewer}
+              sample={sample}
               onDecide={onDecide}
               onClearDecision={onClearDecision}
               onLater={onLater}

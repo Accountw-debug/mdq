@@ -30,10 +30,18 @@ import type { Finding } from '@/types/finding'
  * Abschnitte ohne Inhalt geben `null` zurück und erscheinen gar nicht – ein „–"
  * würde Arbeit vortäuschen, die es nicht gibt.
  */
+/** Stand des laufenden Stichproben-Durchgangs (Spec Sprint 5, Aufgabe 7). */
+export interface SampleInfo {
+  ruleId: string
+  position: number
+  size: number
+}
+
 export function ReviewCard({
   finding,
   decision,
   reviewer,
+  sample,
   onDecide,
   onClearDecision,
   onLater,
@@ -42,6 +50,7 @@ export function ReviewCard({
   finding: Finding
   decision: DecisionRecord | undefined
   reviewer: string
+  sample?: SampleInfo | null
   onDecide: (record: DecisionRecord) => void
   onClearDecision: (findingId: string) => void
   onLater: () => void
@@ -156,6 +165,16 @@ export function ReviewCard({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="border-b p-4 pr-12">
+        {/* Die Stichprobe zuerst: sie erklärt, warum diese Karte gerade offen ist
+            und wie viele noch kommen (Spec Sprint 5, Aufgabe 7). */}
+        {sample && (
+          <p className="pb-2 text-xs text-muted-foreground">
+            Stichprobe Regel <Key>{sample.ruleId}</Key> ·{' '}
+            <span className="font-mono tabular-nums">
+              {sample.position} von {sample.size}
+            </span>
+          </p>
+        )}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h2 className="font-heading text-base font-medium">

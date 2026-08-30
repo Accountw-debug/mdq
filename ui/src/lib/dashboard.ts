@@ -69,8 +69,11 @@ function compareText(a: string, b: string): number {
 /**
  * Summiert die Euro-Wirkung je Währung. Absteigend nach Betrag, bei Gleichstand
  * nach Währungscode – mit den Beispielen ist das genau eine Zeile („73.042,40 €").
+ *
+ * Nach außen gegeben, weil die Regelgruppen (`@/lib/sampling`) dieselbe Summe je
+ * Währung brauchen – zwei Additionen von Beträgen wären eine zu viel.
  */
-function sumByCurrency(findings: readonly Finding[]): MoneyTotal[] {
+export function sumByCurrency(findings: readonly Finding[]): MoneyTotal[] {
   const totals = new Map<string, bigint>()
   for (const finding of findings) {
     const impact = finding.impact_eur

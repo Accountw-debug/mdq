@@ -13,9 +13,9 @@
  *   ändert sich, neuer Pflichtwert), erhöht `format_version`.
  * - Ein Leser nimmt genau die Versionen, die er kennt; jede andere bricht ab.
  *
- * Reserviert für Aufgabe 7 und heute **nicht** geschrieben: `sample_reviewed`
- * (die geprüfte Stichprobe je Regelgruppe). Es ist additiv und ändert die Version
- * nicht.
+ * `sample_reviewed` (die geprüfte Stichprobe je Regelgruppe) kam mit Aufgabe 7
+ * dazu – additiv, ohne Versionssprung: ein älterer Leser nennt das Feld als
+ * unbekannt und liest die Entscheidungen trotzdem.
  */
 
 import type { DecisionRecord } from '@/types/decision'
@@ -25,6 +25,34 @@ export const DECISIONS_FORMAT = 'mdq.decisions'
 
 /** Die einzige Version, die dieses UI schreibt und liest. */
 export const DECISIONS_FORMAT_VERSION = 1
+
+/**
+ * Ausgang einer Stichprobe je Regelgruppe (Spec Sprint 5, Aufgabe 7).
+ *
+ * `released`: die Stichprobe wurde vollständig übernommen, die Gruppe ist
+ * freigegeben – `applied_finding_ids` nennt die Findings, die diese Freigabe
+ * entschieden hat (die Stichprobe selbst trägt ihre eigenen Entscheidungen).
+ * `blocked`: ein Finding der Stichprobe wurde abgelehnt; die Gruppenfreigabe ist
+ * für diesen Lauf gesperrt, die übrigen Findings bleiben einzeln entscheidbar
+ * (Freigabe Victor, 2026-08-30).
+ *
+ * Der Satz steht in der Datei, damit die Sperre einen Export und den Import am
+ * nächsten Tag überlebt – sonst wäre „endgültig" nur bis zum Feierabend wahr.
+ */
+export interface SampleReview {
+  rule_id: string
+  outcome: 'released' | 'blocked'
+  /** Die gezogenen und geprüften Findings, in Prüfreihenfolge. */
+  sampled_finding_ids: string[]
+  /** Nur bei `released`: die von der Freigabe entschiedenen Findings. */
+  applied_finding_ids: string[]
+  /** Nur bei `blocked`: das abgelehnte Finding der Stichprobe. */
+  blocked_by_finding_id: string | null
+  by: string
+  at: IsoDateTime
+}
+
+export const SAMPLE_OUTCOMES = ['released', 'blocked'] as const
 
 export interface DecisionsFile {
   format: typeof DECISIONS_FORMAT
@@ -41,4 +69,6 @@ export interface DecisionsFile {
   /** Der Bearbeiter aus dem Datenstand-Banner; steht zusätzlich in jedem Satz als `by`. */
   exported_by: string
   decisions: DecisionRecord[]
+  /** Fehlt, solange in der Sitzung keine Stichprobe geprüft wurde. */
+  sample_reviewed?: SampleReview[]
 }
