@@ -8,12 +8,13 @@ Exit-Code ungleich 0 ab, damit nichts stumm ins Leere laeuft.
 from pathlib import Path
 from typing import Annotated, NoReturn
 
+import duckdb
 import typer
 from rich import box
 from rich.console import Console
 from rich.table import Table
 
-from mdq import RULES_DIR, __version__
+from mdq import CANONICAL_SCHEMA, RULES_DIR, __version__
 from mdq.findings import (
     FindingFileError,
     duplicate_finding_ids,
@@ -21,6 +22,8 @@ from mdq.findings import (
     load_finding_file,
     validate_finding,
 )
+from mdq.loader import LoaderError, load_table
+from mdq.report import RunReport, collect_rejects, render
 from mdq.rules import RuleError, load_rules
 
 #: Mindestens ein Finding ist ungueltig
@@ -153,6 +156,55 @@ def rules_list(
             console.print(f"[yellow]HINWEIS[/] {rule.id}: {message}")
 
     console.print(f"\n{len(rules)} Regeln, {len(warned)} mit Hinweis.")
+
+
+#: Dateiendungen, die `mdq load` als Export ansieht
+EXPORT_SUFFIXES = (".txt", ".csv")
+
+#: Fester Lauf-Bezeichner des Zwischenstands – kein Zeitstempel, damit die Ausgabe
+#: deterministisch bleibt (Regel 9).
+LOAD_RUN_ID = "load-zwischenstand"
+
+
+@app.command()
+def load(
+    input_dir: Annotated[
+        Path,
+        typer.Option("--input", help="Verzeichnis mit SE16N-Exporten (.txt/.csv)."),
+    ],
+) -> None:
+    """Liest Exporte ein und zeigt den Run-Report. Zwischenstand: noch kein Mapping."""
+    if not input_dir.is_dir():
+        err_console.print(f"[bold red]Fehler:[/] Verzeichnis existiert nicht: {input_dir}")
+        raise typer.Exit(code=EXIT_NO_INPUT)
+
+    files = sorted(
+        path for path in input_dir.iterdir() if path.is_file() and path.suffix in EXPORT_SUFFIXES
+    )
+    if not files:
+        err_console.print(f"[bold red]Fehler:[/] keine Exportdateien unter {input_dir} gefunden.")
+        raise typer.Exit(code=EXIT_NO_INPUT)
+
+    con = duckdb.connect(":memory:")
+    con.execute(CANONICAL_SCHEMA.read_text(encoding="utf-8"))
+
+    report = RunReport(
+        run_id=LOAD_RUN_ID,
+        engine_version=__version__,
+        note=(
+            "Zwischenstand aus Sprint 1: Dateien werden nur eingelesen. "
+            "Mapping SAP -> kanonisch und Regelausführung folgen in Sprint 3."
+        ),
+    )
+    try:
+        for path in files:
+            report.add_load(load_table(con, path))
+    except LoaderError as exc:
+        err_console.print(f"[bold red]Fehler:[/] {exc}")
+        raise typer.Exit(code=EXIT_INVALID) from exc
+
+    report.rejects = collect_rejects(con, LOAD_RUN_ID)
+    render(report, console)
 
 
 @app.command()
