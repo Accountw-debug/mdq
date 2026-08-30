@@ -1,55 +1,51 @@
-import { useEffect, useState } from 'react'
-import { Key } from '@/components/Key'
-import { formatDate } from '@/lib/format'
-import type { Finding, RunInfo } from '@/types/finding'
+import { useCallback, useEffect, useReducer, useState } from 'react'
+import { AppShell, Placeholder, type View } from '@/components/AppShell'
+import { FindingsExplorer } from '@/components/explorer/FindingsExplorer'
+import { type LoadedRun, loadRunFromBuild, loadRunFromFile } from '@/lib/load-run'
+import { INITIAL_EXPLORER_STATE, explorerReducer } from '@/state/explorer'
 
 /**
- * Aufgabe 1: nur der Nachweis, dass die Daten ankommen. Layout, Datenstand-Banner
- * und Findings-Explorer folgen in Aufgabe 2 (docs/specs/SPRINT-5-UI.md).
+ * Hält die geladenen Findings und den Zustand der beiden Ansichten.
+ *
+ * Der Explorer-Zustand liegt hier und nicht im Explorer, damit Filter und Auswahl
+ * einen Wechsel auf Dashboard und zurück überleben.
  */
-
-interface LoadedRun {
-  run: RunInfo
-  findings: Finding[]
-}
-
-async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`)
-  return (await response.json()) as T
-}
-
-async function loadRun(): Promise<LoadedRun> {
-  const [run, findings] = await Promise.all([
-    fetchJson<RunInfo>('data/run.json'),
-    fetchJson<Finding[]>('data/findings.json'),
-  ])
-  return { run, findings }
-}
-
 function App() {
-  const [data, setData] = useState<LoadedRun | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState<LoadedRun | null>(null)
+  const [fatalError, setFatalError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [view, setView] = useState<View>('findings')
+  const [explorer, dispatch] = useReducer(explorerReducer, INITIAL_EXPLORER_STATE)
 
   useEffect(() => {
     let active = true
-    loadRun()
-      .then((loaded) => active && setData(loaded))
-      .catch((cause: unknown) => active && setError(String(cause)))
+    loadRunFromBuild()
+      .then((run) => active && setLoaded(run))
+      .catch((cause: unknown) => active && setFatalError((cause as Error).message))
     return () => {
       active = false
     }
   }, [])
 
-  if (error) {
+  const onSelectFile = useCallback((file: File) => {
+    loadRunFromFile(file)
+      .then((run) => {
+        setLoaded(run)
+        setLoadError(null)
+        dispatch({ type: 'reset_filters' })
+      })
+      .catch((cause: unknown) => setLoadError((cause as Error).message))
+  }, [])
+
+  if (fatalError) {
     return (
       <main className="p-8">
-        <p className="text-destructive">Findings konnten nicht geladen werden: {error}</p>
+        <p className="text-destructive">Findings konnten nicht geladen werden: {fatalError}</p>
       </main>
     )
   }
 
-  if (!data) {
+  if (!loaded) {
     return (
       <main className="p-8">
         <p className="text-muted-foreground">Findings werden geladen …</p>
@@ -57,24 +53,31 @@ function App() {
     )
   }
 
-  const { run, findings } = data
-
   return (
-    <main className="p-8">
-      <p className="text-2xl">{findings.length} Findings geladen</p>
-      <p className="text-muted-foreground mt-2 text-sm">
-        Stand {formatDate(run.data_as_of)} · Lauf <Key>{run.run_id}</Key> · Engine{' '}
-        {run.engine_version} · Regelpaket {run.pack_version} · Buchungskreise{' '}
-        {run.company_codes.length === 0
-          ? 'keine'
-          : run.company_codes.map((code, index) => (
-              <span key={code}>
-                {index > 0 ? ', ' : ''}
-                <Key>{code}</Key>
-              </span>
-            ))}
-      </p>
-    </main>
+    <AppShell
+      run={loaded.run}
+      source={loaded.source}
+      onSelectFile={onSelectFile}
+      loadError={loadError}
+      view={view}
+      onViewChange={setView}
+    >
+      {view === 'findings' && (
+        <FindingsExplorer findings={loaded.findings} state={explorer} dispatch={dispatch} />
+      )}
+      {view === 'dashboard' && (
+        <Placeholder
+          title="Dashboard"
+          hint="Kacheln, Verteilung nach Stufe und Top 10 nach Euro-Wirkung folgen in Aufgabe 6."
+        />
+      )}
+      {view === 'rules' && (
+        <Placeholder
+          title="Regeln"
+          hint="Der Regelkatalog gehört nicht zu Sprint 5. Bis dahin steht die Regel-ID in jeder Zeile und im Kopf der Review-Karte."
+        />
+      )}
+    </AppShell>
   )
 }
 

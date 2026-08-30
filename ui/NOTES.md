@@ -61,17 +61,65 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
 - **2026-08-30 · Vitest ohne DOM-Umgebung** (`environment: 'node'`). Getestet werden laut
   Spec Formatierer und später der Reducer – beides reine Funktionen. Verworfen: jsdom +
   Testing Library als zusätzliche Abhängigkeiten.
+- **2026-08-30 · TanStack Table v9 statt v8.** `npm install @tanstack/react-table` liefert
+  9.2.4 mit neuer API (`tableFeatures({})`, `useTable`, `table.FlexRender`); die aus v8
+  bekannten `useReactTable`/`getCoreRowModel` gibt es nur noch als `legacy`-Einstieg.
+  Genutzt wird der Kern-Funktionssatz ohne Sortier-, Filter- oder Paginierungs-Feature –
+  das erledigen eigene Funktionen. Verworfen: Pin auf v8, verworfen: der `legacy`-Pfad.
+- **2026-08-30 · Sortieren, Filtern und Suchen bleiben eigene reine Funktionen**
+  (`src/lib/select-findings.ts`), nicht Sache der Tabelle. Grund: Regel 9 – die
+  Reihenfolge ist so im Test festgenagelt statt vom Bibliotheksverhalten abhängig.
+  Beträge werden über `parseCents` als `bigint` verglichen, nie über `Number`. Jede
+  Sortierung endet auf Schwere absteigend und dann `finding_id`, damit Gleichstand nie
+  dem Zufall überlassen bleibt. Findings ohne `impact_eur` zählen als 0.
+- **2026-08-30 · Filter einwertig je Dimension** („Alle" plus ein Wert), Dimensionen
+  wirken als UND. Freigabe Victor. Grund: ruhige Leiste, reicht für die Fragen der
+  Buchhalter. Verworfen: Mehrfachauswahl je Dimension.
+- **2026-08-30 · Auswahl wird bei Tab-, Filter- und Suchwechsel zurückgesetzt.** Grund:
+  eine Tastaturmarke auf einer ausgeblendeten Zeile ist unsichtbar; `J` beginnt danach
+  wieder oben. Beim Sortieren und beim Schließen des Drawers bleibt sie stehen.
+- **2026-08-30 · Deutsche Beschriftungen der Enum-Werte in `src/lib/labels.ts`.** Das
+  Glossar nennt die Feldnamen, aber keine deutschen Wörter für die Werte. Die Kategorien
+  folgen `docs/CONCEPT.md` Abschnitt 3 (Vollständigkeit/Validität/Konsistenz/Hygiene/
+  Risiko); `duplicate` → „Dublette". **Offen: `leakage` → „Geldabfluss"** ist hier gesetzt
+  und steht in keinem Dokument – bitte gegenlesen. `labels.test.ts` erzwingt, dass jede
+  Enum-Konstante genau eine Beschriftung hat.
+- **2026-08-30 · Explorer-Zustand liegt in `App.tsx`**, nicht im Explorer. Grund: Filter,
+  Suche und Auswahl überleben so einen Wechsel auf Dashboard und zurück.
+- **2026-08-30 · Rauchtest per `renderToStaticMarkup`** statt jsdom + Testing Library
+  (`FindingsExplorer.render.test.tsx`, `vitest`-`include` um `*.test.tsx` erweitert).
+  Er beantwortet, was Typprüfung und Reducer-Tests offenlassen: dass Zeilen, Beträge und
+  Leerzustände wirklich im Markup ankommen. Grenze: Portale (Drawer, Select-Liste,
+  Tooltip) rendert `renderToStaticMarkup` nicht – die Review-Karte prüft Aufgabe 3.
+  Ergänzt die Entscheidung „Vitest ohne DOM-Umgebung", widerspricht ihr nicht: es bleibt
+  bei `environment: 'node'` und ohne neue Abhängigkeit.
+- **2026-08-30 · „Findings-Datei laden" liegt im Datenstand-Banner.** Freigabe Victor.
+  Die Datei wird nur im Speicher gehalten (kein `localStorage`), der Lauf-Kopf wird wie
+  im Build-Skript abgeleitet. Unbrauchbare Dateien brechen mit Grund ab statt halb zu
+  erscheinen (Regel 4); die Meldungen nennen nur Feldnamen, Regel-IDs und `finding_id`,
+  nie Geschäftspartnerdaten (Regel 8).
 
 ## Offene Fragen an die Engine-Session (`main`)
 
-- **`created_at` immer UTC mit `Z`?** `formatDateTime` weist Zeitstempel als UTC aus und
-  lehnt Offsets wie `+02:00` ab. Wenn die Engine auch Offsets schreiben kann, sag Bescheid –
-  dann braucht der Formatierer eine Regel dafür.
-- **`run.json` neben `findings.json`?** Der Prototyp leitet Lauf-Kopf, Datenstand und
-  Buchungskreise aus den Findings ab. Schöner wäre, wenn die Engine `runs/<run_id>/run.json`
-  mitschreibt (mit echtem `tables_loaded`). Kein Blocker.
 - **Schema-Rückmeldung `entity.records` für Dubletten** folgt in Aufgabe 4, sobald der
   Vergleich gebaut ist.
+- **`title` ist im Schema optional, die Liste braucht es aber.** Die Findings-Tabelle hat
+  eine Spalte Titel; fehlt er, steht dort „—". Vorschlag: `title` zur Pflicht machen
+  (max. 120 Zeichen wie bisher beschrieben). Kein Blocker.
+- **`entity.company_code` ist optional** – F-7b2e8c1d9a3f (Dublette) hat keinen. Das UI
+  führt dafür den Filterwert „ohne Buchungskreis". Falls Dubletten-Findings künftig einen
+  Buchungskreis bekommen sollen, sag Bescheid; erfunden wird hier keiner.
+
+### Beantwortet
+
+- **2026-08-30 · `created_at` immer UTC mit `Z`? – erledigt.** Ja: `created_at` kommt aus dem
+  `RunContext` und ist immer UTC mit `Z` (D-028). Offsets wie `+02:00` treten nicht auf;
+  `formatDateTime` darf sie weiter zurückweisen. Keine Änderung am Formatierer nötig.
+- **2026-08-30 · `run.json` neben `findings.json`? – erledigt.** Ja: die Engine schreibt
+  `runs/<run_id>/run.json` ab Sprint 3 neben `findings.json`. Das UI liest den Lauf-Kopf
+  schon heute als eigene Datei (`RunInfo`), die echte Datei passt also ohne Codeänderung;
+  `tables_loaded` ist dann echt statt `0`. `scripts/build-data.mjs` bleibt als Ersatz für
+  den Prototyp, solange kein Lauf vorliegt.
 
 ## Session-Notizen
 
@@ -87,3 +135,10 @@ Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
   `scripts/build-data.mjs` (6 Findings → `public/data/{findings,run}.json`).
   29 Tests grün, `npm run lint` und `npm run build` ohne Befund.
   Nächster Schritt: Aufgabe 2 – App-Rahmen, Datenstand-Banner, Findings-Explorer.
+- **2026-08-30 · Aufgabe 2 (App-Rahmen, Datenstand-Banner, Findings-Explorer).**
+  `AppShell` mit schmaler Navigation (Findings ist gebaut, Dashboard und Regeln sind
+  Platzhalter), Datenstand-Banner mit „Findings-Datei laden", Explorer mit Tabs nach
+  Aktionstyp (0/4/1/1), sechs Filtern, Volltextsuche, TanStack-Tabelle, Sortierung
+  Euro-Wirkung absteigend, Tastatur `J`/`K`/`Enter`/`Esc`/`/` und Review-Drawer als
+  Rumpf. 99 Tests grün, `npm run lint` und `npm run build` ohne Befund.
+  Nächster Schritt: Aufgabe 3 – die Review-Karte füllen.

@@ -13,6 +13,6 @@ export default defineConfig({
   test: {
     // Reine Funktionstests (Formatierer, Schema-Abgleich) – keine DOM-Umgebung nötig.
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
   },
 })
