@@ -16,3 +16,6 @@ Sechs Muster liegen vor. Fehlende Typen (Victor ergänzt):
 
 Namenskonvention: `F-<laufende Nr>-<rule_id>.yaml`. Beträge immer als String mit zwei
 Dezimalen. Keine echten Firmen oder Personen – nur erfundene.
+
+Der `relevance`-Block trägt `open_items`, `volume_12m`, `currency` (Hauswährung, Pflicht)
+und `last_activity_on`. Beträge werden nicht umgerechnet – die Währung steht daneben (D-030).

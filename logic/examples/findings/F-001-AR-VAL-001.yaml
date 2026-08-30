@@ -18,8 +18,9 @@ entity:
   display_name: "Müller Maschinenbau GmbH, Augsburg"
   related_bp_keys: ["C:0000100987"]
 relevance:
-  open_items_eur: "45210.00"
-  volume_12m_eur: "312400.00"
+  open_items: "45210.00"
+  volume_12m: "312400.00"
+  currency: "EUR"
   last_activity_on: "2026-08-12"
 current:
   source_table: KNA1

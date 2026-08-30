@@ -20,8 +20,9 @@ entity:
     - { company_code: "1000", fiscal_year: "2026", document_no: "1900004411", line_item: "001" }
     - { company_code: "1000", fiscal_year: "2026", document_no: "1900004587", line_item: "001" }
 relevance:
-  open_items_eur: "0.00"
-  volume_12m_eur: "1284000.00"
+  open_items: "0.00"
+  volume_12m: "1284000.00"
+  currency: "EUR"
   last_activity_on: "2026-08-20"
 current:
   source_table: BSAK

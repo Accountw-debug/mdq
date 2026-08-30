@@ -9,7 +9,14 @@ from decimal import Decimal
 
 import pytest
 
-from mdq.executor import ExecutionError, RunContext, execute_rule, finding_id_for, missing_tables
+from mdq.executor import (
+    ExecutionError,
+    RunContext,
+    execute_rule,
+    finding_id_for,
+    house_currency,
+    missing_tables,
+)
 from mdq.findings import validate_finding
 from mdq.rules import load_rules, parse_rule
 
@@ -354,14 +361,15 @@ def test_invalid_json_column_is_reported(db, run_context) -> None:
 def test_relevance_is_filled_from_bp_relevance(db, run_context) -> None:
     db.execute(INSERT_AR_VAL_001)
     db.execute("""
-        INSERT INTO bp_relevance (bp_key, open_items_local, volume_12m_local,
+        INSERT INTO bp_relevance (bp_key, open_items_local, volume_12m_local, currency,
                                   last_activity_on, activity_status)
-        VALUES ('C:0000000001', 45210.00, 312400.00, DATE '2026-08-12', 'active');
+        VALUES ('C:0000000001', 45210.00, 312400.00, 'EUR', DATE '2026-08-12', 'active');
     """)
     finding = execute_rule(db, RULES["AR-VAL-001"], run_context)[0]
     assert finding["relevance"] == {
-        "open_items_eur": "45210.00",
-        "volume_12m_eur": "312400.00",
+        "open_items": "45210.00",
+        "volume_12m": "312400.00",
+        "currency": "EUR",
         "last_activity_on": "2026-08-12",
     }
     assert validate_finding(finding) == []
@@ -375,13 +383,58 @@ def test_relevance_is_absent_without_matching_row(db, run_context) -> None:
 def test_relevance_amount_never_float(db, run_context) -> None:
     db.execute(INSERT_AR_VAL_001)
     db.execute("""
-        INSERT INTO bp_relevance (bp_key, open_items_local, volume_12m_local,
+        INSERT INTO bp_relevance (bp_key, open_items_local, volume_12m_local, currency,
                                   last_activity_on, activity_status)
-        VALUES ('C:0000000001', 0.00, 0.00, NULL, 'never_posted');
+        VALUES ('C:0000000001', 0.00, 0.00, 'EUR', NULL, 'never_posted');
     """)
     relevance = execute_rule(db, RULES["AR-VAL-001"], run_context)[0]["relevance"]
-    assert relevance["open_items_eur"] == "0.00"
+    assert relevance["open_items"] == "0.00"
     assert relevance["last_activity_on"] is None
+
+
+# --- Hauswaehrung (D-030) ------------------------------------------------------------
+
+
+def test_house_currency_is_none_without_relevance_rows(db) -> None:
+    assert house_currency(db) is None
+
+
+def test_house_currency_returns_the_single_currency(db) -> None:
+    db.execute("""
+        INSERT INTO bp_relevance (bp_key, open_items_local, volume_12m_local, currency,
+                                  last_activity_on, activity_status)
+        VALUES ('C:0000000001', 1.00, 1.00, 'CHF', NULL, 'active');
+    """)
+    assert house_currency(db) == "CHF"
+
+
+def test_multiple_house_currencies_abort_the_run(db, run_context) -> None:
+    """V1 rechnet nicht um; zwei Hauswaehrungen im Scope brechen den Lauf ab (D-030)."""
+    db.execute(INSERT_AR_VAL_001)
+    db.execute("""
+        INSERT INTO bp_relevance (bp_key, open_items_local, volume_12m_local, currency,
+                                  last_activity_on, activity_status)
+        VALUES ('C:0000000001', 1.00, 1.00, 'EUR', NULL, 'active'),
+               ('C:0000000009', 2.00, 2.00, 'CHF', NULL, 'active');
+    """)
+    with pytest.raises(ExecutionError) as excinfo:
+        house_currency(db)
+    assert "Hauswaehrungen" in str(excinfo.value)
+    with pytest.raises(ExecutionError):
+        execute_rule(db, RULES["AR-VAL-001"], run_context)
+
+
+def test_relevance_currency_is_not_assumed_eur(db, run_context) -> None:
+    """Der Betrag wird nicht umgerechnet – die Waehrung steht daneben (Regel 2)."""
+    db.execute(INSERT_AR_VAL_001)
+    db.execute("""
+        INSERT INTO bp_relevance (bp_key, open_items_local, volume_12m_local, currency,
+                                  last_activity_on, activity_status)
+        VALUES ('C:0000000001', 45210.00, 312400.00, 'CHF', DATE '2026-08-12', 'active');
+    """)
+    relevance = execute_rule(db, RULES["AR-VAL-001"], run_context)[0]["relevance"]
+    assert relevance["currency"] == "CHF"
+    assert relevance["open_items"] == "45210.00"
 
 
 # --- RunContext ----------------------------------------------------------------------

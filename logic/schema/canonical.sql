@@ -188,6 +188,7 @@ CREATE TABLE IF NOT EXISTS bp_relevance (
     bp_key          TEXT PRIMARY KEY,
     open_items_local DECIMAL(15,2) NOT NULL,
     volume_12m_local DECIMAL(15,2) NOT NULL,
+    currency        TEXT NOT NULL,           -- Hauswaehrung des Buchungskreises, nicht umgerechnet
     last_activity_on DATE,
     activity_status TEXT NOT NULL CHECK (activity_status IN ('active','dormant','never_posted'))
 );

@@ -157,23 +157,47 @@ def _fill(text: str, params: dict[str, Any], rule_id: str, field: str) -> str:
         ) from exc
 
 
+def house_currency(con: duckdb.DuckDBPyConnection) -> str | None:
+    """Die eine Hauswaehrung im Scope des Laufs, oder None ohne ``bp_relevance``.
+
+    V1 rechnet nicht um (D-030): Relevanzbetraege stehen in Hauswaehrung. Mehrere
+    Hauswaehrungen im selben Lauf waeren stillschweigend unvergleichbare Betraege –
+    dann bricht der Lauf ab. Umrechnung ueber TCURR ist V2.
+    """
+    if not _table_exists(con, "bp_relevance"):
+        return None
+    rows = con.execute(
+        "SELECT DISTINCT currency FROM bp_relevance WHERE currency IS NOT NULL ORDER BY currency"
+    ).fetchall()
+    currencies = [row[0] for row in rows]
+    if len(currencies) > 1:
+        raise ExecutionError(
+            f"Mehrere Hauswaehrungen im Scope des Laufs: {currencies}. "
+            "V1 rechnet nicht um – Lauf je Hauswaehrung getrennt starten "
+            "(--company-codes einschraenken). Umrechnung ueber TCURR ist V2 (D-030)."
+        )
+    return currencies[0] if currencies else None
+
+
 def _relevance_by_bp(
     con: duckdb.DuckDBPyConnection, bp_keys: list[str], rule_id: str
 ) -> dict[str, dict[str, Any]]:
     """Relevanz je BP aus ``bp_relevance``; leer, wenn die Tabelle fehlt."""
     if not bp_keys or not _table_exists(con, "bp_relevance"):
         return {}
+    house_currency(con)
     placeholders = ", ".join("?" for _ in bp_keys)
     rows = con.execute(
-        "SELECT bp_key, open_items_local, volume_12m_local, last_activity_on "
+        "SELECT bp_key, open_items_local, volume_12m_local, currency, last_activity_on "
         f"FROM bp_relevance WHERE bp_key IN ({placeholders})",
         bp_keys,
     ).fetchall()
     return {
         row[0]: {
-            "open_items_eur": _amount_text(row[1], rule_id, "bp_relevance.open_items_local"),
-            "volume_12m_eur": _amount_text(row[2], rule_id, "bp_relevance.volume_12m_local"),
-            "last_activity_on": _date_text(row[3], rule_id, "bp_relevance.last_activity_on"),
+            "open_items": _amount_text(row[1], rule_id, "bp_relevance.open_items_local"),
+            "volume_12m": _amount_text(row[2], rule_id, "bp_relevance.volume_12m_local"),
+            "currency": row[3],
+            "last_activity_on": _date_text(row[4], rule_id, "bp_relevance.last_activity_on"),
         }
         for row in rows
     }

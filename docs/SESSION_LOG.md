@@ -18,3 +18,6 @@ Format je Session: Datum · Ziel · Ergebnis · Offen/Nächster Schritt (max. 3 
 - **2026-08-30 · Sprint 1, Aufgabe 4: Regel-Ausführung.** `mdq/executor.py` (Ausgabe-Vertrag geprüft, Findings gebaut, `params`-Platzhalter gefüllt, Relevanz aus `bp_relevance`, jedes Finding gegen das Schema validiert); `finding_key` als optionale Vertragsspalte ergänzt und in AP-LEA-001 gesetzt.
   Ergebnis: `uv run pytest` 108 passed, `uv run ruff check .` sauber; die drei Beispielregeln liefern je 1 valides Finding, zwei Buchungskreise und drei Belegpaare bekommen unterschiedliche IDs. D-026 bis D-029 ergänzt, `logic/rules/README.md` und `docs/specs/SPRINT-1.md` an die neue Formel angepasst.
   Nächster Schritt: Sprint 1, Aufgabe 5 – Loader für SE16N-Exports (`mdq/loader.py`, `mdq/formats.py`).
+- **2026-08-30 · Hauswährung in der Relevanz (D-030).** `relevance.open_items`/`volume_12m` statt `_eur`, neues Pflichtfeld `relevance.currency`, `bp_relevance.currency` im kanonischen Schema; mehrere Hauswährungen im Scope brechen den Lauf ab. Die sechs Beispiel-Findings angepasst.
+  Ergebnis: `uv run pytest` 112 passed, `uv run ruff check .` sauber, `mdq validate` 6/6 grün; alter Feldname und fehlende Währung werden beide abgelehnt.
+  Nächster Schritt: Sprint 1, Aufgabe 5 – Loader für SE16N-Exports (`mdq/loader.py`, `mdq/formats.py`).

@@ -17,8 +17,9 @@ entity:
   company_code: "2000"
   display_name: "Nordwind Verpackungen GmbH, Lübeck"
 relevance:
-  open_items_eur: "27300.00"
-  volume_12m_eur: "96800.00"
+  open_items: "27300.00"
+  volume_12m: "96800.00"
+  currency: "EUR"
   last_activity_on: "2026-08-21"
 current:
   source_table: TIBAN
