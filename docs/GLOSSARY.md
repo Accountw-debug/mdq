@@ -16,6 +16,7 @@
 | **Soll (proposed)** | Vorgeschlagener Wert mit Quellenlage |
 | **Evidenz (evidence)** | Einzelne Quelle mit Wert, Referenz, Datum, Übereinstimmung |
 | **Quellenlage** | Menschenlesbare Zusammenfassung der Evidenzen („bestätigt durch VIES und Rechnung 4711") |
+| **Herkunft (source)** | Woher ein normalisierter Wert im Staging stammt: `dictionary`, `regex` oder `model`. Steht zusammen mit einer Konfidenz an jedem normalisierten Feld; ein Finding auf einem `model`-Feld kommt ohne zweite Quelle nicht über Stufe B (D-067) |
 | **Euro-Wirkung (impact_eur)** | Betrag mit offengelegter Rechnung |
 | **Offene Posten (open_items)** | Summe der am Datenstand nicht ausgeglichenen Posten des BP in Hauswährung |
 | **Volumen 12 Monate (volume_12m)** | Summe der Rechnungsbeträge (brutto, Belegarten Rechnung) mit Buchungsdatum in den 12 Monaten vor dem Datenstand, abzüglich Gutschriften im selben Fenster – **unabhängig davon, ob die Rechnung ausgeglichen ist**. Zusammen mit den offenen Posten das Relevanzgewicht eines BP |
@@ -32,3 +33,4 @@
 | **CpD** | Conto pro Diverse, Einmalkunde/-lieferant (`XCPDK`), aus Dubletten ausgeschlossen |
 | **Regulierer** | Partnerrolle RG (KNVP) bzw. abweichender Zahler (KNRZA/KNRZB) |
 | **Kanonisches Schema** | ERP-unabhängiges Zielmodell, `logic/schema/canonical.sql` |
+| **KI-Schicht** | Modellgestützte Zerlegung unsauberer Texte im Staging, **vor** dem kanonischen Modell: Wörterbuch → Regex → Modell. Extraktion, nicht Entscheidung – Regeln bleiben SQL, Euro-Beträge kommen nie aus einem Modell (D-067, Sprint 4b) |

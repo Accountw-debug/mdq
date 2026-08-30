@@ -81,10 +81,19 @@ Stufe-A-Regel bestätigen → alle freigeben, Stichprobe bleibt im Audit-Trail.
 1. Interne Quellen: FEBEP/FEBKO, REGUH/REGUP, SEPA-Mandate, CDHDR/CDPOS, VBRK, EKKO, SGTXT
 2. Policies statt Entscheidungen (Kunde definiert einmal, Tool wendet an)
 3. Rechnungsdaten aus OCR (Stamm vs. Beleg)
-4. Lernen: Review-Feedback → Schwellen, Whitelist-Muster; LLM als Tie-Breaker mit Begründung
+4. Lernen: Review-Feedback → Schwellen, Whitelist-Muster; Graubereich-Fälle als Beispiele
 5. Externe Anreicherung: GLEIF, Register/North Data, Creditreform/D&B, Adressvalidierung
 
 Realistische Grenze: 85–90 % der Findings mit Vorschlag; 5–10 % bleiben bewusst Entscheidung.
+
+**KI-Schicht (D-067, Sprint 4b): Extraktion, nicht Entscheidung.** Der stärkste Hebel auf
+Hebel 3 und 4 ist ein Modell, das unsaubere Texte zerlegt – Adressen, Namen, Zahlungstexte.
+Es sitzt im Staging **vor** dem kanonischen Modell, in der Reihenfolge Wörterbuch → Regex →
+Modell. Die Findings-Regeln bleiben deterministisches SQL, und kein Euro-Betrag stammt je
+aus einem Modell. Jedes normalisierte Feld trägt seine Herkunft (`dictionary` | `regex` |
+`model`) und eine Konfidenz; ein Finding auf einem Modell-Feld zeigt das in der Quellenlage
+und kommt ohne zweite Quelle nicht über Stufe B. Ein Modell entscheidet nie, ob ein Finding
+entsteht. Die acht Festlegungen dazu stehen in `docs/DECISIONS.md`, D-067.
 
 ## 8. Datenquellen SAP ECC
 
