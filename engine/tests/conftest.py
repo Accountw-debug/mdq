@@ -7,6 +7,7 @@ import duckdb
 import pytest
 
 from mdq import CANONICAL_SCHEMA, LOGIC_DIR, PROJECT_ROOT
+from mdq.executor import RunContext
 
 
 @pytest.fixture(scope="session")
@@ -88,6 +89,18 @@ tests:
 --- */
 SELECT bp_key, role FROM business_partner WHERE FALSE ORDER BY bp_key;
 """
+
+
+@pytest.fixture
+def run_context() -> RunContext:
+    """Feste Laufkopfdaten – nie datetime.now(), sonst ist Determinismus nicht haltbar."""
+    return RunContext(
+        run_id="test-run",
+        engine_version="0.1.0",
+        pack_version="0.1",
+        data_as_of="2026-08-28",
+        created_at="2026-08-30T09:15:00Z",
+    )
 
 
 @pytest.fixture

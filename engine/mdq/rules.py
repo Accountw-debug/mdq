@@ -55,6 +55,10 @@ CATEGORY_BY_CODE = {
 
 TEST_KEYS = ("hits", "no_hits", "edge")
 
+#: Schluessel, die `remediation` haben darf – gleich dem Finding-Schema, damit ein
+#: falscher Schluessel den Regelautor trifft und nicht erst den Lauf.
+REMEDIATION_KEYS = ("sap_transaction", "path", "field", "mass_change_eligible", "steps")
+
 _HEADER_RE = re.compile(r"\A/\* ---\n(?P<head>.*?)\n--- \*/\n(?P<sql>.*)\Z", re.DOTALL)
 _ID_RE = re.compile(r"\A(AR|AP|CROSS)-(COM|VAL|CON|HYG|RSK|DUP|LEA)-([0-9]{3})\Z")
 _VERSION_RE = re.compile(r"\A[0-9]+\.[0-9]+\Z")
@@ -152,6 +156,11 @@ def _check_remediation(errors: list[str], head: dict) -> dict[str, Any]:
         errors.append("remediation.sap_transaction: fehlt oder ist kein Text")
     if not isinstance(remediation.get("mass_change_eligible"), bool):
         errors.append("remediation.mass_change_eligible: fehlt oder ist kein Wahrheitswert")
+    unknown = sorted(set(remediation) - set(REMEDIATION_KEYS))
+    if unknown:
+        errors.append(
+            f"remediation: unbekannte Schluessel {unknown}, erlaubt sind {list(REMEDIATION_KEYS)}"
+        )
     return remediation
 
 

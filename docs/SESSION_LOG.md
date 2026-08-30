@@ -15,3 +15,6 @@ Format je Session: Datum · Ziel · Ergebnis · Offen/Nächster Schritt (max. 3 
 - **2026-08-30 · UI-Worktree eingerichtet.** `../mdq-ui` auf Branch `ui-proto` von `main` (0bff445), `ui/NOTES.md` mit Arbeitsvereinbarung angelegt; Katalog-Aktion für AR-HYG-001/AP-HYG-001 auf `decision` korrigiert.
   Ergebnis: zwei Sessions können parallel arbeiten, ohne dass `docs/DECISIONS.md` und `docs/SESSION_LOG.md` kollidieren. Entscheidung D-025 ergänzt.
   Nächster Schritt: Sprint 1, Aufgabe 4 – Regel-Ausführung (`mdq/executor.py`).
+- **2026-08-30 · Sprint 1, Aufgabe 4: Regel-Ausführung.** `mdq/executor.py` (Ausgabe-Vertrag geprüft, Findings gebaut, `params`-Platzhalter gefüllt, Relevanz aus `bp_relevance`, jedes Finding gegen das Schema validiert); `finding_key` als optionale Vertragsspalte ergänzt und in AP-LEA-001 gesetzt.
+  Ergebnis: `uv run pytest` 108 passed, `uv run ruff check .` sauber; die drei Beispielregeln liefern je 1 valides Finding, zwei Buchungskreise und drei Belegpaare bekommen unterschiedliche IDs. D-026 bis D-029 ergänzt, `logic/rules/README.md` und `docs/specs/SPRINT-1.md` an die neue Formel angepasst.
+  Nächster Schritt: Sprint 1, Aufgabe 5 – Loader für SE16N-Exports (`mdq/loader.py`, `mdq/formats.py`).

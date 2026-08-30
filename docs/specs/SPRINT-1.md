@@ -23,7 +23,7 @@ Encoding-Samples identisch ein. Dazu 30 Beispiel-Findings (Victor) und Regelkata
 - `mdq rules list` zeigt ID, Version, Seite, Kategorie, Stufe.
 
 ### 4. Regel-Ausführung (Minimal)
-- `mdq/executor.py`: führt das SQL einer Regel gegen eine DuckDB-Verbindung aus, prüft, dass die Pflichtspalten des Ausgabe-Vertrags (`logic/rules/README.md`) vorhanden sind, und baut daraus Findings (finding_id = `F-` + sha1(rule_id|bp_key|source_table|source_field|current_value)[:12], why/if_wrong/title mit `params` gefüllt, Defaults aus dem Kopf, `relevance` aus `bp_relevance` wenn vorhanden).
+- `mdq/executor.py`: führt das SQL einer Regel gegen eine DuckDB-Verbindung aus, prüft, dass die Pflichtspalten des Ausgabe-Vertrags (`logic/rules/README.md`) vorhanden sind, und baut daraus Findings (finding_id = `F-` + sha1(rule_id|bp_key|company_code|source_table|source_field|current_value|finding_key)[:12] – `company_code` und `finding_key` ergänzt, weil eine Regel mehrere Findings je BP liefern kann; siehe D-027, why/if_wrong/title mit `params` gefüllt, Defaults aus dem Kopf, `relevance` aus `bp_relevance` wenn vorhanden).
 - Test: mit einer handvoll INSERTs (wie im Kommentar der Beispielregeln) liefert jede der drei Regeln genau 1 Finding, das gegen das Schema valide ist. Test: gleiche Daten zweimal → identische finding_ids und Reihenfolge.
 
 ### 5. Loader für SE16N-Exports (nur Encoding/Format, noch kein Mapping)

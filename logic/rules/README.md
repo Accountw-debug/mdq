@@ -53,10 +53,21 @@ SELECT ... ;
 | `related_bp_keys` | nein | JSON-Array weiterer BP-Schlüssel |
 | `documents` | nein | JSON-Array `[{company_code, fiscal_year, document_no, line_item}]` |
 | `params` | nein | JSON-Objekt für Platzhalter in `title`, `why`, `if_wrong` |
+| `finding_key` | nein | Zusätzliches Unterscheidungsmerkmal für die `finding_id`, wenn `bp_key` + Feld + Ist nicht eindeutig sind (z. B. Belegpaar) |
 
-Die Engine ergänzt: `finding_id` (deterministisch aus rule_id + bp_key + current), `run_id`,
-Versionen, `relevance` aus `bp_relevance`, `status = open`, `data_as_of`, `created_at` –
-und validiert gegen `logic/finding.schema.json`.
+Die Engine ergänzt: `finding_id`, `run_id`, Versionen, `relevance` aus `bp_relevance`,
+`status = open`, `data_as_of`, `created_at` – und validiert gegen `logic/finding.schema.json`.
+
+Die `finding_id` ist `F-` + die ersten 12 Zeichen von sha1 über
+
+```
+rule_id | bp_key | company_code | source_table | source_field | current_value | finding_key
+```
+
+mit `|` als Trenner und leerem Text für `NULL`. `company_code` und `finding_key` gehören
+dazu, weil eine Regel mehrere Findings je Geschäftspartner liefern kann (je Buchungskreis
+bzw. je Belegpaar); ohne sie würden die Findings kollidieren. Eine Kollision innerhalb
+eines Laufs ist ein Fehler – dann fehlt der Regel ein `finding_key`.
 
 ## Regeln für Regeln
 

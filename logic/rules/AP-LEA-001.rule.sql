@@ -110,7 +110,8 @@ SELECT
         {'company_code': p.company_code, 'fiscal_year': p.year_b, 'document_no': p.doc_b, 'line_item': NULL}
     ])                                                  AS documents,
     to_json({'amount': CAST(p.amount_doc AS VARCHAR), 'currency': p.currency,
-             'ref_a': p.ref_a, 'ref_b': p.ref_b})       AS params
+             'ref_a': p.ref_a, 'ref_b': p.ref_b})       AS params,
+    p.doc_a || '|' || p.doc_b                           AS finding_key
 FROM pairs p
 LEFT JOIN netted n ON n.key_a = p.key_a AND n.key_b = p.key_b
 WHERE n.key_a IS NULL
