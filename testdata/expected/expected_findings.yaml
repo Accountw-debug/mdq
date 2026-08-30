@@ -1,8 +1,243 @@
-# Erwartete Findings des Demo-Mandanten – Spec und Regression zugleich.
-# Wird in Sprint 2 zusammen mit dem Generator gefüllt. Format je Eintrag:
-#   - { rule_id: AR-VAL-001, bp_key: "C:0000100234" }
-#   - { rule_id: AP-LEA-001, bp_key: "V:0000200845", document_no: "1900004587" }
-# Regel: Diese Datei wird NIE an den Code angepasst. Weicht ein Lauf ab, ist entweder der
-# Generator, die Regel oder die Erwartung falsch – das wird geklärt, nicht weggetestet.
+# Erwartete Findings des Demo-Mandanten – GENERIERT, nicht von Hand pflegen.
+#
+# Quelle ist `testdata/demo_mandant/defects.yaml`; neu erzeugt mit
+#   uv run mdq demo expected
+# Jede Zeile nennt den Defekt, aus dem sie stammt. Weicht ein Lauf ab, ist entweder der
+# Generator, die Regel oder die Erwartung falsch – das wird geklärt, nicht weggetestet
+# (CLAUDE.md Regel 1, D-010).
+#
+# `from_rule_version` heisst: dieses Finding ist erst ab der genannten Regelversion Pflicht.
+# Bis dahin weist die Regression es als bekannt-offen aus, statt den Lauf rot zu färben (D-054).
+
 version: "0.1"
-findings: []
+findings:
+  - { rule_id: AP-COM-003, bp_key: "V:0000200084", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200085", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200088", company_code: "2000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200091", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200095", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200097", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200098", company_code: "2000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200099", company_code: "2000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200101", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200102", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200106", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200109", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200110", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200112", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200113", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200118", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200122", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200124", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200125", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200130", company_code: "2000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200131", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200132", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200134", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200137", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200138", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200141", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200144", company_code: "1000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200145", company_code: "2000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200147", company_code: "2000", defect: "DEF-0067" }
+  - { rule_id: AP-COM-003, bp_key: "V:0000200148", company_code: "2000", defect: "DEF-0067" }
+  - { rule_id: AP-CON-001, bp_key: "V:0000200193", defect: "DEF-0110" }
+  - { rule_id: AP-CON-001, bp_key: "V:0000200195", defect: "DEF-0111" }
+  - { rule_id: AP-CON-001, bp_key: "V:0000200199", defect: "DEF-0112" }
+  - { rule_id: AP-CON-001, bp_key: "V:0000200204", defect: "DEF-0113" }
+  - { rule_id: AP-DUP-001, bp_key: "V:0000200001", defect: "DEF-0028" }
+  - { rule_id: AP-DUP-001, bp_key: "V:0000200003", defect: "DEF-0029" }
+  - { rule_id: AP-DUP-001, bp_key: "V:0000200006", defect: "DEF-0030" }
+  - { rule_id: AP-DUP-001, bp_key: "V:0000200008", defect: "DEF-0031" }
+  - { rule_id: AP-DUP-001, bp_key: "V:0000200012", defect: "DEF-0034" }
+  - { rule_id: AP-DUP-001, bp_key: "V:0000200014", defect: "DEF-0032" }
+  - { rule_id: AP-DUP-001, bp_key: "V:0000200017", defect: "DEF-0033" }
+  - { rule_id: AP-DUP-001, bp_key: "V:0000200023", defect: "DEF-0035" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200004", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200011", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200013", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200034", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200038", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200043", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200046", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200050", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200051", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200052", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200056", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200063", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200069", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200087", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200093", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200100", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200103", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200107", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200108", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200111", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200116", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200120", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200121", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200139", defect: "DEF-0070" }
+  - { rule_id: AP-HYG-001, bp_key: "V:0000200150", defect: "DEF-0070" }
+  - { rule_id: AP-LEA-001, bp_key: "V:0000200001", company_code: "1000", document_no: "1900003016", finding_key: "1900003015|1900003016", from_rule_version: "1.1", defect: "DEF-0081" }
+  - { rule_id: AP-LEA-001, bp_key: "V:0000200003", company_code: "1000", document_no: "1900003017", finding_key: "1900004459|1900003017", from_rule_version: "1.1", defect: "DEF-0082" }
+  - { rule_id: AP-LEA-001, bp_key: "V:0000200151", company_code: "2000", document_no: "1900001031", finding_key: "1900001030|1900001031", defect: "DEF-0071" }
+  - { rule_id: AP-LEA-001, bp_key: "V:0000200152", company_code: "2000", document_no: "1900001467", finding_key: "1900001466|1900001467", defect: "DEF-0072" }
+  - { rule_id: AP-LEA-001, bp_key: "V:0000200153", company_code: "1000", document_no: "1900003006", finding_key: "1900003005|1900003006", defect: "DEF-0073" }
+  - { rule_id: AP-LEA-001, bp_key: "V:0000200155", company_code: "1000", document_no: "1900004456", finding_key: "1900004455|1900004456", defect: "DEF-0074" }
+  - { rule_id: AP-LEA-001, bp_key: "V:0000200156", company_code: "1000", document_no: "1900003008", finding_key: "1900003007|1900003008", defect: "DEF-0075" }
+  - { rule_id: AP-LEA-001, bp_key: "V:0000200161", company_code: "1000", document_no: "1900003010", finding_key: "1900003009|1900003010", defect: "DEF-0076" }
+  - { rule_id: AP-LEA-001, bp_key: "V:0000200164", company_code: "2000", document_no: "1900001469", finding_key: "1900001468|1900001469", defect: "DEF-0077" }
+  - { rule_id: AP-LEA-001, bp_key: "V:0000200845", company_code: "1000", document_no: "1900004587", finding_key: "1900004411|1900004587", defect: "DEF-0004" }
+  - { rule_id: AP-LEA-002, bp_key: "V:0000200117", company_code: "1000", defect: "DEF-0005" }
+  - { rule_id: AP-LEA-002, bp_key: "V:0000200177", company_code: "1000", defect: "DEF-0083" }
+  - { rule_id: AP-LEA-002, bp_key: "V:0000200180", company_code: "1000", defect: "DEF-0084" }
+  - { rule_id: AP-LEA-002, bp_key: "V:0000200181", company_code: "1000", defect: "DEF-0085" }
+  - { rule_id: AP-LEA-002, bp_key: "V:0000200186", company_code: "2000", defect: "DEF-0086" }
+  - { rule_id: AP-LEA-002, bp_key: "V:0000200188", company_code: "1000", defect: "DEF-0087" }
+  - { rule_id: AP-LEA-002, bp_key: "V:0000200190", company_code: "1000", defect: "DEF-0088" }
+  - { rule_id: AP-LEA-002, bp_key: "V:0000200191", company_code: "1000", defect: "DEF-0089" }
+  - { rule_id: AP-VAL-001, bp_key: "V:0000200025", defect: "DEF-0038" }
+  - { rule_id: AP-VAL-001, bp_key: "V:0000200030", defect: "DEF-0038" }
+  - { rule_id: AP-VAL-001, bp_key: "V:0000200033", defect: "DEF-0038" }
+  - { rule_id: AP-VAL-001, bp_key: "V:0000200037", defect: "DEF-0038" }
+  - { rule_id: AP-VAL-001, bp_key: "V:0000200039", defect: "DEF-0038" }
+  - { rule_id: AP-VAL-001, bp_key: "V:0000200048", defect: "DEF-0038" }
+  - { rule_id: AP-VAL-001, bp_key: "V:0000200053", defect: "DEF-0038" }
+  - { rule_id: AP-VAL-001, bp_key: "V:0000200057", defect: "DEF-0038" }
+  - { rule_id: AP-VAL-001, bp_key: "V:0000200059", defect: "DEF-0038" }
+  - { rule_id: AP-VAL-001, bp_key: "V:0000200060", defect: "DEF-0038" }
+  - { rule_id: AP-VAL-002, bp_key: "V:0000200061", defect: "DEF-0042" }
+  - { rule_id: AP-VAL-002, bp_key: "V:0000200064", defect: "DEF-0042" }
+  - { rule_id: AP-VAL-002, bp_key: "V:0000200067", defect: "DEF-0043" }
+  - { rule_id: AP-VAL-002, bp_key: "V:0000200068", defect: "DEF-0043" }
+  - { rule_id: AP-VAL-002, bp_key: "V:0000200071", defect: "DEF-0044" }
+  - { rule_id: AP-VAL-003, bp_key: "V:0000200072", defect: "DEF-0046" }
+  - { rule_id: AP-VAL-003, bp_key: "V:0000200073", defect: "DEF-0046" }
+  - { rule_id: AP-VAL-003, bp_key: "V:0000200075", defect: "DEF-0046" }
+  - { rule_id: AP-VAL-003, bp_key: "V:0000200077", defect: "DEF-0046" }
+  - { rule_id: AP-VAL-003, bp_key: "V:0000201330", defect: "DEF-0006" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100142", company_code: "1000", defect: "DEF-0047" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100146", company_code: "1000", defect: "DEF-0048" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100161", company_code: "1000", defect: "DEF-0049" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100162", company_code: "1000", defect: "DEF-0050" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100165", company_code: "1000", defect: "DEF-0051" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100171", company_code: "2000", defect: "DEF-0052" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100172", company_code: "1000", defect: "DEF-0053" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100175", company_code: "1000", defect: "DEF-0054" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100179", company_code: "1000", defect: "DEF-0055" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100181", company_code: "1000", defect: "DEF-0056" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100186", company_code: "1000", defect: "DEF-0057" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100188", company_code: "1000", defect: "DEF-0058" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100189", company_code: "1000", defect: "DEF-0059" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100192", company_code: "1000", defect: "DEF-0060" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100194", company_code: "1000", defect: "DEF-0061" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100196", company_code: "1000", defect: "DEF-0062" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100197", company_code: "1000", defect: "DEF-0063" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100199", company_code: "2000", defect: "DEF-0064" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100206", company_code: "1000", defect: "DEF-0065" }
+  - { rule_id: AR-COM-002, bp_key: "C:0000100208", company_code: "1000", defect: "DEF-0066" }
+  - { rule_id: AR-CON-002, bp_key: "C:0000100000", company_code: "1000", defect: "DEF-0008" }
+  - { rule_id: AR-CON-002, bp_key: "C:0000100002", company_code: "1000", defect: "DEF-0009" }
+  - { rule_id: AR-CON-002, bp_key: "C:0000100007", company_code: "1000", defect: "DEF-0010" }
+  - { rule_id: AR-CON-002, bp_key: "C:0000100013", company_code: "1000", defect: "DEF-0011" }
+  - { rule_id: AR-CON-002, bp_key: "C:0000100028", company_code: "1000", defect: "DEF-0007" }
+  - { rule_id: AR-CON-002, bp_key: "C:0000100028", company_code: "2000", defect: "DEF-0007" }
+  - { rule_id: AR-CON-002, bp_key: "C:0000101502", company_code: "1000", defect: "DEF-0003" }
+  - { rule_id: AR-DUP-001, bp_key: "C:0000100014", defect: "DEF-0017" }
+  - { rule_id: AR-DUP-001, bp_key: "C:0000100022", defect: "DEF-0018" }
+  - { rule_id: AR-DUP-001, bp_key: "C:0000100030", defect: "DEF-0019" }
+  - { rule_id: AR-DUP-001, bp_key: "C:0000100038", defect: "DEF-0020" }
+  - { rule_id: AR-DUP-001, bp_key: "C:0000100043", defect: "DEF-0027" }
+  - { rule_id: AR-DUP-001, bp_key: "C:0000100049", defect: "DEF-0021" }
+  - { rule_id: AR-DUP-001, bp_key: "C:0000100056", defect: "DEF-0022" }
+  - { rule_id: AR-DUP-001, bp_key: "C:0000100069", defect: "DEF-0023" }
+  - { rule_id: AR-DUP-001, bp_key: "C:0000100083", defect: "DEF-0024" }
+  - { rule_id: AR-DUP-001, bp_key: "C:0000100085", defect: "DEF-0025" }
+  - { rule_id: AR-DUP-001, bp_key: "C:0000100095", defect: "DEF-0026" }
+  - { rule_id: AR-DUP-001, bp_key: "C:0000100234", defect: "DEF-0001" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100003", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100018", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100034", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100053", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100058", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100062", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100063", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100064", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100068", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100071", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100072", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100078", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100087", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100089", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100094", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100108", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100110", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100111", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100126", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100131", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100141", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100144", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100156", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100163", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100168", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100187", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100228", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100230", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100232", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100233", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100235", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100236", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100237", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100238", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100241", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100242", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100244", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100246", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100247", defect: "DEF-0069" }
+  - { rule_id: AR-HYG-001, bp_key: "C:0000100248", defect: "DEF-0069" }
+  - { rule_id: AR-LEA-001, bp_key: "C:0000100293", company_code: "1000", document_no: "1400003882", defect: "DEF-0119" }
+  - { rule_id: AR-LEA-001, bp_key: "C:0000100295", company_code: "1000", document_no: "1400003883", defect: "DEF-0119" }
+  - { rule_id: AR-LEA-001, bp_key: "C:0000100298", company_code: "2000", document_no: "1400001219", defect: "DEF-0119" }
+  - { rule_id: AR-LEA-001, bp_key: "C:0000100302", company_code: "2000", document_no: "1400001220", defect: "DEF-0119" }
+  - { rule_id: AR-LEA-001, bp_key: "C:0000100303", company_code: "1000", document_no: "1400003884", defect: "DEF-0119" }
+  - { rule_id: AR-LEA-001, bp_key: "C:0000100305", company_code: "1000", document_no: "1400003885", defect: "DEF-0119" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100014", defect: "DEF-0036" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100022", defect: "DEF-0036" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100030", defect: "DEF-0036" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100038", defect: "DEF-0036" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100040", defect: "DEF-0037" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100100", defect: "DEF-0037" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100106", defect: "DEF-0037" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100109", defect: "DEF-0037" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100112", defect: "DEF-0037" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100116", defect: "DEF-0037" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100118", defect: "DEF-0037" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100120", defect: "DEF-0037" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100121", defect: "DEF-0037" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100123", defect: "DEF-0037" }
+  - { rule_id: AR-VAL-001, bp_key: "C:0000100234", defect: "DEF-0001" }
+  - { rule_id: AR-VAL-002, bp_key: "C:0000100125", defect: "DEF-0039" }
+  - { rule_id: AR-VAL-002, bp_key: "C:0000100129", defect: "DEF-0039" }
+  - { rule_id: AR-VAL-002, bp_key: "C:0000100130", defect: "DEF-0039" }
+  - { rule_id: AR-VAL-002, bp_key: "C:0000100132", defect: "DEF-0040" }
+  - { rule_id: AR-VAL-002, bp_key: "C:0000100133", defect: "DEF-0040" }
+  - { rule_id: AR-VAL-002, bp_key: "C:0000100138", defect: "DEF-0041" }
+  - { rule_id: AR-VAL-002, bp_key: "C:0000100140", defect: "DEF-0041" }
+  - { rule_id: AR-VAL-003, bp_key: "C:0000100147", defect: "DEF-0045" }
+  - { rule_id: AR-VAL-003, bp_key: "C:0000100152", defect: "DEF-0045" }
+  - { rule_id: AR-VAL-003, bp_key: "C:0000100157", defect: "DEF-0045" }
+  - { rule_id: AR-VAL-005, bp_key: "C:0000100214", defect: "DEF-0068" }
+  - { rule_id: AR-VAL-005, bp_key: "C:0000100215", defect: "DEF-0068" }
+  - { rule_id: AR-VAL-005, bp_key: "C:0000100216", defect: "DEF-0068" }
+  - { rule_id: AR-VAL-005, bp_key: "C:0000100217", defect: "DEF-0068" }
+  - { rule_id: AR-VAL-005, bp_key: "C:0000100218", defect: "DEF-0068" }
+  - { rule_id: AR-VAL-005, bp_key: "C:0000100219", defect: "DEF-0068" }
+  - { rule_id: AR-VAL-005, bp_key: "C:0000100220", defect: "DEF-0068" }
+  - { rule_id: AR-VAL-005, bp_key: "C:0000100221", defect: "DEF-0068" }
+  - { rule_id: AR-VAL-005, bp_key: "C:0000100222", defect: "DEF-0068" }
+  - { rule_id: AR-VAL-005, bp_key: "C:0000100224", defect: "DEF-0068" }
+  - { rule_id: CROSS-DUP-001, bp_key: "C:0000100285", defect: "DEF-0114" }
+  - { rule_id: CROSS-DUP-001, bp_key: "C:0000100286", defect: "DEF-0115" }
+  - { rule_id: CROSS-DUP-001, bp_key: "C:0000100287", defect: "DEF-0116" }
+  - { rule_id: CROSS-DUP-001, bp_key: "C:0000100288", defect: "DEF-0117" }
+  - { rule_id: CROSS-DUP-001, bp_key: "C:0000100289", defect: "DEF-0118" }

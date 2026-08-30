@@ -11,10 +11,13 @@ default_action_type: review
 requires_tables: [business_partner, bp_tax_id]
 plain_logic: >
   Finding, wenn ein Debitor (kein CpD) eine USt-ID (STCEG) hat, deren erste zwei Zeichen
-  nicht dem erwarteten Präfix seines Sitzlandes (LAND1) entsprechen. Griechenland erwartet
-  "EL", Nordirland "XI"; alle anderen EU-Länder ihren ISO-2-Code. Länder ohne EU-USt-ID
-  (z. B. CH, US) werden nicht geprüft. Vorschlag: Präfix durch das erwartete ersetzen –
-  Stufe B, weil ohne VIES-Bestätigung; mit VIES-Bestätigung würde die Engine auf A heben.
+  ein Buchstabenpräfix bilden, das nicht dem erwarteten Präfix seines Sitzlandes (LAND1)
+  entspricht. Griechenland erwartet "EL", Nordirland "XI"; alle anderen EU-Länder ihren
+  ISO-2-Code. Länder ohne EU-USt-ID (z. B. CH, US) werden nicht geprüft. Werte ohne
+  Buchstabenpräfix (etwa eine Steuernummer im Feld STCEG) behaupten kein Land und sind
+  deshalb kein Präfix-, sondern ein Formatfehler – sie gehören zu AR-VAL-002. Vorschlag:
+  Präfix durch das erwartete ersetzen – Stufe B, weil ohne VIES-Bestätigung; mit
+  VIES-Bestätigung würde die Engine auf A heben.
 why: >
   Eine USt-ID mit falschem Länderpräfix scheitert bei der qualifizierten Bestätigung und
   gefährdet die steuerfreie innergemeinschaftliche Lieferung bzw. Reverse Charge. Auf
@@ -51,6 +54,9 @@ WITH expected AS (
       AND bp.country IN ('AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT',
                          'LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE')
       AND length(t.value_norm) >= 4
+      -- Ohne Buchstabenpraefix behauptet der Wert kein Land: das ist ein Formatfehler
+      -- (AR-VAL-002), kein Praefixfehler (D-058)
+      AND regexp_matches(substr(t.value_norm, 1, 2), '^[A-Z]{2}$')
 )
 SELECT
     e.bp_key,

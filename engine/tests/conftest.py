@@ -8,6 +8,7 @@ import pytest
 
 from mdq import CANONICAL_SCHEMA, LOGIC_DIR, PROJECT_ROOT
 from mdq.demo import DEFAULT_SEED
+from mdq.demo.generate import build_client
 from mdq.demo.generate import generate as generate_demo
 from mdq.executor import RunContext
 
@@ -129,10 +130,29 @@ def canonical_db() -> Iterator[duckdb.DuckDBPyConnection]:
 
 @pytest.fixture(scope="session")
 def demo_client(tmp_path_factory):
-    """Ein erzeugter Demo-Mandant fuer alle Tests – das Erzeugen dauert einige Sekunden."""
+    """Der ausgelieferte Demo-Mandant: Basis plus die Defekte aus `defects.yaml`."""
     out = tmp_path_factory.mktemp("demo_mandant")
     manifest = generate_demo(out, DEFAULT_SEED)
     return out, manifest
+
+
+@pytest.fixture(scope="session")
+def demo_base_client(tmp_path_factory):
+    """Der *defektfreie* Basis-Mandant.
+
+    Auf ihm darf keine Regel greifen (D-045); `test_demo_base.py` prueft genau das. Die
+    Defekte verletzen diese Invarianten absichtlich, deshalb braucht der Basis-Test einen
+    eigenen Mandanten – erzeugt mit einer ausdruecklich leeren Defektliste.
+    """
+    out = tmp_path_factory.mktemp("demo_mandant_base")
+    manifest = generate_demo(out, DEFAULT_SEED, ())
+    return out, manifest
+
+
+@pytest.fixture(scope="session")
+def demo_expected():
+    """Die erwarteten Findings des ausgelieferten Demo-Mandanten."""
+    return build_client(DEFAULT_SEED).expected
 
 
 def demo_rows(path, table: str) -> list[dict[str, str]]:

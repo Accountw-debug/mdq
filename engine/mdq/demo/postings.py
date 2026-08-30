@@ -127,8 +127,12 @@ class _DocumentNumbers:
         return f"{prefix}{value:08d}"
 
 
-def _workday(value: date) -> date:
-    """Nächster Werktag – Belege werden nicht am Wochenende gebucht."""
+def workday(value: date) -> date:
+    """Nächster Werktag – Belege werden nicht am Wochenende gebucht.
+
+    Öffentlich, weil die Defekt-Schicht (``defects.py``) neue Belege nach derselben Regel
+    datiert. Ausnahme sind die Ankerbelege: ihr Belegdatum steht in ``SPRINT-2.md``.
+    """
     while value.weekday() >= 5:
         value += timedelta(days=1)
     return value
@@ -148,11 +152,11 @@ def _payment_date(rng, profile: str, baseline: date, disc_days: int, net_days: i
     """Zahltag aus dem Zahlerprofil des Partners."""
     if take_discount:
         earliest = max(1, disc_days - 3)
-        return _workday(baseline + timedelta(days=rng.randint(earliest, max(earliest, disc_days))))
+        return workday(baseline + timedelta(days=rng.randint(earliest, max(earliest, disc_days))))
     _, _, mean_delay, spread = _PROFILE_BY_NAME[profile]
     delay = round(rng.gauss(mean_delay, spread))
     due = baseline + timedelta(days=net_days)
-    return _workday(max(due + timedelta(days=delay), baseline + timedelta(days=1)))
+    return workday(max(due + timedelta(days=delay), baseline + timedelta(days=1)))
 
 
 def _draw_amount(rng, partner: Partner, document_date: date,
@@ -178,10 +182,10 @@ def _build_invoices(rng, partner: Partner, references) -> list[_Invoice]:
 
     for _ in range(rng.randint(count_low, count_high)):
         company = rng.choice(partner.company_codes)
-        document_date = _workday(WINDOW_START + timedelta(days=rng.randint(0, span)))
+        document_date = workday(WINDOW_START + timedelta(days=rng.randint(0, span)))
         if document_date > WINDOW_END:
             continue
-        posting_date = _workday(document_date + timedelta(days=rng.randint(0, 3)))
+        posting_date = workday(document_date + timedelta(days=rng.randint(0, 3)))
         if posting_date > WINDOW_END:
             posting_date = document_date
         amount = _draw_amount(rng, partner, document_date, seen_amounts)
@@ -314,7 +318,7 @@ def _credit_memo(rng, invoice: _Invoice, kind: str, document_no: str) -> FiItem:
     partner = invoice.partner
     share = Decimal(rng.randint(5, 20)) / 100
     amount = (invoice.amount * share).quantize(Decimal("0.01"))
-    document_date = _workday(min(invoice.document_date + timedelta(days=rng.randint(5, 45)),
+    document_date = workday(min(invoice.document_date + timedelta(days=rng.randint(5, 45)),
                                  WINDOW_END))
     return FiItem(
         role=partner.role,

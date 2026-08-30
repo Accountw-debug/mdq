@@ -35,9 +35,9 @@ Die Entitäten aus `logic/examples/findings/` werden mit exakt diesen Werten ges
 |---|---|---|
 | C:0000100234 | Müller Maschinenbau GmbH, Robert-Bosch-Str. 12, 86159 Augsburg | STCEG `AT U12345678`, OP 45.210,00 in 1000, 27 Zahlungen, letzte 12.08.2026, Volumen 12M 312.400,00 |
 | C:0000100987 | Mueller Maschinenbau GmbH, Robert Bosch Straße 12, 86159 Augsburg | STCEG `DE123456780` (formatgültig), 2 Zahlungen, 2 OP à 3.200,00, kein RG/RE-Bezug in KNVP |
-| C:0000101502 | Hartmann Logistik e.K., Bremen | LOEVM zentral `X`, 3 OP in 1000 = 8.930,00, ältester 03.11.2025, kein Umsatz 12M |
+| C:0000101502 | Hartmann Logistik e.K., Bremen | LOEVM zentral `X`, 3 OP in 1000 = 8.930,00, ältester 03.11.2025, Volumen 12M 8.930,00 (nur diese drei Rechnungen) |
 | V:0000200845 | Stahlhandel Bergmann KG, Essen | zwei bezahlte KR-Rechnungen 32.000,00: 1900004411 (XBLNR `RE-4711`, 01.03.2026) und 1900004587 (`RE4711`, 10.03.2026), keine Gutschrift danach; Volumen 12M 1.284.000,00 |
-| V:0000200117 | Elektro Brandt GmbH & Co. KG, Kassel | ZTERM ZB02 (14 Tage 2 %), 31 Rechnungen in 12M, davon 23 nach Skontofrist bezahlt, Skontobasis dieser 23 = 240.620,00; OP 18.400,00 |
+| V:0000200117 | Elektro Brandt GmbH & Co. KG, Kassel | ZTERM ZB02 (14 Tage 2 %), 31 Rechnungen in 12M, davon 23 nach Skontofrist bezahlt, Skontobasis dieser 23 = 240.620,00; OP 18.400,00 (8 Rechnungen); Volumen 12M 259.020,00 |
 | V:0000201330 | Nordwind Verpackungen GmbH, Lübeck | IBAN `DE44500105175407324932` (Prüfziffer ungültig), OP 27.300,00 in 2000, keine Zahlung an diese IBAN |
 
 Damit sind F-001 bis F-006 die ersten sechs Einträge der erwarteten Findings.
@@ -47,9 +47,12 @@ Damit sind F-001 bis F-006 die ersten sechs Einträge der erwarteten Findings.
 Jeder Eintrag: `id`, `type`, `params` (bp_keys, company_code, Werte), `expected: [{rule_id, bp_key, company_code?, finding_key?}]`, `note` (fachlich, ein Satz).
 
 **Positivfälle (erzeugen Findings):**
-- 12 Dubletten-Cluster Debitoren (Varianten: Umlaut/Transliteration, Rechtsform-Schreibweise, Str./Straße, Postfach vs. Straße, Name2-Verschiebung, Tippfehler Levenshtein 1), 8 Cluster Kreditoren → AR-DUP-001 / AP-DUP-001
+- 12 Dubletten-Cluster Debitoren (Varianten: Umlaut/Transliteration, Rechtsform-Schreibweise, Str./Straße, Postfach vs. Straße, Name2-Verschiebung, Tippfehler Levenshtein 1), 8 Cluster Kreditoren → AR-DUP-001 / AP-DUP-001.
+  **Zwei der zwölf Debitoren-Cluster tragen die Variante „Postfach vs. Straße"** (Victor, 2026-08-30): das eine Konto führt die Straßenadresse, das andere nur ein Postfach – ohne Adress-Normalisierung wird das Paar nicht gefunden.
 - 15 USt-IDs mit falschem Präfix → AR-VAL-001 (davon 5 mit Dublette als Soll-Quelle), 10 → AP-VAL-001
-- 12 USt-IDs mit ungültigem Format → AR-VAL-002 / AP-VAL-002
+- 12 USt-IDs mit ungültigem Format → AR-VAL-002 (7) / AP-VAL-002 (5).
+  **Drei der sieben Debitorenfälle tragen die Variante „Steuernummer im USt-IdNr.-Feld"** (Victor, 2026-08-30):
+  `STCEG` enthält eine deutsche Steuernummer im Format `123/456/78901` – der häufigste Formatfehler in der Praxis.
 - 8 IBANs mit ungültiger Prüfziffer (5 Kreditoren, 3 Debitoren) → AP-VAL-003 / AR-VAL-003
 - 6 Debitoren mit Löschvormerkung oder Sperre und offenen Posten (zentral und je Buchungskreis, einer in beiden Buchungskreisen → zwei Findings) → AR-CON-002
 - 20 Debitoren ohne Zahlungsbedingung im Buchungskreis, davon 15 mit eindeutig meistgenutzter ZTERM auf Belegen → AR-COM-002

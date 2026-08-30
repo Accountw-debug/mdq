@@ -53,6 +53,17 @@ def _core_name(name: str) -> str:
 
 
 @pytest.fixture(scope="module")
+def demo_client(demo_base_client):
+    """Dieses Modul prueft ausschliesslich den defektfreien Basis-Mandanten (D-045).
+
+    Die Defekt-Schicht verletzt fast jede Invariante hier mit Absicht – eine Dublette ist
+    ein doppelter Kernname, ein Loeschkandidat ein Konto ohne Posten. Deshalb zeigt
+    `demo_client` in diesem Modul auf den Mandanten *ohne* Defekte.
+    """
+    return demo_base_client
+
+
+@pytest.fixture(scope="module")
 def masters(demo_client):
     """Debitoren- und Kreditorenstamm als Zeilenlisten."""
     out, _ = demo_client

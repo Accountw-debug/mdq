@@ -8,11 +8,14 @@ Determinismus (Regel 9): gleicher Seed → byte-identische Dateien. Es gibt kein
 Generator; der Datenstand kommt als Konstante aus :mod:`mdq.demo`.
 """
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from mdq import DEMO_DEFECTS
 from mdq.demo import (
     ANCHOR_CUSTOMERS,
     ANCHOR_VENDORS,
@@ -28,6 +31,13 @@ from mdq.demo import (
     random_for,
 )
 from mdq.demo.base import BankAccount, Partner, account_numbers, build_partners
+from mdq.demo.defects import (
+    Defect,
+    DemoModel,
+    ExpectedFinding,
+    apply_defects,
+    load_defects,
+)
 from mdq.demo.names import NameFactory
 from mdq.demo.postings import FiItem, build_items
 from mdq.demo.writers import (
@@ -58,13 +68,21 @@ DUNNING_AREA = ""
 DUNNING_LEVELS = ((90, "3"), (60, "2"), (30, "1"))
 
 
+@dataclass(frozen=True)
+class DemoClient:
+    """Ergebnis eines Generatorlaufs: die Zeilen je Tabelle und die erwarteten Findings."""
+
+    tables: dict[str, list[dict[str, str]]]
+    expected: tuple[ExpectedFinding, ...]
+
+
 def _master_row(partner: Partner) -> dict[str, str]:
     """Gemeinsame Felder von KNA1 und LFA1 – die Tabellen sind bis auf drei Spalten gleich."""
     return {
         "MANDT": MANDT,
         "LAND1": partner.country,
         "NAME1": partner.name1,
-        "NAME2": "",
+        "NAME2": partner.name2,
         "NAME3": "",
         "NAME4": "",
         "SORTL": partner.search_term,
@@ -76,9 +94,9 @@ def _master_row(partner: Partner) -> dict[str, str]:
         "PSTL2": partner.po_box_postal_code,
         "ADRNR": partner.address_id,
         "XCPDK": fmt_flag(partner.is_one_time),
-        # Keine Löschvormerkung, keine Sperre: das wäre AR-CON-002 (Aufgabe 2)
-        "LOEVM": "",
-        "SPERR": "",
+        # Im Basis-Mandanten leer; gesetzt wird beides nur von einem Defekt (AR-CON-002)
+        "LOEVM": partner.deletion_flag,
+        "SPERR": partner.posting_block,
         "KONZS": "",
         "SPRAS": partner.language,
         "ERDAT": fmt_date(partner.created_on),
@@ -95,7 +113,11 @@ def customer_master_rows(partners: list[Partner]) -> list[dict[str, str]]:
     rows = []
     for partner in partners:
         row = _master_row(partner)
-        row.update({"KUNNR": partner.number, "KTOKD": partner.account_group, "KNRZA": ""})
+        row.update({
+            "KUNNR": partner.number,
+            "KTOKD": partner.account_group,
+            "KNRZA": partner.payer_bp,
+        })
         rows.append(row)
     return rows
 
@@ -105,7 +127,11 @@ def vendor_master_rows(partners: list[Partner]) -> list[dict[str, str]]:
     rows = []
     for partner in partners:
         row = _master_row(partner)
-        row.update({"LIFNR": partner.number, "KTOKK": partner.account_group, "LNRZA": ""})
+        row.update({
+            "LIFNR": partner.number,
+            "KTOKK": partner.account_group,
+            "LNRZA": partner.payer_bp,
+        })
         rows.append(row)
     return rows
 
@@ -122,8 +148,8 @@ def customer_company_rows(partners: list[Partner]) -> list[dict[str, str]]:
                 "AKONT": company.recon_account,
                 "ZTERM": company.payment_terms,
                 "MAHNA": DUNNING_PROCEDURE,
-                "SPERR": "",
-                "LOEVM": "",
+                "SPERR": company.posting_block,
+                "LOEVM": company.deletion_flag,
                 "ZWELS": company.payment_methods,
                 "ZAHLS": "",
                 "KNRZB": "",
@@ -146,13 +172,13 @@ def vendor_company_rows(partners: list[Partner]) -> list[dict[str, str]]:
                 "BUKRS": company.company_code,
                 "AKONT": company.recon_account,
                 "ZTERM": company.payment_terms,
-                "SPERR": "",
-                "LOEVM": "",
+                "SPERR": company.posting_block,
+                "LOEVM": company.deletion_flag,
                 "ZWELS": company.payment_methods,
                 "ZAHLS": "",
                 "LNRZB": "",
                 "TOGRU": "",
-                "REPRF": "X",
+                "REPRF": company.invoice_check,
                 "ZUAWA": "001",
                 "ERDAT": fmt_date(company.created_on),
                 "ERNAM": company.created_by,
@@ -207,13 +233,14 @@ def iban_rows(*partner_lists: list[Partner]) -> list[dict[str, str]]:
 def partner_function_rows(partners: list[Partner]) -> list[dict[str, str]]:
     """KNVP – Auftraggeber zeigt auf das eigene Konto.
 
-    Regulierer-Konstellationen (PARVW = RG auf ein anderes Konto) sind Negativfälle für
-    die Dublettenprüfung und kommen als Defekt in Aufgabe 2.
+    Trägt der Partner einen abweichenden Regulierer (Defekt `central_payer`), kommt eine
+    zweite Zeile mit PARVW = RG dazu. Diese Konstellation ist ein Negativfall: gleiche
+    IBAN und Adresse bei zwei Konten sind dann keine Dublette, sondern Zentralregulierung.
     """
     rows = []
     for partner in partners:
         for company in partner.company_codes:
-            rows.append({
+            base = {
                 "MANDT": MANDT,
                 "KUNNR": partner.number,
                 "VKORG": company.company_code,
@@ -222,7 +249,10 @@ def partner_function_rows(partners: list[Partner]) -> list[dict[str, str]]:
                 "PARVW": "AG",
                 "KUNN2": partner.number,
                 "PARZA": "000",
-            })
+            }
+            rows.append(base)
+            if partner.payer_bp:
+                rows.append({**base, "PARVW": "RG", "KUNN2": partner.payer_bp})
     return rows
 
 
@@ -326,8 +356,13 @@ def item_rows(items: list[FiItem], key_column: str, with_po: bool) -> list[dict[
     return rows
 
 
-def build_tables(seed: int) -> dict[str, list[dict[str, str]]]:
-    """Baut alle 15 Tabellen als Zeilenlisten – ohne Datei-Ein-/Ausgabe."""
+def build_client(seed: int, defects: Sequence[Defect] | None = None) -> DemoClient:
+    """Baut den Mandanten: Basis, dann Defekte, dann die 15 Tabellen als Zeilenlisten.
+
+    ``defects=None`` liest die Standardliste aus `testdata/demo_mandant/defects.yaml`.
+    Für den defektfreien Basis-Mandanten – gegen den `test_demo_base.py` prüft – wird
+    ausdrücklich eine leere Liste übergeben.
+    """
     names = NameFactory(random_for(seed, "names"))
 
     customer_numbers = account_numbers(
@@ -343,12 +378,22 @@ def build_tables(seed: int) -> dict[str, list[dict[str, str]]]:
     customer_items = build_items(random_for(seed, "customer-items"), customers, "CUSTOMER")
     vendor_items = build_items(random_for(seed, "vendor-items"), vendors, "VENDOR")
 
+    if defects is None:
+        defects = load_defects(DEMO_DEFECTS, seed)
+    expected: tuple[ExpectedFinding, ...] = ()
+    if defects:
+        model = DemoModel(customers, vendors, customer_items, vendor_items)
+        expected = tuple(apply_defects(model, defects, seed))
+        customers, vendors = model.customers(), model.vendors()
+        customer_items = model.items("CUSTOMER")
+        vendor_items = model.items("VENDOR")
+
     open_customer = [item for item in customer_items if item.is_open]
     cleared_customer = [item for item in customer_items if not item.is_open]
     open_vendor = [item for item in vendor_items if item.is_open]
     cleared_vendor = [item for item in vendor_items if not item.is_open]
 
-    return {
+    tables = {
         "KNA1": customer_master_rows(customers),
         "KNB1": customer_company_rows(customers),
         "KNBK": bank_rows(customers, "KUNNR"),
@@ -365,11 +410,21 @@ def build_tables(seed: int) -> dict[str, list[dict[str, str]]]:
         "T052": payment_terms_rows(),
         "T052U": payment_terms_text_rows(),
     }
+    return DemoClient(tables=tables, expected=expected)
 
 
-def generate(out_dir: Path, seed: int) -> dict[str, Any]:
+def build_tables(
+    seed: int, defects: Sequence[Defect] | None = None
+) -> dict[str, list[dict[str, str]]]:
+    """Nur die 15 Tabellen – für Tests, die die erwarteten Findings nicht brauchen."""
+    return build_client(seed, defects).tables
+
+
+def generate(
+    out_dir: Path, seed: int, defects: Sequence[Defect] | None = None
+) -> dict[str, Any]:
     """Schreibt den Demo-Mandanten nach ``out_dir`` und liefert das Manifest."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    tables = build_tables(seed)
-    entries = [write_table(out_dir, table, tables[table]) for table in TABLES]
+    client = build_client(seed, defects)
+    entries = [write_table(out_dir, table, client.tables[table]) for table in TABLES]
     return write_manifest(out_dir, seed, entries)

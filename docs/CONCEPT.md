@@ -23,7 +23,7 @@ offengelegter Rechnung, Warum, Wenn-falsch, SAP-Schritt, Status, Datenstand.
 | Block | V1 (dieses Repo) | Später |
 |---|---|---|
 | 1 Intake | SE16N-/FBL-Exports, Auto-Erkennung, SAP-Formate, Mapping je Kunde, Datenprofil, Scoping (BUKRS, Zeitfenster, AR/AP) | S/4-OData, RFC, BC/DATEV |
-| 2 BP-360 | Kanonischer Geschäftspartner mit Rollen, Adressen, Banken, Steuer-IDs, BUKRS-Daten; abgeleitet: Aktivität, Relevanzgewicht (OP + 12M-Volumen), Zahlverhalten, Zahler-Mapping | Konzernhierarchie |
+| 2 BP-360 | Kanonischer Geschäftspartner mit Rollen, Adressen, Banken, Steuer-IDs, BUKRS-Daten; abgeleitet: Aktivität (spätestes Beleg- oder Ausgleichsdatum), Relevanzgewicht (offene Posten + 12M-Volumen; Volumen = Rechnungen brutto nach Buchungsdatum abzüglich Gutschriften, unabhängig vom Ausgleich), Zahlverhalten, Zahler-Mapping | Konzernhierarchie |
 | 3 Regelwerk | Katalog mit Schwere, Gewicht, Klartext, SAP-Aktion; Kategorien Vollständigkeit/Validität/Konsistenz/Hygiene/Risiko; „nicht geprüft"-Ausweis | Eigene Regeln per UI |
 | 4 Dubletten | AR, AP, über Kreuz (Kunde = Lieferant); Cluster mit Match-Gründen; Ausschlüsse CpD/Regulierer; Review-Queue; Whitelist; Bereinigungsvorschlag mit Golden Record | Konzern-Cluster mit Registerdaten |
 | 5 Euro-Wirkung | AP: Doppel-/Überzahlungen, Skontoverlust, Zahlung kurz nach Bankdatenänderung, Zahlung an gesperrte Kreditoren. AR: Unapplied Cash, Umbuchungen, ungerechtfertigtes Skonto, gesplittetes Kreditlimit. Netting gegen Gutschriften/Stornos | Prozess-Checks |

@@ -8,79 +8,79 @@
       "table": "KNA1",
       "file": "KNA1.txt",
       "rows": 2000,
-      "sha256": "019561ccb41b6fa7b79775e9c01bf4b3a2646ed371b215a5410bc5f7902b01a9"
+      "sha256": "52ffd9d4ff45676698628b79c04dc0cc39dd3963a6681fe82ccbfeafc57d4dd2"
     },
     {
       "table": "KNB1",
       "file": "KNB1.txt",
-      "rows": 2206,
-      "sha256": "7f9ca58cb5373007a4725eae05bef69eecdf95f944af1679a13651ecb713bc03"
+      "rows": 2205,
+      "sha256": "0e3f1ed70f390d898040553f15134aa2eb51b27f7c49011968ef431a11e3e61b"
     },
     {
       "table": "KNBK",
       "file": "KNBK.txt",
-      "rows": 1673,
-      "sha256": "9a69ab4b9830c4cf1a07c15af31b344c5955122bfd3f806df5cf2df757751fe5"
+      "rows": 1672,
+      "sha256": "91f915750636aa52bb56132284636d3655d14cf7f4468a65dcc57af918828785"
     },
     {
       "table": "KNVP",
       "file": "KNVP.txt",
-      "rows": 2206,
-      "sha256": "0cdbb517d5161747254c1de39a0e7759de6534927ffd499aad350b36d7ccb3de"
+      "rows": 2235,
+      "sha256": "227537d40424ff21031545236a1122a6834a79f7895884dabb3bafec40b4f1af"
     },
     {
       "table": "KNB5",
       "file": "KNB5.txt",
-      "rows": 1988,
-      "sha256": "c29627215d47594351b45c2fea5e91dc02d42c2e4d5cf1f8175d98868fe95090"
+      "rows": 1951,
+      "sha256": "a5f56943cd0cc3a829eba41baa2fccec00ad49063cddae1faa1cc140a3f01762"
     },
     {
       "table": "LFA1",
       "file": "LFA1.txt",
       "rows": 1500,
-      "sha256": "7cb88d77de22056bee0f68a5452f0c18bd6ad363e4fd777fe8380cca5b46da04"
+      "sha256": "9a4538988494a2e7ebd643872c7bf2b35eb875aee5df82479e670f5d804348a4"
     },
     {
       "table": "LFB1",
       "file": "LFB1.txt",
       "rows": 1651,
-      "sha256": "bee49faab23c72fb5d4898139ae4a5322ccd6f16df0c5e230c9bc848fd1f32e5"
+      "sha256": "778365c89c0f7b605c188cd20c47853342e4233e42bf09f2c8e9e482e3b11e01"
     },
     {
       "table": "LFBK",
       "file": "LFBK.txt",
       "rows": 1443,
-      "sha256": "bca349967ce1680f310317794986e9e30aace4fa2b9398622283f453acb5f09d"
+      "sha256": "ea0a38e8d28e6dadad7da8a7765c284bab88417a026443d27c7901f0c19fc0a4"
     },
     {
       "table": "TIBAN",
       "file": "TIBAN.txt",
-      "rows": 3116,
-      "sha256": "6752a0fcffb4ddd5c1bd41e71f196a3d82fd5577aed7a7239a243cb5ff65934d"
+      "rows": 3081,
+      "sha256": "02b45d669c159f72fe0206450b13052e6e3be9194a6d3c623f68c7f253f03353"
     },
     {
       "table": "BSID",
       "file": "BSID.txt",
-      "rows": 8772,
-      "sha256": "16768ddb20e87b60f5ec3777ce4240d773d339239b5a5b6d34db9fb05bd5399f"
+      "rows": 8532,
+      "sha256": "384e56cc9f573e2e31e57d5e8d985dd568191b63f3771c8e8c604ae876a4f40d"
     },
     {
       "table": "BSAD",
       "file": "BSAD.txt",
-      "rows": 31312,
-      "sha256": "138d59fd0fa420a5e861b0964331a1cd0fb1418f6c512a93cdab2e73be9a01e4"
+      "rows": 30598,
+      "sha256": "9eeb90acbf01c959a70e9a3655fd45d35aa101d2d486d9442acf504db05f84eb"
     },
     {
       "table": "BSIK",
       "file": "BSIK.txt",
-      "rows": 4313,
-      "sha256": "e08413a5673bc5f8f8857a7b1e52bef023d096b6cbcf6b0c2bd2347c23545191"
+      "rows": 4255,
+      "sha256": "258188182d7a765e2201a148da9421b0c60a1856f55cd6114588e559248f0b9e"
     },
     {
       "table": "BSAK",
       "file": "BSAK.txt",
       "rows": 15642,
-      "sha256": "27853f052864bb6df374f1f56b257b476254c293f80bcd79934f7e9ded47237d"
+      "sha256": "0211adaf017602a2259c747038455c7babba2a00fbfefa6bb101682eeee23be8"
     },
     {
       "table": "T052",
@@ -95,5 +95,5 @@
       "sha256": "a766d2a5b97bc26073162abe861061b5470245c215a402d5bf2cb9553fbf84b2"
     }
   ],
-  "total_rows": 77832
+  "total_rows": 76775
 }

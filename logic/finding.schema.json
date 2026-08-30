@@ -172,7 +172,8 @@
         "by": { "type": "string" },
         "at": { "type": "string", "format": "date-time" },
         "reason": { "type": "string" },
-        "reason_code": { "type": ["string", "null"], "description": "z. B. intentionally_separate, data_correct, not_relevant" }
+        "reason_code": { "type": ["string", "null"], "description": "z. B. intentionally_separate, data_correct, not_relevant" },
+        "assigned_to": { "type": "string", "description": "Bearbeiter, dem der Fall nach der Entscheidung zugewiesen ist" }
       }
     },
     "data_as_of": { "type": "string", "format": "date" },

@@ -1,0 +1,2074 @@
+# Eingebaute Fehler des Demo-Mandanten – "Fehler sind Daten, nicht Code" (docs/specs/SPRINT-2.md).
+#
+# Der Generator erzeugt zuerst einen regelfreien Basis-Mandanten (D-045) und wendet danach
+# diese Liste an. Jeder Eintrag trägt die Findings, die er erzeugen muss – oder ausdrücklich
+# `expected: []`, wenn er ein Negativfall ist. Aus dieser Datei entsteht
+# `testdata/expected/expected_findings.yaml` (`uv run mdq demo expected`); die Erwartung wird
+# nie von Hand gepflegt (CLAUDE.md Regel 1, D-010).
+#
+# Einen Defekt ergänzen: siehe testdata/README.md, Abschnitt "Einen Defekt ergänzen".
+#
+# Rechtlicher Hinweis: alle Namen, Adressen, Bankleitzahlen, IBAN und Steuernummern sind
+# erfunden (CLAUDE.md Regel 8, D-008). Die IBAN-Prüfziffern sind gültig, die Banken dahinter
+# existieren nicht; die Bankleitzahlen stammen aus einem in Deutschland nicht vergebenen Bereich.
+
+version: "0.1"
+
+# Die Defekte nennen konkrete Kontonummern und gelten deshalb fuer genau diesen Seed.
+# Ein Lauf mit anderem Seed bricht ab; dafuer gibt es `mdq demo generate --no-defects`.
+seed: 20260830
+
+defects:
+
+  # --- 1. Ankerfälle – die sechs Beispiel-Findings aus logic/examples/findings/
+  - id: DEF-0001
+    type: anchor
+    note: 'Ankerfall zu F-001 und F-002: USt-IdNr. mit AT-Präfix bei Sitzland DE, zugleich führendes Konto
+      des Dubletten-Clusters.'
+    params:
+      bp_key: C:0000100234
+      country: DE
+      name1: Müller Maschinenbau GmbH
+      search_term: MUELLER
+      street: Robert-Bosch-Str. 12
+      city: Augsburg
+      postal_code: '86159'
+      region: BY
+      vat_id: AT U12345678
+      postings:
+        company_code: '1000'
+        payment_terms: ZB03
+        volume_12m: '312400.00'
+        open_items: '45210.00'
+        open_count: 3
+        payments: 27
+        last_payment_on: '2026-08-12'
+    expected:
+    - rule_id: AR-VAL-001
+      bp_key: C:0000100234
+    - rule_id: AR-DUP-001
+      bp_key: C:0000100234
+  - id: DEF-0002
+    type: anchor
+    note: 'Ankerfall zu F-002: zweites Konto desselben Kunden, Name und Straße in Schreibvariante, gültige
+      USt-IdNr. als Soll-Quelle.'
+    params:
+      bp_key: C:0000100987
+      country: DE
+      name1: Mueller Maschinenbau GmbH
+      search_term: MUELLER
+      street: Robert Bosch Straße 12
+      city: Augsburg
+      postal_code: '86159'
+      region: BY
+      vat_id: DE123456780
+      postings:
+        company_code: '1000'
+        payment_terms: ZB03
+        volume_12m: '26500.00'
+        open_items: '6400.00'
+        open_amounts:
+        - '3200.00'
+        - '3200.00'
+        open_dates:
+        - '2026-04-14'
+        - '2026-07-07'
+        payments: 2
+        last_payment_on: '2026-06-24'
+    expected: []
+  - id: DEF-0003
+    type: anchor
+    note: 'Ankerfall zu F-004: Löschvormerkung zentral bei drei offenen Posten im Buchungskreis 1000.'
+    params:
+      bp_key: C:0000101502
+      country: DE
+      name1: Hartmann Logistik e.K.
+      search_term: HARTMANN
+      street: Hafenstraße 8
+      city: Bremen
+      postal_code: '28195'
+      region: HB
+      deletion_flag: X
+      postings:
+        company_code: '1000'
+        payment_terms: ZB03
+        volume_12m: '8930.00'
+        open_items: '8930.00'
+        open_amounts:
+        - '3450.00'
+        - '2880.00'
+        - '2600.00'
+        open_dates:
+        - '2025-11-03'
+        - '2025-11-03'
+        - '2025-11-03'
+        payments: 0
+    expected:
+    - rule_id: AR-CON-002
+      bp_key: C:0000101502
+      company_code: '1000'
+  - id: DEF-0004
+    type: anchor
+    note: 'Ankerfall zu F-003: zwei bezahlte Rechnungen über 32.000,00 mit den Referenzen RE-4711 und RE4711,
+      keine Gutschrift danach.'
+    params:
+      bp_key: V:0000200845
+      country: DE
+      name1: Stahlhandel Bergmann KG
+      search_term: BERGMANN
+      street: Industriestraße 45
+      city: Essen
+      postal_code: '45127'
+      region: NW
+      iban: DE39941203857710420033
+      vat_id: DE811000004
+      postings:
+        company_code: '1000'
+        payment_terms: ZB03
+        volume_12m: '1284000.00'
+        open_items: '0.00'
+        open_count: 0
+        payments: 26
+        last_payment_on: '2026-08-20'
+        documents:
+        - document_no: '1900004411'
+          reference: RE-4711
+          document_date: '2026-03-01'
+          posting_date: '2026-03-02'
+          amount: '32000.00'
+          payment_date: '2026-03-28'
+        - document_no: '1900004587'
+          reference: RE4711
+          document_date: '2026-03-10'
+          amount: '32000.00'
+          payment_date: '2026-04-09'
+    expected:
+    - rule_id: AP-LEA-001
+      bp_key: V:0000200845
+      company_code: '1000'
+      document_no: '1900004587'
+      finding_key: 1900004411|1900004587
+  - id: DEF-0005
+    type: anchor
+    note: 'Ankerfall zu F-005: 23 von 31 Rechnungen nach Skontofrist bezahlt, Skontobasis 240.620,00 bei
+      Zahlungsbedingung ZB02.'
+    params:
+      bp_key: V:0000200117
+      country: DE
+      name1: Elektro Brandt GmbH & Co. KG
+      search_term: BRANDT
+      street: Lindenallee 22
+      city: Kassel
+      postal_code: '34117'
+      region: HE
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '259020.00'
+        open_items: '18400.00'
+        open_count: 8
+        payments: 23
+        last_payment_on: '2026-08-25'
+        late: true
+    expected:
+    - rule_id: AP-LEA-002
+      bp_key: V:0000200117
+      company_code: '1000'
+  - id: DEF-0006
+    type: anchor
+    note: 'Ankerfall zu F-006: IBAN mit ungültiger Prüfziffer bei 27.300,00 offenen Posten im Buchungskreis
+      2000.'
+    params:
+      bp_key: V:0000201330
+      country: DE
+      name1: Nordwind Verpackungen GmbH
+      search_term: NORDWIND
+      street: Tannenweg 17
+      city: Lübeck
+      postal_code: '23552'
+      region: SH
+      iban: DE44500105175407324932
+      postings:
+        company_code: '2000'
+        payment_terms: ZB03
+        volume_12m: '96800.00'
+        open_items: '27300.00'
+        open_count: 4
+        payments: 9
+        last_payment_on: '2026-08-21'
+    expected:
+    - rule_id: AP-VAL-003
+      bp_key: V:0000201330
+
+  # --- 2. Sperre oder Löschvormerkung bei offenen Posten (AR-CON-002)
+  - id: DEF-0007
+    type: deletion_flag
+    note: Löschvormerkung zentral bei einem Kunden mit offenen Posten in beiden Buchungskreisen – ergibt
+      zwei Findings.
+    params:
+      bp_key: C:0000100028
+      flag: deletion
+      scope: central
+      company_codes:
+      - '1000'
+      - '2000'
+      with_open_items: true
+    expected:
+    - rule_id: AR-CON-002
+  - id: DEF-0008
+    type: deletion_flag
+    note: Löschvormerkung zentral bei einem Kunden mit offenen Posten.
+    params:
+      bp_key: C:0000100000
+      flag: deletion
+      scope: central
+      company_codes:
+      - '1000'
+      with_open_items: true
+    expected:
+    - rule_id: AR-CON-002
+  - id: DEF-0009
+    type: deletion_flag
+    note: Buchungssperre im Buchungskreis bei einem Kunden mit offenen Posten.
+    params:
+      bp_key: C:0000100002
+      flag: block
+      scope: company
+      company_codes:
+      - '1000'
+      with_open_items: true
+    expected:
+    - rule_id: AR-CON-002
+  - id: DEF-0010
+    type: deletion_flag
+    note: Buchungssperre im Buchungskreis bei einem Kunden mit offenen Posten.
+    params:
+      bp_key: C:0000100007
+      flag: block
+      scope: company
+      company_codes:
+      - '1000'
+      with_open_items: true
+    expected:
+    - rule_id: AR-CON-002
+  - id: DEF-0011
+    type: deletion_flag
+    note: Löschvormerkung im Buchungskreis bei einem Kunden mit offenen Posten.
+    params:
+      bp_key: C:0000100013
+      flag: deletion
+      scope: company
+      company_codes:
+      - '1000'
+      with_open_items: true
+    expected:
+    - rule_id: AR-CON-002
+  - id: DEF-0012
+    type: deletion_flag
+    note: 'Negativfall: Löschvormerkung ohne offene Posten – ein stillgelegtes Konto ist kein Befund.'
+    params:
+      bp_key: C:0000100001
+      flag: deletion
+      scope: central
+      company_codes:
+      - '1000'
+      with_open_items: false
+    expected: []
+  - id: DEF-0013
+    type: deletion_flag
+    note: 'Negativfall: Löschvormerkung ohne offene Posten – ein stillgelegtes Konto ist kein Befund.'
+    params:
+      bp_key: C:0000100134
+      flag: deletion
+      scope: central
+      company_codes:
+      - '2000'
+      with_open_items: false
+    expected: []
+  - id: DEF-0014
+    type: deletion_flag
+    note: 'Negativfall: Löschvormerkung ohne offene Posten – ein stillgelegtes Konto ist kein Befund.'
+    params:
+      bp_key: C:0000100143
+      flag: deletion
+      scope: central
+      company_codes:
+      - '1000'
+      with_open_items: false
+    expected: []
+  - id: DEF-0015
+    type: deletion_flag
+    note: 'Negativfall: Löschvormerkung ohne offene Posten – ein stillgelegtes Konto ist kein Befund.'
+    params:
+      bp_key: C:0000100159
+      flag: deletion
+      scope: central
+      company_codes:
+      - '1000'
+      with_open_items: false
+    expected: []
+  - id: DEF-0016
+    type: deletion_flag
+    note: 'Negativfall: Löschvormerkung ohne offene Posten – ein stillgelegtes Konto ist kein Befund.'
+    params:
+      bp_key: C:0000100231
+      flag: deletion
+      scope: central
+      company_codes:
+      - '2000'
+      with_open_items: false
+    expected: []
+
+  # --- 3. Dubletten-Cluster (AR-DUP-001, AP-DUP-001)
+  - id: DEF-0017
+    type: duplicate_cluster
+    note: Zwei Debitorenkonten für denselben Kunden, Variante transliteration.
+    params:
+      leader: C:0000100014
+      twin: C:0000100017
+      variant: transliteration
+    expected:
+    - rule_id: AR-DUP-001
+  - id: DEF-0018
+    type: duplicate_cluster
+    note: Zwei Debitorenkonten für denselben Kunden, Variante transliteration.
+    params:
+      leader: C:0000100022
+      twin: C:0000100024
+      variant: transliteration
+    expected:
+    - rule_id: AR-DUP-001
+  - id: DEF-0019
+    type: duplicate_cluster
+    note: Zwei Debitorenkonten für denselben Kunden, Variante transliteration.
+    params:
+      leader: C:0000100030
+      twin: C:0000100032
+      variant: transliteration
+    expected:
+    - rule_id: AR-DUP-001
+  - id: DEF-0020
+    type: duplicate_cluster
+    note: Zwei Debitorenkonten für denselben Kunden, Variante legal_form.
+    params:
+      leader: C:0000100038
+      twin: C:0000100046
+      variant: legal_form
+    expected:
+    - rule_id: AR-DUP-001
+  - id: DEF-0021
+    type: duplicate_cluster
+    note: Zwei Debitorenkonten für denselben Kunden, Variante legal_form.
+    params:
+      leader: C:0000100049
+      twin: C:0000100054
+      variant: legal_form
+    expected:
+    - rule_id: AR-DUP-001
+  - id: DEF-0022
+    type: duplicate_cluster
+    note: Zwei Debitorenkonten für denselben Kunden, Variante street_spelling.
+    params:
+      leader: C:0000100056
+      twin: C:0000100060
+      variant: street_spelling
+    expected:
+    - rule_id: AR-DUP-001
+  - id: DEF-0023
+    type: duplicate_cluster
+    note: Zwei Debitorenkonten für denselben Kunden, Variante street_spelling.
+    params:
+      leader: C:0000100069
+      twin: C:0000100073
+      variant: street_spelling
+    expected:
+    - rule_id: AR-DUP-001
+  - id: DEF-0024
+    type: duplicate_cluster
+    note: Zwei Debitorenkonten für denselben Kunden, Variante po_box.
+    params:
+      leader: C:0000100083
+      twin: C:0000100084
+      variant: po_box
+    expected:
+    - rule_id: AR-DUP-001
+  - id: DEF-0025
+    type: duplicate_cluster
+    note: Zwei Debitorenkonten für denselben Kunden, Variante po_box.
+    params:
+      leader: C:0000100085
+      twin: C:0000100088
+      variant: po_box
+    expected:
+    - rule_id: AR-DUP-001
+  - id: DEF-0026
+    type: duplicate_cluster
+    note: Zwei Debitorenkonten für denselben Kunden, Variante name2.
+    params:
+      leader: C:0000100095
+      twin: C:0000100099
+      variant: name2
+    expected:
+    - rule_id: AR-DUP-001
+  - id: DEF-0027
+    type: duplicate_cluster
+    note: Zwei Debitorenkonten für denselben Kunden, Variante typo.
+    params:
+      leader: C:0000100043
+      twin: C:0000100103
+      variant: typo
+    expected:
+    - rule_id: AR-DUP-001
+  - id: DEF-0028
+    type: duplicate_cluster
+    note: Zwei Kreditorenkonten für denselben Lieferanten, Variante transliteration.
+    params:
+      leader: V:0000200001
+      twin: V:0000200002
+      variant: transliteration
+    expected:
+    - rule_id: AP-DUP-001
+  - id: DEF-0029
+    type: duplicate_cluster
+    note: Zwei Kreditorenkonten für denselben Lieferanten, Variante transliteration.
+    params:
+      leader: V:0000200003
+      twin: V:0000200007
+      variant: transliteration
+    expected:
+    - rule_id: AP-DUP-001
+  - id: DEF-0030
+    type: duplicate_cluster
+    note: Zwei Kreditorenkonten für denselben Lieferanten, Variante legal_form.
+    params:
+      leader: V:0000200006
+      twin: V:0000200009
+      variant: legal_form
+    expected:
+    - rule_id: AP-DUP-001
+  - id: DEF-0031
+    type: duplicate_cluster
+    note: Zwei Kreditorenkonten für denselben Lieferanten, Variante legal_form.
+    params:
+      leader: V:0000200008
+      twin: V:0000200010
+      variant: legal_form
+    expected:
+    - rule_id: AP-DUP-001
+  - id: DEF-0032
+    type: duplicate_cluster
+    note: Zwei Kreditorenkonten für denselben Lieferanten, Variante street_spelling.
+    params:
+      leader: V:0000200014
+      twin: V:0000200015
+      variant: street_spelling
+    expected:
+    - rule_id: AP-DUP-001
+  - id: DEF-0033
+    type: duplicate_cluster
+    note: Zwei Kreditorenkonten für denselben Lieferanten, Variante po_box.
+    params:
+      leader: V:0000200017
+      twin: V:0000200021
+      variant: po_box
+    expected:
+    - rule_id: AP-DUP-001
+  - id: DEF-0034
+    type: duplicate_cluster
+    note: Zwei Kreditorenkonten für denselben Lieferanten, Variante name2.
+    params:
+      leader: V:0000200012
+      twin: V:0000200027
+      variant: name2
+    expected:
+    - rule_id: AP-DUP-001
+  - id: DEF-0035
+    type: duplicate_cluster
+    note: Zwei Kreditorenkonten für denselben Lieferanten, Variante typo.
+    params:
+      leader: V:0000200023
+      twin: V:0000200031
+      variant: typo
+    expected:
+    - rule_id: AP-DUP-001
+
+  # --- 4. USt-IdNr. mit fremdem Länderpräfix (AR-VAL-001, AP-VAL-001)
+  - id: DEF-0036
+    type: vat_prefix
+    note: Vier Debitoren mit fremdem USt-IdNr.-Präfix, die zugleich führendes Konto einer Dublette sind
+      – die Dublette liefert das Soll.
+    params:
+      bp_keys:
+      - C:0000100014
+      - C:0000100022
+      - C:0000100030
+      - C:0000100038
+    overlaps:
+    - DEF-0017
+    - DEF-0018
+    - DEF-0019
+    - DEF-0020
+    expected:
+    - rule_id: AR-VAL-001
+  - id: DEF-0037
+    type: vat_prefix
+    note: Zehn Debitoren mit fremdem USt-IdNr.-Präfix ohne zweite Quelle für das Soll.
+    params:
+      bp_keys:
+      - C:0000100040
+      - C:0000100100
+      - C:0000100106
+      - C:0000100109
+      - C:0000100112
+      - C:0000100116
+      - C:0000100118
+      - C:0000100120
+      - C:0000100121
+      - C:0000100123
+    expected:
+    - rule_id: AR-VAL-001
+  - id: DEF-0038
+    type: vat_prefix
+    note: Zehn Kreditoren mit fremdem USt-IdNr.-Präfix.
+    params:
+      bp_keys:
+      - V:0000200025
+      - V:0000200030
+      - V:0000200033
+      - V:0000200037
+      - V:0000200039
+      - V:0000200048
+      - V:0000200053
+      - V:0000200057
+      - V:0000200059
+      - V:0000200060
+    expected:
+    - rule_id: AP-VAL-001
+
+  # --- 5. USt-IdNr. entspricht nicht dem Länderformat (AR-VAL-002, AP-VAL-002)
+  - id: DEF-0039
+    type: vat_format
+    note: Drei Debitoren tragen die deutsche Steuernummer im Feld STCEG – der häufigste Formatfehler in
+      der Praxis.
+    params:
+      bp_keys:
+      - C:0000100125
+      - C:0000100129
+      - C:0000100130
+      variant: steuernummer
+    expected:
+    - rule_id: AR-VAL-002
+  - id: DEF-0040
+    type: vat_format
+    note: Zwei Debitoren mit zu kurzer USt-IdNr.
+    params:
+      bp_keys:
+      - C:0000100132
+      - C:0000100133
+      variant: zu_kurz
+    expected:
+    - rule_id: AR-VAL-002
+  - id: DEF-0041
+    type: vat_format
+    note: Zwei Debitoren mit einem Buchstaben an einer Ziffernstelle der USt-IdNr.
+    params:
+      bp_keys:
+      - C:0000100138
+      - C:0000100140
+      variant: buchstabe_statt_ziffer
+    expected:
+    - rule_id: AR-VAL-002
+  - id: DEF-0042
+    type: vat_format
+    note: Zwei Kreditoren tragen die deutsche Steuernummer im Feld STCEG.
+    params:
+      bp_keys:
+      - V:0000200061
+      - V:0000200064
+      variant: steuernummer
+    expected:
+    - rule_id: AP-VAL-002
+  - id: DEF-0043
+    type: vat_format
+    note: Zwei Kreditoren mit zu kurzer USt-IdNr.
+    params:
+      bp_keys:
+      - V:0000200067
+      - V:0000200068
+      variant: zu_kurz
+    expected:
+    - rule_id: AP-VAL-002
+  - id: DEF-0044
+    type: vat_format
+    note: Ein Kreditor mit einem Buchstaben an einer Ziffernstelle der USt-IdNr.
+    params:
+      bp_keys:
+      - V:0000200071
+      variant: buchstabe_statt_ziffer
+    expected:
+    - rule_id: AP-VAL-002
+
+  # --- 6. IBAN mit ungültiger Prüfziffer (AR-VAL-003, AP-VAL-003)
+  - id: DEF-0045
+    type: iban_checksum
+    note: Drei Debitoren mit ungültiger IBAN-Prüfziffer.
+    params:
+      bp_keys:
+      - C:0000100147
+      - C:0000100152
+      - C:0000100157
+    expected:
+    - rule_id: AR-VAL-003
+  - id: DEF-0046
+    type: iban_checksum
+    note: Vier weitere Kreditoren mit ungültiger IBAN-Prüfziffer (der fünfte ist der Ankerfall V:0000201330).
+    params:
+      bp_keys:
+      - V:0000200072
+      - V:0000200073
+      - V:0000200075
+      - V:0000200077
+    expected:
+    - rule_id: AP-VAL-003
+
+  # --- 7. Zahlungsbedingung im Buchungskreis leer (AR-COM-002)
+  - id: DEF-0047
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100142
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0048
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100146
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0049
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100161
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0050
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100162
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0051
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100165
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0052
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100171
+      company_code: '2000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0053
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100172
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0054
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100175
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0055
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100179
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0056
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100181
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0057
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100186
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0058
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100188
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0059
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100189
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0060
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100192
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0061
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer; die Belege zeigen eine eindeutig meistgenutzte Bedingung
+      als Soll.
+    params:
+      bp_key: C:0000100194
+      company_code: '1000'
+      dominant: true
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0062
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer, auf den Belegen ohne Mehrheit – kein Soll ableitbar.
+    params:
+      bp_key: C:0000100196
+      company_code: '1000'
+      dominant: false
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0063
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer, auf den Belegen ohne Mehrheit – kein Soll ableitbar.
+    params:
+      bp_key: C:0000100197
+      company_code: '1000'
+      dominant: false
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0064
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer, auf den Belegen ohne Mehrheit – kein Soll ableitbar.
+    params:
+      bp_key: C:0000100199
+      company_code: '2000'
+      dominant: false
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0065
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer, auf den Belegen ohne Mehrheit – kein Soll ableitbar.
+    params:
+      bp_key: C:0000100206
+      company_code: '1000'
+      dominant: false
+    expected:
+    - rule_id: AR-COM-002
+  - id: DEF-0066
+    type: missing_payment_terms
+    note: Zahlungsbedingung im Buchungskreis leer, auf den Belegen ohne Mehrheit – kein Soll ableitbar.
+    params:
+      bp_key: C:0000100208
+      company_code: '1000'
+      dominant: false
+    expected:
+    - rule_id: AR-COM-002
+
+  # --- 8. Prüfung doppelte Rechnung nicht gesetzt (AP-COM-003)
+  - id: DEF-0067
+    type: missing_reprf
+    note: 30 Kreditoren ohne Prüfung auf doppelte Rechnung – die SAP-Doppelerfassungsprüfung ist damit aus.
+    params:
+      bp_keys:
+      - V:0000200084
+      - V:0000200085
+      - V:0000200088
+      - V:0000200091
+      - V:0000200095
+      - V:0000200097
+      - V:0000200098
+      - V:0000200099
+      - V:0000200101
+      - V:0000200102
+      - V:0000200106
+      - V:0000200109
+      - V:0000200110
+      - V:0000200112
+      - V:0000200113
+      - V:0000200118
+      - V:0000200122
+      - V:0000200124
+      - V:0000200125
+      - V:0000200130
+      - V:0000200131
+      - V:0000200132
+      - V:0000200134
+      - V:0000200137
+      - V:0000200138
+      - V:0000200141
+      - V:0000200144
+      - V:0000200145
+      - V:0000200147
+      - V:0000200148
+    expected:
+    - rule_id: AP-COM-003
+
+  # --- 9. Platzhalter im Namen (AR-VAL-005)
+  - id: DEF-0068
+    type: placeholder_name
+    note: Zehn Debitoren tragen einen Platzhalter statt eines Firmennamens.
+    params:
+      targets:
+      - bp_key: C:0000100214
+        name: Test GmbH
+      - bp_key: C:0000100215
+        name: Testkunde 2
+      - bp_key: C:0000100216
+        name: unbekannt
+      - bp_key: C:0000100217
+        name: XXX Handel
+      - bp_key: C:0000100218
+        name: TEST
+      - bp_key: C:0000100219
+        name: Neuanlage unbekannt
+      - bp_key: C:0000100220
+        name: xxx
+      - bp_key: C:0000100221
+        name: Testfirma Nord
+      - bp_key: C:0000100222
+        name: Dummy Konto
+      - bp_key: C:0000100224
+        name: Test 4711
+    expected:
+    - rule_id: AR-VAL-005
+
+  # --- 10. Löschkandidaten: kein Posten im Fenster (AR-HYG-001, AP-HYG-001, D-049, D-056)
+  - id: DEF-0069
+    type: dormant_account
+    note: 40 Debitoren ohne einen einzigen Posten im Postenfenster, angelegt vor Fensterbeginn.
+    params:
+      bp_keys:
+      - C:0000100003
+      - C:0000100018
+      - C:0000100034
+      - C:0000100053
+      - C:0000100058
+      - C:0000100062
+      - C:0000100063
+      - C:0000100064
+      - C:0000100068
+      - C:0000100071
+      - C:0000100072
+      - C:0000100078
+      - C:0000100087
+      - C:0000100089
+      - C:0000100094
+      - C:0000100108
+      - C:0000100110
+      - C:0000100111
+      - C:0000100126
+      - C:0000100131
+      - C:0000100141
+      - C:0000100144
+      - C:0000100156
+      - C:0000100163
+      - C:0000100168
+      - C:0000100187
+      - C:0000100228
+      - C:0000100230
+      - C:0000100232
+      - C:0000100233
+      - C:0000100235
+      - C:0000100236
+      - C:0000100237
+      - C:0000100238
+      - C:0000100241
+      - C:0000100242
+      - C:0000100244
+      - C:0000100246
+      - C:0000100247
+      - C:0000100248
+    expected:
+    - rule_id: AR-HYG-001
+  - id: DEF-0070
+    type: dormant_account
+    note: 25 Kreditoren ohne einen einzigen Posten im Postenfenster, angelegt vor Fensterbeginn.
+    params:
+      bp_keys:
+      - V:0000200004
+      - V:0000200011
+      - V:0000200013
+      - V:0000200034
+      - V:0000200038
+      - V:0000200043
+      - V:0000200046
+      - V:0000200050
+      - V:0000200051
+      - V:0000200052
+      - V:0000200056
+      - V:0000200063
+      - V:0000200069
+      - V:0000200087
+      - V:0000200093
+      - V:0000200100
+      - V:0000200103
+      - V:0000200107
+      - V:0000200108
+      - V:0000200111
+      - V:0000200116
+      - V:0000200120
+      - V:0000200121
+      - V:0000200139
+      - V:0000200150
+    expected:
+    - rule_id: AP-HYG-001
+
+  # --- 11. Doppelzahlungen (AP-LEA-001)
+  - id: DEF-0071
+    type: double_payment
+    note: Dieselbe Rechnung zweimal erfasst und bezahlt; die Referenz unterscheidet sich nur in der Schreibweise
+      (Bindestrich).
+    params:
+      bp_key: V:0000200151
+      company_code: '2000'
+      amount: '18500.00'
+      reference_a: RE-2026-0815
+      reference_b: RE20260815
+      document_date_a: '2026-01-13'
+      document_date_b: '2026-02-10'
+      payment_date_a: '2026-02-12'
+      payment_date_b: '2026-03-12'
+    expected:
+    - rule_id: AP-LEA-001
+  - id: DEF-0072
+    type: double_payment
+    note: Dieselbe Rechnung zweimal erfasst und bezahlt; die Referenz unterscheidet sich nur in der Schreibweise
+      (führende Null).
+    params:
+      bp_key: V:0000200152
+      company_code: '2000'
+      amount: '7400.00'
+      reference_a: RE-04711
+      reference_b: RE-4711
+      document_date_a: '2025-10-06'
+      document_date_b: '2025-11-03'
+      payment_date_a: '2025-11-05'
+      payment_date_b: '2025-12-03'
+    expected:
+    - rule_id: AP-LEA-001
+  - id: DEF-0073
+    type: double_payment
+    note: Dieselbe Rechnung zweimal erfasst und bezahlt; die Referenz unterscheidet sich nur in der Schreibweise
+      (Leerzeichen).
+    params:
+      bp_key: V:0000200153
+      company_code: '1000'
+      amount: '24900.00'
+      reference_a: RE 88231
+      reference_b: RE88231
+      document_date_a: '2026-03-02'
+      document_date_b: '2026-03-30'
+      payment_date_a: '2026-04-01'
+      payment_date_b: '2026-04-29'
+    expected:
+    - rule_id: AP-LEA-001
+  - id: DEF-0074
+    type: double_payment
+    note: Dieselbe Rechnung zweimal erfasst und bezahlt; die Referenz unterscheidet sich nur in der Schreibweise
+      (Groß-/Kleinschreibung).
+    params:
+      bp_key: V:0000200155
+      company_code: '1000'
+      amount: '11250.00'
+      reference_a: re-55120
+      reference_b: RE-55120
+      document_date_a: '2025-12-01'
+      document_date_b: '2025-12-29'
+      payment_date_a: '2025-12-31'
+      payment_date_b: '2026-01-28'
+    expected:
+    - rule_id: AP-LEA-001
+  - id: DEF-0075
+    type: double_payment
+    note: Dieselbe Rechnung zweimal erfasst und bezahlt; die Referenz unterscheidet sich nur in der Schreibweise
+      (Bindestrich).
+    params:
+      bp_key: V:0000200156
+      company_code: '1000'
+      amount: '33700.00'
+      reference_a: RN-9004
+      reference_b: RN9004
+      document_date_a: '2026-04-06'
+      document_date_b: '2026-05-04'
+      payment_date_a: '2026-05-06'
+      payment_date_b: '2026-06-03'
+    expected:
+    - rule_id: AP-LEA-001
+  - id: DEF-0076
+    type: double_payment
+    note: Dieselbe Rechnung zweimal erfasst und bezahlt; die Referenz unterscheidet sich nur in der Schreibweise
+      (führende Null).
+    params:
+      bp_key: V:0000200161
+      company_code: '1000'
+      amount: '5980.00'
+      reference_a: RE-0330
+      reference_b: RE-330
+      document_date_a: '2026-02-02'
+      document_date_b: '2026-03-02'
+      payment_date_a: '2026-03-04'
+      payment_date_b: '2026-04-01'
+    expected:
+    - rule_id: AP-LEA-001
+  - id: DEF-0077
+    type: double_payment
+    note: Dieselbe Rechnung zweimal erfasst und bezahlt; die Referenz unterscheidet sich nur in der Schreibweise
+      (Leerzeichen).
+    params:
+      bp_key: V:0000200164
+      company_code: '2000'
+      amount: '42100.00'
+      reference_a: INV 7781
+      reference_b: INV7781
+      document_date_a: '2025-09-01'
+      document_date_b: '2025-09-29'
+      payment_date_a: '2025-10-01'
+      payment_date_b: '2025-10-29'
+    expected:
+    - rule_id: AP-LEA-001
+  - id: DEF-0078
+    type: double_payment
+    note: 'Negativfall: Doppelzahlung, die innerhalb von 180 Tagen durch eine Gutschrift in gleicher Höhe
+      genettet ist.'
+    params:
+      bp_key: V:0000200169
+      company_code: '1000'
+      amount: '15300.00'
+      reference_a: RE-7712
+      reference_b: RE7712
+      document_date_a: '2025-11-10'
+      document_date_b: '2025-12-08'
+      payment_date_a: '2025-12-10'
+      payment_date_b: '2026-01-07'
+      netting: credit_memo
+      netting_days: 45
+    expected: []
+  - id: DEF-0079
+    type: double_payment
+    note: 'Negativfall: Doppelzahlung, die innerhalb von 180 Tagen durch eine Gutschrift in gleicher Höhe
+      genettet ist.'
+    params:
+      bp_key: V:0000200170
+      company_code: '1000'
+      amount: '21800.00'
+      reference_a: RE-3345
+      reference_b: RE 3345
+      document_date_a: '2026-01-05'
+      document_date_b: '2026-02-02'
+      payment_date_a: '2026-02-04'
+      payment_date_b: '2026-03-04'
+      netting: credit_memo
+      netting_days: 60
+    expected: []
+  - id: DEF-0080
+    type: double_payment
+    note: 'Negativfall: Doppelzahlung, die innerhalb von 180 Tagen durch eine Gutschrift in gleicher Höhe
+      genettet ist.'
+    params:
+      bp_key: V:0000200171
+      company_code: '1000'
+      amount: '6700.00'
+      reference_a: RE-9981
+      reference_b: RE9981
+      document_date_a: '2026-03-09'
+      document_date_b: '2026-04-06'
+      payment_date_a: '2026-04-08'
+      payment_date_b: '2026-05-06'
+      netting: credit_memo
+      netting_days: 30
+    expected: []
+  - id: DEF-0081
+    type: double_payment
+    note: Doppelzahlung über zwei Kreditorenkonten desselben Lieferanten – AP-LEA-001 findet sie erst mit
+      dem Dubletten-Cluster in Version 1.1 (D-054).
+    params:
+      bp_keys:
+      - V:0000200001
+      - V:0000200002
+      company_code: '1000'
+      amount: '28400.00'
+      reference_a: RE-5501
+      reference_b: RE5501
+      document_date_a: '2026-02-09'
+      document_date_b: '2026-03-09'
+      payment_date_a: '2026-03-11'
+      payment_date_b: '2026-04-08'
+    overlaps:
+    - DEF-0028
+    expected:
+    - rule_id: AP-LEA-001
+      from_rule_version: '1.1'
+  - id: DEF-0082
+    type: double_payment
+    note: Doppelzahlung über zwei Kreditorenkonten desselben Lieferanten – AP-LEA-001 findet sie erst mit
+      dem Dubletten-Cluster in Version 1.1 (D-054).
+    params:
+      bp_keys:
+      - V:0000200003
+      - V:0000200007
+      company_code: '1000'
+      amount: '13950.00'
+      reference_a: RE-6604
+      reference_b: RE6604
+      document_date_a: '2025-12-15'
+      document_date_b: '2026-01-12'
+      payment_date_a: '2026-01-14'
+      payment_date_b: '2026-02-11'
+    overlaps:
+    - DEF-0029
+    expected:
+    - rule_id: AP-LEA-001
+      from_rule_version: '1.1'
+
+  # --- 12. Skontoverlust je Kreditor (AP-LEA-002)
+  - id: DEF-0083
+    type: discount_usage
+    note: Kreditor, dessen Rechnungen durchgehend nach der Skontofrist bezahlt werden – der Verlust liegt
+      über der Meldegrenze von 1.000,00.
+    params:
+      bp_key: V:0000200177
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '80000.00'
+        open_items: '12000.00'
+        open_count: 3
+        payments: 14
+        last_payment_on: '2026-08-14'
+        late: true
+    expected:
+    - rule_id: AP-LEA-002
+      company_code: '1000'
+  - id: DEF-0084
+    type: discount_usage
+    note: Kreditor, dessen Rechnungen durchgehend nach der Skontofrist bezahlt werden – der Verlust liegt
+      über der Meldegrenze von 1.000,00.
+    params:
+      bp_key: V:0000200180
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '103000.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 16
+        last_payment_on: '2026-08-14'
+        late: true
+    expected:
+    - rule_id: AP-LEA-002
+      company_code: '1000'
+  - id: DEF-0085
+    type: discount_usage
+    note: Kreditor, dessen Rechnungen durchgehend nach der Skontofrist bezahlt werden – der Verlust liegt
+      über der Meldegrenze von 1.000,00.
+    params:
+      bp_key: V:0000200181
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '141000.00'
+        open_items: '21000.00'
+        open_count: 4
+        payments: 19
+        last_payment_on: '2026-08-14'
+        late: true
+    expected:
+    - rule_id: AP-LEA-002
+      company_code: '1000'
+  - id: DEF-0086
+    type: discount_usage
+    note: Kreditor, dessen Rechnungen durchgehend nach der Skontofrist bezahlt werden – der Verlust liegt
+      über der Meldegrenze von 1.000,00.
+    params:
+      bp_key: V:0000200186
+      postings:
+        company_code: '2000'
+        payment_terms: ZB02
+        volume_12m: '85500.00'
+        open_items: '9500.00'
+        open_count: 3
+        payments: 12
+        last_payment_on: '2026-08-14'
+        late: true
+    expected:
+    - rule_id: AP-LEA-002
+      company_code: '2000'
+  - id: DEF-0087
+    type: discount_usage
+    note: Kreditor, dessen Rechnungen durchgehend nach der Skontofrist bezahlt werden – der Verlust liegt
+      über der Meldegrenze von 1.000,00.
+    params:
+      bp_key: V:0000200188
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '69000.00'
+        open_items: '15000.00'
+        open_count: 3
+        payments: 11
+        last_payment_on: '2026-08-14'
+        late: true
+    expected:
+    - rule_id: AP-LEA-002
+      company_code: '1000'
+  - id: DEF-0088
+    type: discount_usage
+    note: Kreditor, dessen Rechnungen durchgehend nach der Skontofrist bezahlt werden – der Verlust liegt
+      über der Meldegrenze von 1.000,00.
+    params:
+      bp_key: V:0000200190
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '169000.00'
+        open_items: '26000.00'
+        open_count: 5
+        payments: 22
+        last_payment_on: '2026-08-14'
+        late: true
+    expected:
+    - rule_id: AP-LEA-002
+      company_code: '1000'
+  - id: DEF-0089
+    type: discount_usage
+    note: Kreditor, dessen Rechnungen durchgehend nach der Skontofrist bezahlt werden – der Verlust liegt
+      über der Meldegrenze von 1.000,00.
+    params:
+      bp_key: V:0000200191
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '92000.00'
+        open_items: '4000.00'
+        open_count: 2
+        payments: 15
+        last_payment_on: '2026-08-14'
+        late: true
+    expected:
+    - rule_id: AP-LEA-002
+      company_code: '1000'
+
+  # --- 13. Negativfall: korrekte Skontonutzung
+  - id: DEF-0090
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100249
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '40000.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0091
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100252
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '41500.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0092
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100253
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '43000.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0093
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100254
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '44500.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0094
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100256
+      postings:
+        company_code: '2000'
+        payment_terms: ZB02
+        volume_12m: '46000.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0095
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100257
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '47500.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0096
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100259
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '49000.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0097
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100260
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '50500.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0098
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100261
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '52000.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0099
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100263
+      postings:
+        company_code: '2000'
+        payment_terms: ZB02
+        volume_12m: '53500.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0100
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100264
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '55000.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0101
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100269
+      postings:
+        company_code: '2000'
+        payment_terms: ZB02
+        volume_12m: '56500.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0102
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100271
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '58000.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0103
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100273
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '59500.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0104
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100276
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '61000.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0105
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100279
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '62500.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0106
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100280
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '64000.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0107
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100282
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '65500.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0108
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100283
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '67000.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+  - id: DEF-0109
+    type: discount_usage
+    note: 'Negativfall: Debitor, der das Skonto innerhalb der Frist zieht – korrektes Zahlverhalten ist
+      kein Befund.'
+    params:
+      bp_key: C:0000100284
+      postings:
+        company_code: '1000'
+        payment_terms: ZB02
+        volume_12m: '68500.00'
+        open_items: '8000.00'
+        open_count: 2
+        payments: 6
+        late: false
+    expected: []
+
+  # --- 14. Gleiche IBAN bei zwei Kreditoren (AP-CON-001)
+  - id: DEF-0110
+    type: shared_bank_account
+    note: Zwei Kreditorenkonten führen dieselbe Bankverbindung, ohne dass ein Regulierer hinterlegt ist.
+    params:
+      bp_keys:
+      - V:0000200193
+      - V:0000200194
+    expected:
+    - rule_id: AP-CON-001
+  - id: DEF-0111
+    type: shared_bank_account
+    note: Zwei Kreditorenkonten führen dieselbe Bankverbindung, ohne dass ein Regulierer hinterlegt ist.
+    params:
+      bp_keys:
+      - V:0000200195
+      - V:0000200197
+    expected:
+    - rule_id: AP-CON-001
+  - id: DEF-0112
+    type: shared_bank_account
+    note: Zwei Kreditorenkonten führen dieselbe Bankverbindung, ohne dass ein Regulierer hinterlegt ist.
+    params:
+      bp_keys:
+      - V:0000200199
+      - V:0000200203
+    expected:
+    - rule_id: AP-CON-001
+  - id: DEF-0113
+    type: shared_bank_account
+    note: Zwei Kreditorenkonten führen dieselbe Bankverbindung, ohne dass ein Regulierer hinterlegt ist.
+    params:
+      bp_keys:
+      - V:0000200204
+      - V:0000200214
+    expected:
+    - rule_id: AP-CON-001
+
+  # --- 15. Kunde = Lieferant (CROSS-DUP-001, Finding auf dem Debitor, D-052)
+  - id: DEF-0114
+    type: customer_is_vendor
+    note: Derselbe Geschäftspartner ist als Debitor und als Kreditor geführt und trägt beide Male dieselbe
+      USt-IdNr.
+    params:
+      customer: C:0000100285
+      vendor: V:0000200206
+    expected:
+    - rule_id: CROSS-DUP-001
+  - id: DEF-0115
+    type: customer_is_vendor
+    note: Derselbe Geschäftspartner ist als Debitor und als Kreditor geführt und trägt beide Male dieselbe
+      USt-IdNr.
+    params:
+      customer: C:0000100286
+      vendor: V:0000200212
+    expected:
+    - rule_id: CROSS-DUP-001
+  - id: DEF-0116
+    type: customer_is_vendor
+    note: Derselbe Geschäftspartner ist als Debitor und als Kreditor geführt und trägt beide Male dieselbe
+      USt-IdNr.
+    params:
+      customer: C:0000100287
+      vendor: V:0000200217
+    expected:
+    - rule_id: CROSS-DUP-001
+  - id: DEF-0117
+    type: customer_is_vendor
+    note: Derselbe Geschäftspartner ist als Debitor und als Kreditor geführt und trägt beide Male dieselbe
+      USt-IdNr.
+    params:
+      customer: C:0000100288
+      vendor: V:0000200219
+    expected:
+    - rule_id: CROSS-DUP-001
+  - id: DEF-0118
+    type: customer_is_vendor
+    note: Derselbe Geschäftspartner ist als Debitor und als Kreditor geführt und trägt beide Male dieselbe
+      USt-IdNr.
+    params:
+      customer: C:0000100289
+      vendor: V:0000200220
+    expected:
+    - rule_id: CROSS-DUP-001
+
+  # --- 16. Unapplied Cash: Akontozahlungen ohne Rechnungsbezug (AR-LEA-001)
+  - id: DEF-0119
+    type: unapplied_cash
+    note: Sechs Zahlungseingänge ohne Rechnungsbezug, alle älter als 30 Tage.
+    params:
+      targets:
+      - bp_key: C:0000100293
+        company_code: '1000'
+        amount: '4200.00'
+        posting_date: '2026-06-15'
+      - bp_key: C:0000100295
+        company_code: '1000'
+        amount: '1850.00'
+        posting_date: '2026-05-04'
+      - bp_key: C:0000100298
+        company_code: '2000'
+        amount: '9300.00'
+        posting_date: '2026-07-01'
+      - bp_key: C:0000100302
+        company_code: '2000'
+        amount: '2640.00'
+        posting_date: '2026-03-17'
+      - bp_key: C:0000100303
+        company_code: '1000'
+        amount: '7150.00'
+        posting_date: '2026-04-22'
+      - bp_key: C:0000100305
+        company_code: '1000'
+        amount: '3400.00'
+        posting_date: '2026-06-29'
+    expected:
+    - rule_id: AR-LEA-001
+
+  # --- 17. Negativfall: Zentralregulierer (KNVP-Rolle RG)
+  - id: DEF-0120
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100306
+      member: C:0000100313
+    expected: []
+  - id: DEF-0121
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100316
+      member: C:0000100317
+    expected: []
+  - id: DEF-0122
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100321
+      member: C:0000100322
+    expected: []
+  - id: DEF-0123
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100323
+      member: C:0000100327
+    expected: []
+  - id: DEF-0124
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100332
+      member: C:0000100335
+    expected: []
+  - id: DEF-0125
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100336
+      member: C:0000100338
+    expected: []
+  - id: DEF-0126
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100342
+      member: C:0000100345
+    expected: []
+  - id: DEF-0127
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100346
+      member: C:0000100348
+    expected: []
+  - id: DEF-0128
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100355
+      member: C:0000100358
+    expected: []
+  - id: DEF-0129
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100361
+      member: C:0000100362
+    expected: []
+  - id: DEF-0130
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100364
+      member: C:0000100366
+    expected: []
+  - id: DEF-0131
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100368
+      member: C:0000100369
+    expected: []
+  - id: DEF-0132
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100324
+      member: C:0000100375
+    expected: []
+  - id: DEF-0133
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100374
+      member: C:0000100383
+    expected: []
+  - id: DEF-0134
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100382
+      member: C:0000100389
+    expected: []
+  - id: DEF-0135
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100385
+      member: C:0000100393
+    expected: []
+  - id: DEF-0136
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100394
+      member: C:0000100396
+    expected: []
+  - id: DEF-0137
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100406
+      member: C:0000100409
+    expected: []
+  - id: DEF-0138
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100408
+      member: C:0000100410
+    expected: []
+  - id: DEF-0139
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100412
+      member: C:0000100414
+    expected: []
+  - id: DEF-0140
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100415
+      member: C:0000100419
+    expected: []
+  - id: DEF-0141
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100422
+      member: C:0000100424
+    expected: []
+  - id: DEF-0142
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100427
+      member: C:0000100441
+    expected: []
+  - id: DEF-0143
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100443
+      member: C:0000100445
+    expected: []
+  - id: DEF-0144
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100450
+      member: C:0000100454
+    expected: []
+  - id: DEF-0145
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100455
+      member: C:0000100462
+    expected: []
+  - id: DEF-0146
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100464
+      member: C:0000100466
+    expected: []
+  - id: DEF-0147
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100469
+      member: C:0000100470
+    expected: []
+  - id: DEF-0148
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100473
+      member: C:0000100477
+    expected: []
+  - id: DEF-0149
+    type: central_payer
+    note: 'Negativfall: Zentralregulierer – zwei Konten mit gleicher Bankverbindung und Adresse, verbunden
+      über die Partnerrolle RG.'
+    params:
+      payer: C:0000100479
+      member: C:0000100480
+    expected: []
+
+  # --- 18. Negativfall: CpD-Konten mit dublettenähnlichem Namen
+  - id: DEF-0150
+    type: one_time_lookalike
+    note: 'Negativfall: zwei CpD-Konten mit fast gleichem Namen – Einmalkonten werden nie auf Dubletten
+      geprüft.'
+    params:
+      bp_keys:
+      - C:0000100010
+      - C:0000100041
+    expected: []
+  - id: DEF-0151
+    type: one_time_lookalike
+    note: 'Negativfall: zwei CpD-Konten mit fast gleichem Namen – Einmalkonten werden nie auf Dubletten
+      geprüft.'
+    params:
+      bp_keys:
+      - C:0000100052
+      - C:0000100086
+    expected: []
+  - id: DEF-0152
+    type: one_time_lookalike
+    note: 'Negativfall: zwei CpD-Konten mit fast gleichem Namen – Einmalkonten werden nie auf Dubletten
+      geprüft.'
+    params:
+      bp_keys:
+      - C:0000100117
+      - C:0000100158
+    expected: []
+  - id: DEF-0153
+    type: one_time_lookalike
+    note: 'Negativfall: zwei CpD-Konten mit fast gleichem Namen – Einmalkonten werden nie auf Dubletten
+      geprüft.'
+    params:
+      bp_keys:
+      - C:0000100213
+      - C:0000100262
+    expected: []
+  - id: DEF-0154
+    type: one_time_lookalike
+    note: 'Negativfall: zwei CpD-Konten mit fast gleichem Namen – Einmalkonten werden nie auf Dubletten
+      geprüft.'
+    params:
+      bp_keys:
+      - C:0000100268
+      - C:0000100272
+    expected: []
+
+  # --- 19. Negativfall: gleicher Kernname, andere Rechtsform
+  - id: DEF-0155
+    type: same_core_name_other_form
+    note: 'Negativfall: gleicher Kernname, andere Rechtsform und andere Adresse – höchstens ein Hinweis,
+      nie eine Dublette.'
+    params:
+      bp_keys:
+      - C:0000100309
+      - C:0000100319
+      legal_form: AG
+    expected: []
+  - id: DEF-0156
+    type: same_core_name_other_form
+    note: 'Negativfall: gleicher Kernname, andere Rechtsform und andere Adresse – höchstens ein Hinweis,
+      nie eine Dublette.'
+    params:
+      bp_keys:
+      - C:0000100340
+      - C:0000100353
+      legal_form: AG
+    expected: []
+  - id: DEF-0157
+    type: same_core_name_other_form
+    note: 'Negativfall: gleicher Kernname, andere Rechtsform und andere Adresse – höchstens ein Hinweis,
+      nie eine Dublette.'
+    params:
+      bp_keys:
+      - C:0000100363
+      - C:0000100370
+      legal_form: AG
+    expected: []
+  - id: DEF-0158
+    type: same_core_name_other_form
+    note: 'Negativfall: gleicher Kernname, andere Rechtsform und andere Adresse – höchstens ein Hinweis,
+      nie eine Dublette.'
+    params:
+      bp_keys:
+      - C:0000100388
+      - C:0000100434
+      legal_form: AG
+    expected: []
+  - id: DEF-0159
+    type: same_core_name_other_form
+    note: 'Negativfall: gleicher Kernname, andere Rechtsform und andere Adresse – höchstens ein Hinweis,
+      nie eine Dublette.'
+    params:
+      bp_keys:
+      - C:0000100444
+      - C:0000100451
+      legal_form: AG
+    expected: []

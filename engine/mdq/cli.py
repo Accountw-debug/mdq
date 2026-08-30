@@ -5,6 +5,7 @@ laut ``docs/specs/SPRINT-1.md``. Noch nicht implementierte Befehle brechen mit e
 Exit-Code ungleich 0 ab, damit nichts stumm ins Leere laeuft.
 """
 
+from collections import Counter
 from pathlib import Path
 from typing import Annotated, NoReturn
 
@@ -14,8 +15,10 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
-from mdq import CANONICAL_SCHEMA, RULES_DIR, __version__
+from mdq import CANONICAL_SCHEMA, EXPECTED_FINDINGS, RULES_DIR, __version__
 from mdq.demo import DEFAULT_SEED
+from mdq.demo.defects import write_expected
+from mdq.demo.generate import build_client
 from mdq.demo.generate import generate as generate_demo
 from mdq.findings import (
     FindingFileError,
@@ -227,9 +230,16 @@ def demo_generate(
         int,
         typer.Option("--seed", help="Zufalls-Seed; gleicher Seed gibt identische Dateien."),
     ] = DEFAULT_SEED,
+    defects: Annotated[
+        bool,
+        typer.Option(
+            "--defects/--no-defects",
+            help="Eingebaute Fehler aus defects.yaml anwenden (Vorgabe) oder den reinen Basis-Mandanten schreiben.",
+        ),
+    ] = True,
 ) -> None:
     """Erzeugt den synthetischen Demo-Mandanten (15 Dateien und manifest.json)."""
-    manifest = generate_demo(out, seed)
+    manifest = generate_demo(out, seed, None if defects else ())
 
     table = Table(box=box.SIMPLE)
     for column in ("Tabelle", "Zeilen", "sha256"):
@@ -241,12 +251,39 @@ def demo_generate(
         f"\n{len(manifest['tables'])} Dateien, {_thousands(manifest['total_rows'])} Zeilen, "
         f"Seed {manifest['seed']}, Datenstand {manifest['data_as_of']} -> {out}"
     )
+    if not defects:
+        console.print("[yellow]Ohne Defekte:[/] reiner Basis-Mandant, auf dem keine Regel greifen darf.")
 
 
 @demo_app.command("expected")
-def demo_expected() -> None:
-    """Leitet die erwarteten Findings aus defects.yaml ab."""
-    _not_implemented("demo expected", "Sprint 2, Aufgabe 2 (Defekt-Schicht)")
+def demo_expected(
+    out: Annotated[
+        Path,
+        typer.Option("--out", help="Zieldatei fuer die erwarteten Findings."),
+    ] = EXPECTED_FINDINGS,
+    seed: Annotated[
+        int,
+        typer.Option("--seed", help="Zufalls-Seed des Mandanten, aus dem die Erwartung entsteht."),
+    ] = DEFAULT_SEED,
+) -> None:
+    """Erzeugt die erwarteten Findings aus defects.yaml – nie von Hand pflegen (D-010)."""
+    client = build_client(seed)
+    write_expected(out, client.expected)
+
+    counts = Counter(entry.rule_id for entry in client.expected)
+    table = Table(box=box.SIMPLE)
+    for column in ("Regel", "Findings"):
+        table.add_column(column, no_wrap=True)
+    for rule_id, count in sorted(counts.items()):
+        table.add_row(rule_id, str(count))
+    console.print(table)
+
+    later = sum(1 for entry in client.expected if entry.from_rule_version)
+    console.print(
+        f"\n{len(client.expected)} erwartete Findings aus {len(counts)} Regeln"
+        + (f", davon {later} erst ab einer spaeteren Regelversion" if later else "")
+        + f" -> {out}"
+    )
 
 
 @app.command()

@@ -18,7 +18,7 @@ entity:
   display_name: "Hartmann Logistik e.K., Bremen"
 relevance:
   open_items: "8930.00"
-  volume_12m: "0.00"
+  volume_12m: "8930.00"
   currency: "EUR"
   last_activity_on: "2025-11-03"
 current:

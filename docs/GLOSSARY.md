@@ -17,6 +17,9 @@
 | **Evidenz (evidence)** | Einzelne Quelle mit Wert, Referenz, Datum, Übereinstimmung |
 | **Quellenlage** | Menschenlesbare Zusammenfassung der Evidenzen („bestätigt durch VIES und Rechnung 4711") |
 | **Euro-Wirkung (impact_eur)** | Betrag mit offengelegter Rechnung |
+| **Offene Posten (open_items)** | Summe der am Datenstand nicht ausgeglichenen Posten des BP in Hauswährung |
+| **Volumen 12 Monate (volume_12m)** | Summe der Rechnungsbeträge (brutto, Belegarten Rechnung) mit Buchungsdatum in den 12 Monaten vor dem Datenstand, abzüglich Gutschriften im selben Fenster – **unabhängig davon, ob die Rechnung ausgeglichen ist**. Zusammen mit den offenen Posten das Relevanzgewicht eines BP |
+| **Letzte Aktivität (last_activity_on)** | Spätestes Datum aus Buchungs- und Ausgleichsdatum aller Posten des BP. Ein Konto ohne Posten hat keine letzte Aktivität (`null`) |
 | **Golden Record** | Vorschlag für das führende Konto und je Feld den besten Wert bei Dubletten |
 | **Survivorship** | Regeln, welcher Wert je Feld gewinnt (VIES-geprüft > zuletzt geändert > vollständigster) |
 | **Whitelist** | Vom Kunden abgelehnte Vorschläge/„bewusst getrennt"-Paare, bleiben über Läufe |

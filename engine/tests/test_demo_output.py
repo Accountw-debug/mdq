@@ -4,11 +4,14 @@ import json
 from decimal import Decimal
 
 import duckdb
+import pytest
+import yaml
 from typer.testing import CliRunner
 
 from mdq import CANONICAL_SCHEMA
 from mdq.cli import app
 from mdq.demo import DATA_AS_OF, DEFAULT_SEED, MANDT, TABLES
+from mdq.demo.defects import DefectError
 from mdq.demo.generate import generate
 from mdq.demo.writers import DATE_INITIAL, columns_for
 from mdq.formats import parse_amount, parse_date
@@ -49,10 +52,20 @@ def test_same_seed_gives_identical_files(tmp_path) -> None:
 
 
 def test_other_seed_gives_other_data(tmp_path) -> None:
-    """Ohne diesen Test wäre ein Generator, der den Seed ignoriert, ebenfalls 'deterministisch'."""
-    first = generate(tmp_path / "a", DEFAULT_SEED)
-    second = generate(tmp_path / "b", DEFAULT_SEED + 1)
+    """Ohne diesen Test wäre ein Generator, der den Seed ignoriert, ebenfalls 'deterministisch'.
+
+    Verglichen wird der Basis-Mandant: die Defektliste nennt konkrete Kontonummern und
+    gilt nur für den Vorgabe-Seed.
+    """
+    first = generate(tmp_path / "a", DEFAULT_SEED, ())
+    second = generate(tmp_path / "b", DEFAULT_SEED + 1, ())
     assert first["tables"][0]["sha256"] != second["tables"][0]["sha256"]
+
+
+def test_defects_are_bound_to_their_seed(tmp_path) -> None:
+    """Ein anderer Seed bricht mit klarer Meldung ab, statt in Folgefehler zu laufen."""
+    with pytest.raises(DefectError, match="Seed"):
+        generate(tmp_path / "x", DEFAULT_SEED + 1)
 
 
 def test_manifest_matches_files(demo_client) -> None:
@@ -130,15 +143,21 @@ def test_files_stay_under_the_size_limit(demo_client) -> None:
 
 
 def test_cli_generates_into_the_target_directory(tmp_path) -> None:
-    result = runner.invoke(app, ["demo", "generate", "--out", str(tmp_path / "m"), "--seed", "1"])
+    result = runner.invoke(
+        app, ["demo", "generate", "--out", str(tmp_path / "m"), "--seed", "1", "--no-defects"]
+    )
     assert result.exit_code == 0
     assert (tmp_path / "m" / "manifest.json").is_file()
 
 
-def test_cli_expected_is_not_implemented_yet(tmp_path) -> None:
-    """D-013: ein Stub meldet keinen leeren Erfolg."""
-    result = runner.invoke(app, ["demo", "expected"])
-    assert result.exit_code == 2
+def test_cli_expected_writes_the_expected_findings(tmp_path) -> None:
+    """`mdq demo expected` erzeugt die Erwartung aus defects.yaml (D-010)."""
+    target = tmp_path / "expected_findings.yaml"
+    result = runner.invoke(app, ["demo", "expected", "--out", str(target)])
+    assert result.exit_code == 0
+    document = yaml.safe_load(target.read_text(encoding="utf-8"))
+    assert document["findings"], "die erzeugte Erwartung darf nicht leer sein"
+    assert "GENERIERT" in target.read_text(encoding="utf-8")
 
 
 def test_repo_copy_matches_the_generator(demo_client, repo_root) -> None:

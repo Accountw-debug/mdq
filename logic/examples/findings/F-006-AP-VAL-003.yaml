@@ -28,7 +28,7 @@ current:
   display: "Prüfziffer ungültig (schwifty)"
 proposed:
   value: null
-  display: "Kein Soll ermittelbar – keine zweite Quelle. Anfrage an Lieferant über bekannte Telefonnummer, nie über E-Mail aus der Rechnung"
+  display: "Anfrage an Lieferant über bekannte Telefonnummer, nie über E-Mail aus der Rechnung"
   source_summary: "Prüfziffer schlägt fehl; keine erfolgreiche Zahlung an diese IBAN im Zahllauf (REGUH); Rechnungsbild nicht verfügbar"
 evidence:
   - source_type: iban_checksum

@@ -80,7 +80,11 @@ class BankAccount:
 
 @dataclass(frozen=True)
 class CompanyCodeData:
-    """Buchungskreis-Sicht eines Partners (KNB1 bzw. LFB1)."""
+    """Buchungskreis-Sicht eines Partners (KNB1 bzw. LFB1).
+
+    Die letzten drei Felder sind die Angriffsfläche der Defekt-Schicht (Aufgabe 2): im
+    Basis-Mandanten stehen sie auf den unauffälligen Werten, ein Defekt setzt sie um.
+    """
 
     company_code: str
     payment_terms: str
@@ -88,6 +92,12 @@ class CompanyCodeData:
     payment_methods: str
     created_on: date
     created_by: str
+    #: Löschvormerkung im Buchungskreis (KNB1/LFB1-LOEVM) – AR-CON-002
+    deletion_flag: str = ""
+    #: Buchungssperre im Buchungskreis (KNB1/LFB1-SPERR) – AR-CON-002
+    posting_block: str = ""
+    #: Prüfung doppelte Rechnung (LFB1-REPRF) – leer wäre AP-COM-003
+    invoice_check: str = "X"
 
 
 @dataclass(frozen=True)
@@ -116,6 +126,16 @@ class Partner:
     company_codes: tuple[CompanyCodeData, ...]
     payer_profile: str
     size_class: str
+    #: Zweite Namenszeile (KNA1/LFA1-NAME2) - im Basis-Mandanten leer, eine Dubletten-
+    #: Variante verschiebt einen Namensteil hierher
+    name2: str = ""
+    #: Löschvormerkung zentral (KNA1/LFA1-LOEVM) – AR-CON-002
+    deletion_flag: str = ""
+    #: Buchungssperre zentral (KNA1/LFA1-SPERR) – AR-CON-002
+    posting_block: str = ""
+    #: Abweichender Regulierer (KNA1-KNRZA bzw. LFA1-LNRZA), bei Debitoren zusätzlich
+    #: als KNVP-Rolle RG – Negativfall gegen die Dublettenprüfung
+    payer_bp: str = ""
 
     @property
     def bp_key(self) -> str:

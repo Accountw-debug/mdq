@@ -24,11 +24,27 @@ FINDING_SCHEMA = LOGIC_DIR / "finding.schema.json"
 #: Verzeichnis der Regeldateien ``<ID>.rule.sql``
 RULES_DIR = LOGIC_DIR / "rules"
 
+#: Synthetische Testdaten - niemals echte Kundendaten (D-008)
+TESTDATA_DIR = PROJECT_ROOT / "testdata"
+
+#: Ausgabeverzeichnis des Demo-Mandanten (15 SE16N-Dateien und manifest.json)
+DEMO_MANDANT_DIR = TESTDATA_DIR / "demo_mandant"
+
+#: Liste der eingebauten Fehler - Fehler sind Daten, nicht Code (SPRINT-2.md)
+DEMO_DEFECTS = DEMO_MANDANT_DIR / "defects.yaml"
+
+#: Aus den Defekten erzeugte Erwartung; wird nie von Hand gepflegt (Regel 1, D-010)
+EXPECTED_FINDINGS = TESTDATA_DIR / "expected" / "expected_findings.yaml"
+
 __all__ = [
     "CANONICAL_SCHEMA",
+    "DEMO_DEFECTS",
+    "DEMO_MANDANT_DIR",
+    "EXPECTED_FINDINGS",
     "FINDING_SCHEMA",
     "LOGIC_DIR",
     "PROJECT_ROOT",
     "RULES_DIR",
+    "TESTDATA_DIR",
     "__version__",
 ]

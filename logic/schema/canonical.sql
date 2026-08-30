@@ -187,8 +187,11 @@ CREATE TABLE IF NOT EXISTS change_document (
 CREATE TABLE IF NOT EXISTS bp_relevance (
     bp_key          TEXT PRIMARY KEY,
     open_items_local DECIMAL(15,2) NOT NULL,
+    -- Rechnungen brutto (Belegarten Rechnung) mit Buchungsdatum in den 12 Monaten vor
+    -- data_as_of, abzueglich Gutschriften im selben Fenster - unabhaengig vom Ausgleich (D-051)
     volume_12m_local DECIMAL(15,2) NOT NULL,
     currency        TEXT NOT NULL,           -- Hauswaehrung des Buchungskreises, nicht umgerechnet
+    -- Spaetestes Datum aus Buchungs- und Ausgleichsdatum aller Posten; NULL ohne Posten (D-062)
     last_activity_on DATE,
     activity_status TEXT NOT NULL CHECK (activity_status IN ('active','dormant','never_posted'))
 );
