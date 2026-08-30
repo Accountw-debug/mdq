@@ -16,6 +16,7 @@ from rich.console import Console
 from rich.table import Table
 
 from mdq import CANONICAL_SCHEMA, EXPECTED_FINDINGS, RULES_DIR, __version__
+from mdq.canonical import SIDES, CanonicalError, Scope, build_canonical
 from mdq.demo import DEFAULT_SEED
 from mdq.demo.defects import write_expected
 from mdq.demo.generate import build_client
@@ -190,11 +191,22 @@ def load(
             ),
         ),
     ] = None,
+    company_codes: Annotated[
+        str | None,
+        typer.Option(
+            "--company-codes",
+            help="Buchungskreise des Laufs, durch Komma getrennt. Ohne Angabe: alle.",
+        ),
+    ] = None,
+    side: Annotated[
+        str,
+        typer.Option("--side", help="Seite des Laufs: ar, ap oder both."),
+    ] = "both",
 ) -> None:
-    """Liest Exporte ein, typisiert sie (raw -> staged) und zeigt den Run-Report.
+    """Liest Exporte ein, typisiert sie und baut das kanonische Modell.
 
-    Zwischenstand: Mapping auf das kanonische Schema und Regelausfuehrung folgen in den
-    naechsten Aufgaben von Sprint 3.
+    Zwischenstand: die Regelausfuehrung und ``runs/<id>/`` folgen mit ``mdq run``
+    (Sprint 3, Aufgabe 4).
     """
     if not input_dir.is_dir():
         err_console.print(f"[bold red]Fehler:[/] Verzeichnis existiert nicht: {input_dir}")
@@ -206,6 +218,19 @@ def load(
             f"erlaubt sind {list(NOTATIONS)}."
         )
         raise typer.Exit(code=EXIT_INVALID)
+
+    if side not in SIDES:
+        err_console.print(
+            f"[bold red]Fehler:[/] --side {side!r} ist unbekannt; erlaubt sind {sorted(SIDES)}."
+        )
+        raise typer.Exit(code=EXIT_INVALID)
+
+    scope = Scope(
+        company_codes=tuple(
+            code.strip() for code in (company_codes or "").split(",") if code.strip()
+        ),
+        side=side,
+    )
 
     files = sorted(
         path for path in input_dir.iterdir() if path.is_file() and path.suffix in EXPORT_SUFFIXES
@@ -221,8 +246,8 @@ def load(
         run_id=LOAD_RUN_ID,
         engine_version=__version__,
         note=(
-            "Zwischenstand: Dateien werden eingelesen und typisiert. "
-            "Mapping SAP -> kanonisch und Regelausführung folgen in Sprint 3."
+            "Zwischenstand: Dateien werden eingelesen, typisiert und kanonisch abgebildet. "
+            "Die Regelausführung folgt mit `mdq run` (Sprint 3, Aufgabe 4)."
         ),
     )
     try:
@@ -233,7 +258,8 @@ def load(
             con, mapping, [load.table for load in report.loads], LOAD_RUN_ID, decimal_notation
         ):
             report.add_stage(result)
-    except (LoaderError, MappingError, StagingError) as exc:
+        report.add_canonical(build_canonical(con, mapping, LOAD_RUN_ID, scope))
+    except (LoaderError, MappingError, StagingError, CanonicalError) as exc:
         err_console.print(f"[bold red]Fehler:[/] {exc}")
         raise typer.Exit(code=EXIT_INVALID) from exc
 

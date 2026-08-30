@@ -16,6 +16,7 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
+from mdq.canonical import CanonicalResult
 from mdq.loader import LoadResult
 from mdq.rules import Rule
 from mdq.staging import StageResult
@@ -106,6 +107,7 @@ class RunReport:
     note: str | None = None
     loads: list[LoadResult] = field(default_factory=list)
     stages: list[StageResult] = field(default_factory=list)
+    canonical: CanonicalResult | None = None
     rules: list[RuleOutcome] = field(default_factory=list)
     rejects: list[RejectSummary] = field(default_factory=list)
 
@@ -114,6 +116,9 @@ class RunReport:
 
     def add_stage(self, result: StageResult) -> None:
         self.stages.append(result)
+
+    def add_canonical(self, result: CanonicalResult) -> None:
+        self.canonical = result
 
     def add_rule(self, outcome: RuleOutcome) -> None:
         self.rules.append(outcome)
@@ -152,13 +157,20 @@ class RunReport:
         return [o for o in self.sorted_rules if o.status == STATUS_FAILED]
 
     @property
+    def rows_canonical(self) -> int:
+        return self.canonical.rows_total if self.canonical else 0
+
+    @property
     def warnings(self) -> list[str]:
-        return [
+        collected = [
             warning
             for results in (self.sorted_loads, self.sorted_stages)
             for result in results
             for warning in result.warnings
         ]
+        if self.canonical:
+            collected.extend(self.canonical.warnings)
+        return collected
 
     @property
     def has_problems(self) -> bool:
@@ -194,12 +206,14 @@ class RunReport:
                 for result in self.sorted_loads
             ],
             "stages": [result.to_dict() for result in self.sorted_stages],
+            "canonical": self.canonical.to_dict() if self.canonical else None,
             "rejects": [summary.to_dict() for summary in self.rejects],
             "rules": [outcome.to_dict() for outcome in self.sorted_rules],
             "totals": {
                 "files": len(self.loads),
                 "rows": sum(result.rows for result in self.loads),
                 "rows_staged": self.rows_staged,
+                "rows_canonical": self.rows_canonical,
                 "rejects": self.rejects_total,
                 "findings": self.findings_total,
                 "rules_executed": len([o for o in self.rules if o.status == STATUS_EXECUTED]),
@@ -325,6 +339,44 @@ def _render_stages(console: Console, report: RunReport) -> None:
         console.print(sums)
 
 
+def _render_canonical(console: Console, report: RunReport) -> None:
+    """Die Stufe `canonical`: Zeilen je Zieltabelle, Rejects und der aktive Scope.
+
+    Der Scope steht ausdruecklich da: was er ausschliesst, ist kein Reject (D-075) und
+    waere sonst eine Luecke, die niemand sieht.
+    """
+    result = report.canonical
+    if result is None:
+        return
+
+    console.print("\n[bold]Kanonisches Modell (staged -> canonical)[/]")
+    console.print(f"  Scope: {result.scope.describe()}")
+    console.print(
+        f"  Durch den Scope nicht aufgenommen: {result.out_of_scope_partners} Partner."
+    )
+    console.print(f"  Durch den Scope nicht aufgenommen: {result.out_of_scope_items} Posten.")
+    window = "–"
+    if result.posting_date_from or result.posting_date_to:
+        window = f"{result.posting_date_from} bis {result.posting_date_to}"
+    console.print(f"  Geliefertes Postenfenster: {window}")
+
+    table = Table(box=box.SIMPLE)
+    table.add_column("Tabelle", no_wrap=True, min_width=12)
+    for column in ("Zeilen", "Rejects", "Ausserhalb Scope"):
+        table.add_column(column, no_wrap=True, justify="right")
+    table.add_column("Quellen", overflow="fold")
+    for entry in result.tables:
+        table.add_row(
+            entry.table,
+            str(entry.rows),
+            str(entry.rejected) if entry.rejected else "–",
+            str(entry.out_of_scope) if entry.out_of_scope else "–",
+            ", ".join(entry.sources) or "–",
+        )
+    console.print(table)
+    console.print(f"  {result.rows_total} Zeilen kanonisch, {result.rejected_total} abgelehnt.")
+
+
 def _render_rejects(console: Console, report: RunReport) -> None:
     console.print("\n[bold]Rejects[/]")
     if not report.rejects:
@@ -376,6 +428,7 @@ def render(report: RunReport, console: Console | None = None) -> None:
     _render_header(out, report)
     _render_files(out, report)
     _render_stages(out, report)
+    _render_canonical(out, report)
     _render_rejects(out, report)
     _render_rules(out, report)
     if report.has_problems:

@@ -337,7 +337,10 @@ derivations:
   bp_key: "role CUSTOMER -> 'C:' || KUNNR ; role VENDOR -> 'V:' || LIFNR (jeweils unkonvertiert)"
   amount_signed_local: "SHKZG = 'S' -> +DMBTR ; SHKZG = 'H' -> -DMBTR (genau einmal, beim Staging)"
   reference_norm: "upper(regexp_replace(XBLNR, '[^A-Za-z0-9]', '', 'g'))"
-  name_norm: "siehe logic/dictionaries/legal_forms.yaml + street_abbreviations.yaml (Umlaute, Rauschen, Rechtsformen)"
+  # name_norm, city_norm und street_norm bleiben in Sprint 3 leer: ihre Normalisierung
+  # definiert die Dubletten-Spec in Sprint 4, und keine der 14 Regeln dieses Sprints liest
+  # sie (AR-DUP-001/AP-DUP-001 sind Sprint 4). Der Run-Report weist das aus (D-079).
+  name_norm: "siehe logic/dictionaries/legal_forms.yaml + street_abbreviations.yaml (Umlaute, Rauschen, Rechtsformen) – umgesetzt in Sprint 4"
   iban_norm: "upper(replace(IBAN, ' ', ''))"
   iban_valid: "schwifty.IBAN.validate – NULL wenn keine IBAN"
   item_key: "BUKRS || '|' || GJAHR || '|' || BELNR || '|' || BUZEI"
