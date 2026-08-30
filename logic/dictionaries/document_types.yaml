@@ -1,0 +1,38 @@
+# Belegarten (BLART) nach fachlicher Klasse, je Seite.
+#
+# Wozu: mehrere Stellen müssen wissen, was eine Rechnung und was eine Gutschrift ist –
+# die Relevanz (`volume_12m` = Rechnungen minus Gutschriften) und die Regeln, die auf
+# Gutschriften netten (AP-LEA-001). Ohne diese Datei stünde dieselbe Liste zweimal im
+# Code und liefe auseinander.
+#
+# Wie die Engine sie benutzt: sie liest die Datei und reicht die Listen den Regeln als
+# `params` zu. Regel-SQL liest weiterhin ausschließlich das kanonische Schema (Regel 5);
+# kein Regeltext greift auf eine Datei zu.
+#
+# Vollständigkeit: hier stehen nur Belegarten, die im Demo-Mandanten tatsächlich
+# vorkommen und damit nachgewiesen sind. Ein echter Mandant führt weitere – Faktura aus
+# SD (`RV`), Rechnungseingang aus MM (`RE`, `RN`), Zahlprogramm (`ZP`) und vor allem
+# kundeneigene Stornobelegarten. Sie werden beim Onboarding **hier** ergänzt, nachdem der
+# Kundenexport gezeigt hat, welche es gibt; geraten wird keine (D-082).
+version: "0.1"
+
+sides:
+  AR:
+    # Debitorenrechnung: erhöht die Forderung (SHKZG = S)
+    invoice: [DR]
+    # Debitorengutschrift: mindert die Forderung
+    credit_memo: [DG]
+    # Zahlungseingang
+    payment: [DZ]
+    # Storno. Leer, solange kein Export eine Stornobelegart geliefert hat (D-082);
+    # eine erfundene Belegart wäre schlimmer als eine leere Liste.
+    reversal: []
+  AP:
+    # Kreditorenrechnung: erhöht die Verbindlichkeit (SHKZG = H)
+    invoice: [KR]
+    # Kreditorengutschrift – das, was AP-LEA-001 als Netting anerkennt
+    credit_memo: [KG]
+    # Zahlungsausgang. Beim Kreditor ebenfalls Soll wie die Gutschrift – der Grund,
+    # warum das Soll-Kennzeichen allein kein Netting erkennt (D-082).
+    payment: [KZ]
+    reversal: []

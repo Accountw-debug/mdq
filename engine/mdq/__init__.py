@@ -30,13 +30,16 @@ RULES_DIR = LOGIC_DIR / "rules"
 #: Mapping SAP ECC -> kanonisches Schema; Quelle der Wahrheit fuer Feldlisten
 SAP_MAPPING = LOGIC_DIR / "mappings" / "sap_ecc.yaml"
 
+#: Woerterbuch der Belegarten (BLART) nach fachlicher Klasse, je Seite
+DOCUMENT_TYPES = LOGIC_DIR / "dictionaries" / "document_types.yaml"
+
 #: Fachlicher Regelkatalog: jede Zeile wird spaeter eine Regeldatei
 CATALOG_MD = RULES_DIR / "CATALOG.md"
 
 #: Synthetische Testdaten - niemals echte Kundendaten (D-008)
 TESTDATA_DIR = PROJECT_ROOT / "testdata"
 
-#: Ausgabeverzeichnis des Demo-Mandanten (15 SE16N-Dateien und manifest.json)
+#: Ausgabeverzeichnis des Demo-Mandanten (16 SE16N-Dateien und manifest.json)
 DEMO_MANDANT_DIR = TESTDATA_DIR / "demo_mandant"
 
 #: Liste der eingebauten Fehler - Fehler sind Daten, nicht Code (SPRINT-2.md)
@@ -50,6 +53,7 @@ __all__ = [
     "CATALOG_MD",
     "DEMO_DEFECTS",
     "DEMO_MANDANT_DIR",
+    "DOCUMENT_TYPES",
     "EXPECTED_FINDINGS",
     "FINDING_SCHEMA",
     "LOGIC_DIR",

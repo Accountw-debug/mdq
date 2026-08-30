@@ -214,7 +214,7 @@ def test_technical_values_are_not_truncated_at_80_columns(report) -> None:
 def test_cli_load_reports_the_samples() -> None:
     result = runner.invoke(app, ["load", "--input", str(SAMPLES)])
     assert result.exit_code == 0
-    assert "5 Dateien" in result.stdout
+    assert "6 Dateien" in result.stdout
     assert "KNA1" in result.stdout and "BSID" in result.stdout
     assert "CP1252" in result.stdout
 

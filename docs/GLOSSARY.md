@@ -22,10 +22,13 @@
 | **Euro-Wirkung (impact_eur)** | Betrag mit offengelegter Rechnung |
 | **Offene Posten (open_items)** | Summe der am Datenstand nicht ausgeglichenen Posten des BP in Hauswährung |
 | **Volumen 12 Monate (volume_12m)** | Summe der Rechnungsbeträge (brutto, Belegarten Rechnung) mit Buchungsdatum in den 12 Monaten vor dem Datenstand, abzüglich Gutschriften im selben Fenster – **unabhängig davon, ob die Rechnung ausgeglichen ist**. Zusammen mit den offenen Posten das Relevanzgewicht eines BP |
+| **Relevanzfenster** | Die zwölf Monate vor dem Datenstand, **links offen und rechts geschlossen**: `posting_date > data_as_of − 12 Monate` und `<= data_as_of`. Dasselbe Fenster gilt für `volume_12m` und für den Aktivitätsstatus – ein Aktualitätsbegriff, nicht zwei (D-086, D-087) |
 | **Letzte Aktivität (last_activity_on)** | Spätestes Datum aus Buchungs- und Ausgleichsdatum aller Posten des BP. Ein Konto ohne Posten hat keine letzte Aktivität (`null`) |
+| **Aktivitätsstatus (activity_status)** | `active` – letzte Aktivität im Relevanzfenster; `dormant` – keine Aktivität im Fenster, einschließlich der Konten ganz ohne Posten, die vor Fensterbeginn angelegt wurden; `never_posted` – kein Posten und Anlage im Fenster, das Konto konnte sich noch nicht bewegen (D-086) |
 | **Golden Record** | Vorschlag für das führende Konto (`proposed.value`) und je Feld den besten Wert mit seiner Herkunft (`proposed.golden_record`: je Feld `value`, `source_bp_key`, `source_type`) |
 | **Kontosatz (entity.records)** | Je beteiligtem Konto die Vergleichsfelder in Feldform statt als Fließtext: Name, Straße, PLZ, Ort, Land, USt-ID, maskierte IBAN, Zahlungsbedingung, offene Posten, Währung, letzte Aktivität. Grundlage des Feld-für-Feld-Vergleichs bei Dubletten. Beträge als String mit zwei Dezimalen, IBAN nur maskiert (höchstens die ersten vier und die letzten vier Zeichen, Regel 8) |
 | **Survivorship** | Regeln, welcher Wert je Feld gewinnt (VIES-geprüft > zuletzt geändert > vollständigster) |
+| **Entscheidungsgedächtnis (decision_memory)** | Gepflegte Datei mit getroffenen Entscheidungen (`--decisions`, ersatzweise `<input>/decisions.yaml`), je Eintrag `finding_id`, `rule_id`, `bp_key`, `decided_by`, `decided_at`, `reason_code`, `reason`. Das Finding entsteht weiterhin und trägt den gespeicherten Status statt `open` – nichts verschwindet stumm. Kein Laufprodukt: es wird nicht aus dem `findings.json` eines Vorlaufs gelesen (D-088) |
 | **Whitelist** | Vom Kunden abgelehnte Vorschläge/„bewusst getrennt"-Paare, bleiben über Läufe |
 | **Policy** | Kundenregel, die einen `decision`-Fall deterministisch macht |
 | **Lauf (run)** | Unveränderlicher Snapshot: Input-Hashes, Versionen, Datenstand, Findings |

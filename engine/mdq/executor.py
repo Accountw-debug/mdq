@@ -15,7 +15,9 @@ from typing import Any
 
 import duckdb
 
+from mdq.decisions import DecisionMemory, apply_decision
 from mdq.findings import validate_finding
+from mdq.relevance import multiple_currencies_message
 from mdq.rules import Rule
 
 #: Pflichtspalten des Ausgabe-Vertrags
@@ -76,6 +78,9 @@ class RunContext:
     pack_version: str
     data_as_of: str
     created_at: str
+    #: Gepflegte Entscheidungen des Kunden. Sie unterdruecken kein Finding, sie setzen
+    #: seinen Status (D-088); ohne Gedaechtnis bleibt jedes Finding ``open``.
+    decisions: DecisionMemory | None = None
 
 
 def finding_id_for(rule_id: str, row: dict[str, Any]) -> str:
@@ -163,6 +168,10 @@ def house_currency(con: duckdb.DuckDBPyConnection) -> str | None:
     V1 rechnet nicht um (D-030): Relevanzbetraege stehen in Hauswaehrung. Mehrere
     Hauswaehrungen im selben Lauf waeren stillschweigend unvergleichbare Betraege –
     dann bricht der Lauf ab. Umrechnung ueber TCURR ist V2.
+
+    Die Quelle der Waehrung ist ``company_code`` aus T001 (D-083); diese Pruefung hier
+    liegt hinter der Relevanzstufe und sieht, was tatsaechlich ins Finding laeuft.
+    Die Meldung steht in ``relevance.py``, damit es sie nur einmal gibt.
     """
     if not _table_exists(con, "bp_relevance"):
         return None
@@ -171,11 +180,7 @@ def house_currency(con: duckdb.DuckDBPyConnection) -> str | None:
     ).fetchall()
     currencies = [row[0] for row in rows]
     if len(currencies) > 1:
-        raise ExecutionError(
-            f"Mehrere Hauswaehrungen im Scope des Laufs: {currencies}. "
-            "V1 rechnet nicht um – Lauf je Hauswaehrung getrennt starten "
-            "(--company-codes einschraenken). Umrechnung ueber TCURR ist V2 (D-030)."
-        )
+        raise ExecutionError(multiple_currencies_message(currencies))
     return currencies[0] if currencies else None
 
 
@@ -318,7 +323,9 @@ def _build_finding(
     finding["status"] = "open"
     finding["data_as_of"] = ctx.data_as_of
     finding["created_at"] = ctx.created_at
-    return finding
+    # Eine getroffene Entscheidung setzt den Status – das Finding entsteht trotzdem und
+    # verschwindet nie stumm (Regel 4, D-088).
+    return apply_decision(finding, ctx.decisions)
 
 
 def execute_rule_rows(

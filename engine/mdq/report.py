@@ -17,7 +17,9 @@ from rich.console import Console
 from rich.table import Table
 
 from mdq.canonical import CanonicalResult
+from mdq.decisions import DecisionMemory
 from mdq.loader import LoadResult
+from mdq.relevance import RelevanceResult
 from mdq.rules import Rule
 from mdq.staging import StageResult
 
@@ -26,6 +28,16 @@ STAGES = ("raw", "staged", "canonical")
 
 #: Höchstzahl der je Stufe einzeln genannten Reject-Gründe
 MAX_REASONS_PER_STAGE = 5
+
+#: Höchstzahl der einzeln genannten verwaisten Entscheidungen
+MAX_ORPHANS = 5
+
+#: Beschriftung der Aktivitätsstufen im Report
+_STATUS_TEXT = {
+    "active": "aktiv",
+    "dormant": "ruhend",
+    "never_posted": "ohne Posten",
+}
 
 #: Kürzung des sha256 in der Anzeige – die volle Summe steht im LoadResult und in to_dict()
 SHA_DISPLAY_LENGTH = 8
@@ -95,6 +107,67 @@ class RejectSummary:
         }
 
 
+@dataclass(frozen=True)
+class DecisionSummary:
+    """Was der Lauf mit dem Entscheidungsgedächtnis gemacht hat.
+
+    Ein verwaister Eintrag – eine Entscheidung ohne passendes Finding – ist kein Fehler,
+    aber auch nichts, das stillschweigend verschwinden darf (Regel 4): er steht mit
+    `finding_id`, Regel und `bp_key` im Report. Andere Geschäftspartnerdaten kommen dort
+    nicht vor (Regel 8).
+    """
+
+    loaded: int
+    applied: int
+    orphans: tuple[tuple[str, str, str], ...] = ()
+    path: str | None = None
+    #: Falsch, solange keine Regeln liefen – dann sagt "verwaist" nichts aus
+    rules_executed: bool = True
+
+    @classmethod
+    def of(
+        cls, memory: DecisionMemory, rules_executed: bool = True
+    ) -> "DecisionSummary":
+        orphans = (
+            tuple(
+                (decision.finding_id, decision.rule_id, decision.bp_key)
+                for decision in memory.orphans
+            )
+            if rules_executed
+            else ()
+        )
+        return cls(
+            loaded=len(memory),
+            applied=len(memory.applied),
+            orphans=orphans,
+            path=str(memory.path) if memory.path else None,
+            rules_executed=rules_executed,
+        )
+
+    @property
+    def warnings(self) -> list[str]:
+        if not self.orphans:
+            return []
+        named = ", ".join(f"{finding_id} ({rule_id})" for finding_id, rule_id, _ in self.orphans)
+        message = (
+            f"Entscheidungsgedächtnis: {len(self.orphans)} Eintrag/Einträge ohne passendes "
+            f"Finding: {named}. Regel geändert oder Fall behoben – Eintrag prüfen."
+        )
+        return [message]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "loaded": self.loaded,
+            "applied": self.applied,
+            "rules_executed": self.rules_executed,
+            "orphans": [
+                {"finding_id": finding_id, "rule_id": rule_id, "bp_key": bp_key}
+                for finding_id, rule_id, bp_key in self.orphans
+            ],
+        }
+
+
 @dataclass
 class RunReport:
     """Sammelt die Kennzahlen eines Laufs."""
@@ -108,6 +181,8 @@ class RunReport:
     loads: list[LoadResult] = field(default_factory=list)
     stages: list[StageResult] = field(default_factory=list)
     canonical: CanonicalResult | None = None
+    relevance: RelevanceResult | None = None
+    decisions: DecisionSummary | None = None
     rules: list[RuleOutcome] = field(default_factory=list)
     rejects: list[RejectSummary] = field(default_factory=list)
 
@@ -119,6 +194,15 @@ class RunReport:
 
     def add_canonical(self, result: CanonicalResult) -> None:
         self.canonical = result
+
+    def add_relevance(self, result: RelevanceResult) -> None:
+        """Übernimmt Datenstand und Hauswährung des Laufs mit – sie sind Kopfdaten."""
+        self.relevance = result
+        self.house_currency = result.house_currency
+        self.data_as_of = result.data_as_of.isoformat()
+
+    def add_decisions(self, summary: DecisionSummary) -> None:
+        self.decisions = summary
 
     def add_rule(self, outcome: RuleOutcome) -> None:
         self.rules.append(outcome)
@@ -170,6 +254,10 @@ class RunReport:
         ]
         if self.canonical:
             collected.extend(self.canonical.warnings)
+        if self.relevance:
+            collected.extend(self.relevance.warnings)
+        if self.decisions:
+            collected.extend(self.decisions.warnings)
         return collected
 
     @property
@@ -207,6 +295,8 @@ class RunReport:
             ],
             "stages": [result.to_dict() for result in self.sorted_stages],
             "canonical": self.canonical.to_dict() if self.canonical else None,
+            "relevance": self.relevance.to_dict() if self.relevance else None,
+            "decisions": self.decisions.to_dict() if self.decisions else None,
             "rejects": [summary.to_dict() for summary in self.rejects],
             "rules": [outcome.to_dict() for outcome in self.sorted_rules],
             "totals": {
@@ -377,6 +467,60 @@ def _render_canonical(console: Console, report: RunReport) -> None:
     console.print(f"  {result.rows_total} Zeilen kanonisch, {result.rejected_total} abgelehnt.")
 
 
+def _render_relevance(console: Console, report: RunReport) -> None:
+    """Die Relevanzstufe: Datenstand samt Herkunft, Fenster, Partner je Aktivitätsstufe.
+
+    Der Datenstand steht mit seiner Herkunft da: ob er angegeben oder aus den Posten
+    abgeleitet wurde, entscheidet über das Zwölfmonatsfenster und damit über jede
+    Relevanzzahl – eine stille Annahme wäre hier besonders teuer.
+    """
+    result = report.relevance
+    if result is None:
+        return
+
+    console.print("\n[bold]Relevanz (BP-360)[/]")
+    console.print(f"  Datenstand: {result.data_as_of} ({result.data_as_of_source})")
+    console.print(
+        f"  Fenster: nach {result.window_from} bis {result.data_as_of} "
+        f"({result.window_months_text})"
+    )
+    console.print(f"  Hauswährung: {result.house_currency}")
+
+    table = Table(box=box.SIMPLE)
+    table.add_column("Aktivität", no_wrap=True, min_width=12)
+    table.add_column("Partner", no_wrap=True, justify="right")
+    for status, count in result.by_status:
+        table.add_row(_STATUS_TEXT.get(status, status), str(count))
+    console.print(table)
+    console.print(
+        f"  {result.partners} Partner · offene Posten {result.open_items_total} "
+        f"{result.house_currency} · Volumen 12M {result.volume_12m_total} "
+        f"{result.house_currency}"
+    )
+
+
+def _render_decisions(console: Console, report: RunReport) -> None:
+    """Das Entscheidungsgedächtnis: geladen, angewandt, verwaist."""
+    summary = report.decisions
+    if summary is None:
+        return
+
+    console.print("\n[bold]Entscheidungsgedächtnis[/]")
+    console.print(f"  Datei: {summary.path or '–'}")
+    if not summary.rules_executed:
+        console.print(
+            f"  {summary.loaded} Einträge geladen, noch nicht angewandt – "
+            "die Regeln laufen mit `mdq run`."
+        )
+        return
+    console.print(f"  {summary.loaded} Einträge geladen, {summary.applied} angewandt.")
+    for finding_id, rule_id, bp_key in summary.orphans[:MAX_ORPHANS]:
+        console.print(f"      [yellow]verwaist[/] {finding_id} · {rule_id} · {bp_key}")
+    remaining = len(summary.orphans) - MAX_ORPHANS
+    if remaining > 0:
+        console.print(f"      … und {remaining} weitere verwaiste Einträge")
+
+
 def _render_rejects(console: Console, report: RunReport) -> None:
     console.print("\n[bold]Rejects[/]")
     if not report.rejects:
@@ -429,6 +573,8 @@ def render(report: RunReport, console: Console | None = None) -> None:
     _render_files(out, report)
     _render_stages(out, report)
     _render_canonical(out, report)
+    _render_relevance(out, report)
+    _render_decisions(out, report)
     _render_rejects(out, report)
     _render_rules(out, report)
     if report.has_problems:

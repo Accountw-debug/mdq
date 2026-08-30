@@ -106,6 +106,7 @@ Fünf hässliche Varianten derselben KNA1-Zeilen. Der Loader muss alle identisch
 | `KNA1_utf16_tab.txt` | UTF-16 LE mit BOM | Tab | SAP "unkonvertiert" |
 | `KNA1_utf8bom_tab_quoted.txt` | UTF-8 mit BOM | Tab | Felder in Anführungszeichen |
 | `BSID_formats.txt` | UTF-8 | Tab | Betrag `1.234,56`, `1234.56`, nachgestelltes Minus `1.234,56-`, Datum `20260830` und `30.08.2026` |
+| `T001_utf8_tab.txt` | UTF-8 | Tab | ein Buchungskreis mit Hauswährung – ohne ihn hat der Ausschnitt keine Währung (D-083) |
 
 **`BSID_formats.txt` ist kein realistischer Export.** Ein echter SE16N-Export verwendet in der ganzen
 Datei dieselbe Dezimaldarstellung (SAP-Benutzereinstellung SU3); hier stehen deutsche und ISO-Schreibweise

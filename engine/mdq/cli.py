@@ -6,6 +6,7 @@ Exit-Code ungleich 0 ab, damit nichts stumm ins Leere laeuft.
 """
 
 from collections import Counter
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, NoReturn
 
@@ -17,6 +18,13 @@ from rich.table import Table
 
 from mdq import CANONICAL_SCHEMA, EXPECTED_FINDINGS, RULES_DIR, __version__
 from mdq.canonical import SIDES, CanonicalError, Scope, build_canonical
+from mdq.decisions import (
+    DecisionError,
+    DecisionMemory,
+    find_decisions,
+    load_decisions,
+    store_decisions,
+)
 from mdq.demo import DEFAULT_SEED
 from mdq.demo.defects import write_expected
 from mdq.demo.generate import build_client
@@ -31,7 +39,8 @@ from mdq.findings import (
 from mdq.formats import NOTATIONS
 from mdq.loader import LoaderError, load_table
 from mdq.mapping import MappingError, load_mapping
-from mdq.report import RunReport, collect_rejects, render
+from mdq.relevance import RelevanceError, build_relevance
+from mdq.report import DecisionSummary, RunReport, collect_rejects, render
 from mdq.rules import RuleError, load_rules
 from mdq.staging import StagingError, stage_all
 
@@ -202,6 +211,26 @@ def load(
         str,
         typer.Option("--side", help="Seite des Laufs: ar, ap oder both."),
     ] = "both",
+    data_as_of: Annotated[
+        str | None,
+        typer.Option(
+            "--data-as-of",
+            help=(
+                "Datenstand als JJJJ-MM-TT. Ohne Angabe: spaetestes Buchungs- oder "
+                "Ausgleichsdatum der Posten; der Report nennt den verwendeten Wert."
+            ),
+        ),
+    ] = None,
+    decisions: Annotated[
+        Path | None,
+        typer.Option(
+            "--decisions",
+            help=(
+                "YAML mit getroffenen Entscheidungen. Ohne Angabe wird "
+                "<input>/decisions.yaml verwendet, falls vorhanden."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Liest Exporte ein, typisiert sie und baut das kanonische Modell.
 
@@ -218,6 +247,17 @@ def load(
             f"erlaubt sind {list(NOTATIONS)}."
         )
         raise typer.Exit(code=EXIT_INVALID)
+
+    as_of: date | None = None
+    if data_as_of is not None:
+        try:
+            as_of = datetime.strptime(data_as_of, "%Y-%m-%d").date()  # noqa: DTZ007
+        except ValueError:
+            err_console.print(
+                f"[bold red]Fehler:[/] --data-as-of {data_as_of!r} ist kein Datum "
+                "im Format JJJJ-MM-TT."
+            )
+            raise typer.Exit(code=EXIT_INVALID) from None
 
     if side not in SIDES:
         err_console.print(
@@ -259,12 +299,30 @@ def load(
         ):
             report.add_stage(result)
         report.add_canonical(build_canonical(con, mapping, LOAD_RUN_ID, scope))
-    except (LoaderError, MappingError, StagingError, CanonicalError) as exc:
+        report.add_relevance(build_relevance(con, as_of))
+        memory = _load_memory(input_dir, decisions)
+        store_decisions(con, memory)
+        # Regeln laufen in dieser Zwischenstufe nicht; "verwaist" waere hier ohne Aussage.
+        report.add_decisions(DecisionSummary.of(memory, rules_executed=False))
+    except (
+        LoaderError,
+        MappingError,
+        StagingError,
+        CanonicalError,
+        RelevanceError,
+        DecisionError,
+    ) as exc:
         err_console.print(f"[bold red]Fehler:[/] {exc}")
         raise typer.Exit(code=EXIT_INVALID) from exc
 
     report.rejects = collect_rejects(con, LOAD_RUN_ID)
     render(report, console)
+
+
+def _load_memory(input_dir: Path, given: Path | None) -> DecisionMemory:
+    """Das Entscheidungsgedaechtnis des Laufs; ohne Datei ein leeres."""
+    path = find_decisions(input_dir, given)
+    return load_decisions(path) if path is not None else DecisionMemory()
 
 
 def _thousands(value: int) -> str:
