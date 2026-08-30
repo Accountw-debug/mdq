@@ -75,14 +75,28 @@ def test_valid_rule_parses(tmp_path, valid_rule_text) -> None:
     assert rule.requires_tables == ("business_partner",)
     assert rule.tests["hits"] == ("C:0000000001",)
     assert rule.sql.startswith("SELECT")
-    assert rule.warnings == []
+    assert rule.tests["edge"] == ()
 
 
-def test_empty_test_cases_warn_but_do_not_fail(tmp_path, valid_rule_text) -> None:
-    """D-021: bis der Demo-Mandant steht (Sprint 2) sind leere Testfaelle eine Warnung."""
-    text = valid_rule_text.replace('hits: ["C:0000000001"]', "hits: []")
-    rule = load_rule_file(_write(tmp_path, text))
-    assert any("tests.hits" in message for message in rule.warnings)
+def test_empty_edge_stays_allowed(tmp_path, valid_rule_text) -> None:
+    """Nicht jede Regel hat einen Grenzfall; ein erfundener waere schlechter (D-066)."""
+    rule = load_rule_file(_write(tmp_path, valid_rule_text))
+    assert rule.tests["edge"] == ()
+
+
+@pytest.mark.parametrize(
+    ("key", "filled"),
+    [("hits", '  hits: ["C:0000000001"]'), ("no_hits", '  no_hits: ["C:0000000002"]')],
+)
+def test_empty_test_cases_are_rejected(tmp_path, valid_rule_text, key, filled) -> None:
+    """D-021: seit der Demo-Mandant steht, ist eine leere Testliste ein Fehler."""
+    assert filled in valid_rule_text
+    text = valid_rule_text.replace(filled, f"  {key}: []")
+    with pytest.raises(RuleError) as exc:
+        load_rule_file(_write(tmp_path, text))
+    message = str(exc.value)
+    assert f"tests.{key}: leer" in message
+    assert "defects.yaml" in message
 
 
 # --- Fehlerhafte Koepfe --------------------------------------------------------------

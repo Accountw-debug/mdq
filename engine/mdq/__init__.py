@@ -24,6 +24,9 @@ FINDING_SCHEMA = LOGIC_DIR / "finding.schema.json"
 #: Verzeichnis der Regeldateien ``<ID>.rule.sql``
 RULES_DIR = LOGIC_DIR / "rules"
 
+#: Fachlicher Regelkatalog: jede Zeile wird spaeter eine Regeldatei
+CATALOG_MD = RULES_DIR / "CATALOG.md"
+
 #: Synthetische Testdaten - niemals echte Kundendaten (D-008)
 TESTDATA_DIR = PROJECT_ROOT / "testdata"
 
@@ -38,6 +41,7 @@ EXPECTED_FINDINGS = TESTDATA_DIR / "expected" / "expected_findings.yaml"
 
 __all__ = [
     "CANONICAL_SCHEMA",
+    "CATALOG_MD",
     "DEMO_DEFECTS",
     "DEMO_MANDANT_DIR",
     "EXPECTED_FINDINGS",

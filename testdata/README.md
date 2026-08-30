@@ -23,6 +23,7 @@ dazu `manifest.json` mit Seed, Generator-Version, Datenstand sowie Zeilen und sh
 | Debitoren- / Kreditorenposten | ~40.000 / ~20.000, rund zwei Drittel der Rechnungen ausgeglichen |
 | Zeilen gesamt | ~77.000, zusammen rund 12 MB |
 | Eingebaute Fehler | 159 Defekte aus `demo_mandant/defects.yaml` → 230 erwartete Findings über 19 Regeln |
+| Katalogabdeckung | 19 der 36 Regeln in `logic/rules/CATALOG.md` haben einen Defekt, 17 stehen dort als `ohne Testfall` |
 
 ### Zwei Schichten
 
@@ -41,7 +42,10 @@ Löschvormerkung mit offenen Posten, fehlende Zahlungsbedingung, Löschkandidate
 Doppelzahlungen mit Referenzvarianten (drei davon genettet → KEIN Finding), Skontoverluste,
 Kunde = Lieferant, gleiche IBAN bei zwei Kreditoren. `engine/tests/test_demo_defects.py` prüft
 die Zahl der Fälle je Regel gegen den Katalog in `docs/specs/SPRINT-2.md` und jeden Ankerwert
-einzeln.
+einzeln. `engine/tests/test_catalog.py` hält zusätzlich drei Stände zusammen: den fachlichen
+Katalog `logic/rules/CATALOG.md`, die gebauten Regeln in `logic/rules/` und diese Defektliste –
+keine Regel-ID in `defects.yaml` ohne Katalogzeile, keine Katalogzeile mit falschem Vermerk in
+der Spalte `Testdaten`, und jeder Testfall im Regelkopf nennt ein Konto aus dieser Datei (D-066).
 
 Die Defekte nennen konkrete Kontonummern und gelten deshalb für Seed 20260830 (`seed:` in der
 Datei). Ein Lauf mit anderem Seed bricht ab und verweist auf `--no-defects` (D-059).
@@ -81,6 +85,10 @@ Datei). Ein Lauf mit anderem Seed bricht ab und verweist auf `--no-defects` (D-0
    Die Zahl der erwarteten Findings je Regel steht in `engine/tests/test_demo_defects.py`
    (`FINDINGS_PER_RULE`) und in `docs/specs/SPRINT-2.md`. Ändert sich eine Zahl, gehört sie
    an **beiden** Stellen angepasst – bewusst, nicht nebenbei.
+5. **Katalogvermerk nachziehen.** Trägt die Regel in `logic/rules/CATALOG.md` noch
+   `ohne Testfall` in der Spalte `Testdaten`, jetzt auf `Defekt` setzen – sonst schlägt
+   `engine/tests/test_catalog.py` fehl. Der Vermerk wird nicht automatisch gepflegt: er soll
+   beim Lesen des Katalogs zeigen, welche Regel eine Datengrundlage hat und welche nicht.
 
 Keine echten Firmen, Personen, IBAN oder USt-IdNr.: Namen entstehen kombinatorisch, die
 Bankleitzahlen stammen aus einem in Deutschland nicht vergebenen Bereich, IBAN-Prüfziffern sind

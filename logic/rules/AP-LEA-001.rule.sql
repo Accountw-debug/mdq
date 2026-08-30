@@ -35,9 +35,18 @@ remediation:
     - "Rückforderung an Lieferant (Anschreiben-Vorlage) oder Verrechnung mit nächster Rechnung"
     - "Ursache prüfen: Kreditoren-Dublette, Referenz-Erfassung, REPRF-Kennzeichen (LFB1)"
 tests:
-  hits: []
-  no_hits: []
-  edge: []
+  # Nur Konten, die `testdata/demo_mandant/defects.yaml` namentlich nennt (D-066).
+  hits:
+    - "V:0000200845"   # DEF-0004, Anker F-003: "RE-4711" / "RE4711", zweimal 32.000,00
+    - "V:0000200151"   # DEF-0071: Referenzvariante am selben Konto
+    - "V:0000200153"   # DEF-0073: Referenzvariante am selben Konto
+  no_hits:
+    - "V:0000200169"   # DEF-0078: durch Gutschrift innerhalb 180 Tagen genettet
+    - "V:0000200170"   # DEF-0079: durch Gutschrift innerhalb 180 Tagen genettet
+  edge:
+    # Doppelzahlung ueber zwei Kreditorenkonten desselben Lieferanten: Version 1.0
+    # vergleicht Belege eines Kontos und findet das Paar nicht - Pflicht ab 1.1 (D-054).
+    - "V:0000200001"   # DEF-0081
 --- */
 WITH inv AS (
     SELECT i.*

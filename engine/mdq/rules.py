@@ -98,19 +98,6 @@ class Rule:
     sql: str
     path: Path
 
-    @property
-    def warnings(self) -> list[str]:
-        """Nicht blockierende Hinweise.
-
-        Testfaelle koennen erst mit dem Demo-Mandanten (Sprint 2) gefuellt werden; bis
-        dahin sind leere Listen eine Warnung, danach ein Fehler (D-021).
-        """
-        messages = []
-        for key in ("hits", "no_hits"):
-            if not self.tests.get(key):
-                messages.append(f"tests.{key} ist leer – Testfall fehlt (ab Sprint 2 ein Fehler)")
-        return messages
-
 
 def _check_enum(errors: list[str], head: dict, key: str, allowed: tuple) -> None:
     value = head.get(key)
@@ -124,8 +111,13 @@ def _check_text(errors: list[str], head: dict, key: str) -> None:
         errors.append(f"{key}: muss ein nicht-leerer Text sein")
 
 
+#: Testlisten, die belegt sein muessen. `edge` bleibt optional: nicht jede Regel hat einen
+#: Grenzfall, und ein erfundener waere schlechter als keiner (D-021, D-066).
+REQUIRED_TEST_KEYS = ("hits", "no_hits")
+
+
 def _check_tests(errors: list[str], head: dict) -> dict[str, tuple[str, ...]]:
-    """Prueft die Struktur von `tests`. Leere Listen sind hier bewusst kein Fehler."""
+    """Prueft `tests`. Leere `hits`/`no_hits` sind seit dem Demo-Mandanten ein Fehler (D-021)."""
     tests = head.get("tests")
     if not isinstance(tests, dict):
         errors.append("tests: muss ein Objekt mit hits, no_hits und edge sein")
@@ -143,6 +135,12 @@ def _check_tests(errors: list[str], head: dict) -> dict[str, tuple[str, ...]]:
         entries = tests[key] or []
         if not isinstance(entries, list) or not all(isinstance(e, str) for e in entries):
             errors.append(f"tests.{key}: muss eine Liste von bp_key-Texten sein")
+            continue
+        if key in REQUIRED_TEST_KEYS and not entries:
+            errors.append(
+                f"tests.{key}: leer – jede Regel braucht einen Testfall aus "
+                "testdata/demo_mandant/defects.yaml (D-021, D-066)"
+            )
             continue
         result[key] = tuple(entries)
     return result

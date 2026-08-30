@@ -1,7 +1,7 @@
 [project]
 name = "mdq"
 version = "0.1.0"
-description = "Finance Master Data & Leakage Check – Prototyp-Engine"
+description = "Finance Master Data & Leakage Check"
 requires-python = ">=3.12"
 dependencies = [
     "duckdb>=1.1",

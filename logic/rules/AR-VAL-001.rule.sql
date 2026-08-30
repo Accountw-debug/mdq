@@ -31,9 +31,18 @@ remediation:
   field: STCEG
   mass_change_eligible: false
 tests:
-  hits: []
-  no_hits: []
-  edge: []
+  # Nur Konten, die `testdata/demo_mandant/defects.yaml` namentlich nennt (D-066).
+  hits:
+    - "C:0000100234"   # DEF-0001, Anker F-001: STCEG "AT U12345678" bei Sitzland DE
+    - "C:0000100014"   # DEF-0036: fremdes Praefix, die Dublette liefert das Soll
+    - "C:0000100040"   # DEF-0037: fremdes Praefix ohne zweite Quelle fuer das Soll
+  no_hits:
+    - "C:0000100987"   # DEF-0002, Anker F-002: "DE123456780" passt zum Sitzland
+    - "C:0000100132"   # DEF-0040: zu kurze USt-IdNr. - Format-, kein Praefixfehler
+  edge:
+    # Steuernummer "123/456/78901" im STCEG: ohne Buchstabenpraefix behauptet der Wert
+    # kein Land, das dem Sitzland widersprechen koennte - nur AR-VAL-002 greift (D-058).
+    - "C:0000100125"   # DEF-0039
 --- */
 WITH expected AS (
     SELECT

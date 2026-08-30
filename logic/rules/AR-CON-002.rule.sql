@@ -31,9 +31,18 @@ remediation:
     - "Option A: Sperre/Löschvormerkung aufheben, Posten normal weiterverfolgen"
     - "Option B: Posten ausgleichen oder umbuchen, Löschvormerkung beibehalten"
 tests:
-  hits: []
-  no_hits: []
-  edge: []
+  # Nur Konten, die `testdata/demo_mandant/defects.yaml` namentlich nennt (D-066).
+  hits:
+    - "C:0000101502"   # DEF-0003, Anker F-004: Loeschvormerkung zentral, 3 offene Posten
+    - "C:0000100000"   # DEF-0008: Loeschvormerkung zentral bei offenen Posten
+    - "C:0000100002"   # DEF-0009: Buchungssperre im Buchungskreis bei offenen Posten
+  no_hits:
+    - "C:0000100001"   # DEF-0012: Loeschvormerkung ohne offene Posten - stillgelegt, kein Fehler
+    - "C:0000100134"   # DEF-0013: Loeschvormerkung ohne offene Posten
+  edge:
+    # Offene Posten in beiden Buchungskreisen: die Regel liefert zwei Findings, je eines
+    # mit gesetztem entity.company_code (D-055).
+    - "C:0000100028"   # DEF-0007
 --- */
 WITH open_sum AS (
     SELECT bp_key, company_code, currency,

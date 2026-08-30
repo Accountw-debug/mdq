@@ -158,12 +158,9 @@ def rules_list(
         )
     console.print(table)
 
-    warned = [rule for rule in rules if rule.warnings]
-    for rule in warned:
-        for message in rule.warnings:
-            console.print(f"[yellow]HINWEIS[/] {rule.id}: {message}")
-
-    console.print(f"\n{len(rules)} Regeln, {len(warned)} mit Hinweis.")
+    # Regeln ohne Testfaelle kommen hier nicht mehr an: der Loader lehnt sie ab (D-021).
+    without_edge = [rule.id for rule in rules if not rule.tests.get("edge")]
+    console.print(f"\n{len(rules)} Regeln, {len(without_edge)} ohne Grenzfall.")
 
 
 #: Dateiendungen, die `mdq load` als Export ansieht
