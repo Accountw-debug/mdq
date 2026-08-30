@@ -12,3 +12,6 @@ Format je Session: Datum · Ziel · Ergebnis · Offen/Nächster Schritt (max. 3 
 - **2026-08-30 · Sprint 1, Aufgabe 3: Regel-Loader.** `mdq/rules.py` (YAML-Kopf parsen, 14 Pflichtfelder, Wertebereiche, vier Invarianten, Sammelmeldung, Vorlagen übersprungen) und `mdq rules list` mit Hinweis auf leere Testfälle umgesetzt; `requires_tables` werden gegen das kanonische Schema geprüft.
   Ergebnis: `uv run pytest` 68 passed, `uv run ruff check .` sauber, `mdq rules list` zeigt die drei Regeln. D-021 bis D-024 ergänzt; im Katalog AP-CON-003 auf Stufe C und AR-HYG-001/AP-HYG-001 auf `decision` korrigiert.
   Nächster Schritt: Sprint 1, Aufgabe 4 – Regel-Ausführung (`mdq/executor.py`), inkl. der offenen Frage zu `mass_change` bei den beiden HYG-Zeilen.
+- **2026-08-30 · UI-Worktree eingerichtet.** `../mdq-ui` auf Branch `ui-proto` von `main` (0bff445), `ui/NOTES.md` mit Arbeitsvereinbarung angelegt; Katalog-Aktion für AR-HYG-001/AP-HYG-001 auf `decision` korrigiert.
+  Ergebnis: zwei Sessions können parallel arbeiten, ohne dass `docs/DECISIONS.md` und `docs/SESSION_LOG.md` kollidieren. Entscheidung D-025 ergänzt.
+  Nächster Schritt: Sprint 1, Aufgabe 4 – Regel-Ausführung (`mdq/executor.py`).
