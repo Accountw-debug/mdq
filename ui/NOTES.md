@@ -245,6 +245,80 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   (`entity.documents[].required = [company_code, fiscal_year, document_no]`), der Typ verlangte
   es. Jetzt `line_item?: string | null` – der Vertrag ist das Schema, nicht die Beispieldatei.
 
+- **2026-08-30 · Der Datenzugriff liegt hinter `FindingsSource` (`src/sources/`).** Aufgabe 5b,
+  Punkt 1. `src/lib/load-run.ts` ist aufgelöst in `sources/findings-source.ts` (Vertrag),
+  `sources/parse.ts` (Prüfen und Ableiten, rein), `sources/{build,file}-source.ts` und
+  `sources/index.ts`. Der naheliegende Name `src/data/` geht **nicht**: die Wurzel-`.gitignore`
+  ignoriert `data/` auf jeder Ebene („Daten – niemals einchecken"), die Dateien wären
+  unbemerkt nicht im Commit gelandet. Ein `!`-Ausnahme in `ui/.gitignore` wäre ein Loch in
+  genau der Regel, die verhindert, dass Daten eingecheckt werden – dafür ist der Ordnername
+  zu wenig wert.
+  Zum Vertrag gehört mehr als die Signatur: jede Implementierung führt ihre Daten durch
+  `parse.ts` (dieselben Prüfungen für Datei und später API), Fehler verlassen eine Quelle
+  **immer** als `LoadError` mit deutscher Meldung (Regel 4), Meldungen nennen nur Feldnamen,
+  Regel-IDs und `finding_id` (Regel 8). `DEFAULT_SOURCE` in `sources/index.ts` ist die einzige
+  Stelle, die ein Backend austauscht. Verworfen: eine Lauf-Auswahl (`listRuns`) in derselben
+  Schnittstelle – das ist ein eigener Vertrag und ein eigenes Feature (siehe offene Punkte).
+- **2026-08-30 · Der Quellenwechsel läuft über Zustand, nicht über einen zweiten Aufruf.**
+  `App` hält `source` (was gelten soll) und `loaded` (was zu sehen ist, **mitsamt der Quelle,
+  aus der es stammt**). Sonst stünde nach einer unbrauchbaren Datei ihr Name im Banner über
+  den alten Daten. Der Ladeeffekt hängt allein an `source` und bricht mit `AbortController`
+  ab, damit ein schneller Wechsel nicht das alte Ergebnis nachschiebt.
+- **2026-08-30 · `decisions.json` ist ein versionierter Umschlag, kein nacktes Array.**
+  Aufgabe 5b, Punkt 2. `{format: "mdq.decisions", format_version: 1, run_id, data_as_of,
+  engine_version, pack_version, exported_at, exported_by, decisions: [...]}`; Vertrag in
+  `src/types/decisions-file.ts`, Umsetzung in `src/lib/decisions-io.ts`. Versionsregel:
+  zusätzliche optionale Felder lassen die Version stehen (ein älterer Leser nennt sie als
+  unbekannt, Regel 4), alles was einen älteren Leser falsch verstehen ließe erhöht sie; ein
+  Leser nimmt genau die Versionen, die er kennt. `sample_reviewed` (Aufgabe 7) ist im Vertrag
+  benannt und heute **nicht** geschrieben. Die Sätze stehen nach `finding_id` sortiert –
+  gleicher Stand, gleiche Datei bis aufs Byte (Regel 9). Verworfen: das Array aus der Spec
+  ohne Umschlag – ohne Lauf-Kopf ist beim Einlesen nicht prüfbar, wozu die Datei gehört.
+- **2026-08-30 · Der Import ersetzt den Stand der Sitzung, mit Rückfrage.** Freigabe Victor.
+  „Gestern weitergearbeitet" ist ein Zustand, nicht die Summe zweier. Liegen lokale
+  Entscheidungen vor, fragt `ImportDecisionsDialog` vorher – mit dem Bericht **vor** der
+  Übernahme und dem Hinweis, erst zu sichern. Zusammenführen zweier Stände ist als späterer
+  Punkt notiert, nicht gebaut.
+- **2026-08-30 · Ein anderer `run_id` in der Entscheidungsdatei ist eine Warnung, kein
+  Abbruch.** Freigabe Victor. `finding_id` ist deterministisch (Regel 9), ein Finding kann im
+  nächsten Lauf denselben Schlüssel tragen. Angewandt wird nur, was ein Finding im geladenen
+  Lauf findet; der Bericht sagt immer zuerst, wie viele das sind und wie viele nicht, und
+  nennt die übrigen `finding_id`s einzeln (Regel 4). Abgebrochen wird nur, wenn die Datei als
+  Ganzes nicht taugt: falsches `format`, unbekannte `format_version`, kaputter Satz.
+- **2026-08-30 · `exported_by` füllt den Bearbeiter nur, wenn dort nichts steht.** Der Fall
+  „derselbe Bearbeiter, nächster Tag" spart sich damit das Tippen; ein bereits eingetragener
+  Name wird nie stillschweigend überschrieben.
+- **2026-08-30 · Der Berichtstext ist eine reine Funktion** (`describeImport`), nicht Text in
+  der Komponente. Grund: der Wortlaut steht damit im Test, und Dialog und Banner sagen
+  dasselbe.
+- **2026-08-30 · Die Tabelle ist virtualisierungsfähig geschnitten – ohne Virtualisierung.**
+  Aufgabe 5b, Punkt 3. Fünf Dinge: (1) Der Zeilentyp `FindingRow` trägt die Entscheidung
+  **in den Daten**, nicht in einer Closure der Spaltendefinition – vorher baute jede
+  Entscheidung alle Spalten und damit die ganze Tabelle neu; `COLUMNS` ist jetzt konstant.
+  `finding.decision` reicht dafür nicht, dort steht schemakonform keine `action`.
+  (2) `ROW_HEIGHT = 56` als Konstante: jede Zeile genau zwei Textzeilen hoch, die spätere
+  `estimateSize`. (3) Eigener begrenzter Scrollbereich mit klebendem Kopf statt einer
+  scrollenden Seite. (4) Zeilenzugriff über `scrollToIndex(index)` und `indexOfId` statt
+  `querySelector('[data-selected]')` – mit Virtualisierung ist die gewählte Zeile womöglich
+  gar nicht gerendert. (5) `FindingsTableRow` mit `memo`; das greift, weil TanStack das
+  Zeilenmodell an `table.options.data` bindet (`createCoreRowModel`, `memoDeps`) und die
+  Zeilenobjekte damit stabil bleiben, solange die sichtbare Liste dieselbe ist. Ein Fenster
+  über 10.000 Findings ersetzt danach nur die Schleife in `FindingsTable`.
+- **2026-08-30 · Kein `@tanstack/react-virtual` installiert.** Der Nachrüstpunkt steht, die
+  Abhängigkeit nicht – sie bräuchte einen eigenen Eintrag hier, und die sechs Beispiele
+  brauchen sie nicht. Sechs Zeilen zu virtualisieren wäre Aufwand ohne Wirkung.
+- **2026-08-30 · `src/components/ui/table.tsx` nimmt `containerClassName` und `containerRef`.**
+  Zweite Anpassung an einer shadcn-Primitive nach `sheet.tsx`. Der Container ist der
+  scrollende Vorfahr, an dem `position: sticky` und später der Virtualizer hängen; ohne die
+  beiden Props ließe er sich von außen weder begrenzen noch messen. Verworfen: einen eigenen
+  Scroll-Wrapper darum legen – dann gäbe es zwei ineinander liegende Scrollbereiche, und
+  `sticky` klebte am falschen.
+- **2026-08-30 · Der App-Rahmen ist fensterhoch und scrollt nicht.** `AppShell` ist `h-svh`
+  mit `overflow-hidden`, der Inhalt eine Flex-Spalte mit `min-h-0`; der Explorer füllt sie und
+  seine Tabelle scrollt in sich. **Folge für Aufgabe 6:** eine Ansicht, die selbst lang wird
+  (Dashboard), bringt ihr eigenes `overflow-y-auto` mit. Das ist die einzige sichtbare
+  Änderung der Aufgabe 5b; Freigabe Victor.
+
 ## Offene Fragen an die Engine-Session (`main`)
 
 - **`entity.documents` trägt nur den Schlüssel – die Belegkarte braucht Referenz, Datum und
@@ -353,6 +427,21 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   `tables_loaded` ist dann echt statt `0`. `scripts/build-data.mjs` bleibt als Ersatz für
   den Prototyp, solange kein Lauf vorliegt.
 
+## Offene Punkte im UI (keine Schema-Frage)
+
+- **Lauf-Auswahl gehört in einen eigenen Vertrag, nicht in `FindingsSource`.** *(2026-08-30,
+  aus Aufgabe 5b.)* Ein Backend kann mehrere Läufe anbieten; „welche Läufe gibt es" ist aber
+  eine andere Frage als „lade diesen Lauf". Vorschlag für später: `FindingsCatalog` mit
+  `listRuns(): Promise<RunSummary[]>`, dazu eine Auswahl im Datenstand-Banner. `FindingsSource`
+  bleibt davon unberührt – der Schnitt ist so gelegt, dass das kein Umbau wird.
+- **Zusammenführen zweier Entscheidungsstände.** *(2026-08-30, aus Aufgabe 5b. Als späterer
+  Punkt vermerkt, Freigabe Victor.)* Heute ersetzt der Import. Ein Zusammenführen bräuchte eine
+  Konfliktregel (jüngeres `at` gewinnt? der lokale Stand gewinnt? Rückfrage je Finding?) und
+  gehört erst entschieden, wenn zwei Bearbeiter wirklich an einem Lauf sitzen.
+- **`sample_reviewed` schreibt Aufgabe 7.** Das Feld steht im Vertrag als reserviert; der
+  Import nennt es heute als unbekanntes Feld, sobald es in einer Datei auftaucht. Mit
+  Aufgabe 7 wird es gelesen – additiv, ohne Versionssprung.
+
 ## Session-Notizen
 
 Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
@@ -425,3 +514,12 @@ Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
   `reference_kind: netting`. Nächster Schritt: Aufgabe 5b – die drei Produktcode-Punkte
   (`FindingsSource`-Adapter, Export-/Import-Format, virtualisierungsfähige Tabelle), erst danach
   Aufgabe 6 (Dashboard).
+- **2026-08-30 · Aufgabe 5b (Produktcode-Nacharbeit).** Drei Punkte: `FindingsSource`-Adapter
+  (`src/sources/`, `lib/load-run.ts` aufgelöst, `DEFAULT_SOURCE` als einzige Austauschstelle),
+  versionierter Entscheidungs-Vertrag (`decisions.json` mit Umschlag, Export und Import im
+  Datenstand-Banner, Rückfrage vor dem Ersetzen, Bericht statt stummem Verwerfen) und der
+  virtualisierungsfähige Schnitt der Tabelle (konstante Spalten, `ROW_HEIGHT`, eigener
+  Scrollbereich mit klebendem Kopf, `scrollToIndex`/`indexOfId`, `memo` auf der Zeile).
+  Keine neue Abhängigkeit. 224 Tests grün (neu: `decisions-io` mit Rundlauf Export → Import,
+  `indexOfId`, feste Zeilenhöhe im Rauchtest), `npm run lint` und `npm run build` ohne Befund.
+  Nächster Schritt: Aufgabe 6 – Dashboard (bringt sein eigenes `overflow-y-auto` mit).

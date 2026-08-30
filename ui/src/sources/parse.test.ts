@@ -1,9 +1,11 @@
 /**
- * Tests für „Findings-Datei laden": eine unbrauchbare Datei muss auffallen,
- * statt halb dargestellt zu werden (CLAUDE.md, Regel 4).
+ * Tests der Prüfungen, durch die jede `FindingsSource` ihre Daten führt: eine
+ * unbrauchbare Datei muss auffallen, statt halb dargestellt zu werden
+ * (CLAUDE.md, Regel 4).
  */
 import { describe, expect, it } from 'vitest'
-import { LoadError, deriveRun, parseFindings } from '@/lib/load-run'
+import { deriveRun, parseFindings } from '@/sources/parse'
+import { LoadError } from '@/sources/findings-source'
 import type { Finding } from '@/types/finding'
 
 function findingJson(overrides: Record<string, unknown> = {}): Record<string, unknown> {

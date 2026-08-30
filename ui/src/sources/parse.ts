@@ -1,43 +1,18 @@
 /**
- * Laden der Findings – aus `public/data/` beim Start oder aus einer Datei, die der
- * Nutzer im Datenstand-Banner auswählt (später `runs/<run_id>/findings.json` der Engine).
+ * Prüfen und Ableiten – rein, ohne Netz und ohne DOM.
+ *
+ * Jede `FindingsSource` führt ihre Daten hier hindurch: die Datei aus dem Banner
+ * genauso wie später die Antwort einer API. Damit gelten für jede Quelle dieselben
+ * Prüfungen und dieselben Meldungen.
  *
  * Fehler werden nie geschluckt (CLAUDE.md, Regel 4): jede unbrauchbare Datei führt
  * zu einer Meldung mit Position und Feldname. Die Meldungen nennen nur Schlüssel,
  * Regel-IDs und Feldnamen, keine Geschäftspartnerdaten (Regel 8).
  */
 
+import { LoadError } from '@/sources/findings-source'
 import type { Finding, RunInfo } from '@/types/finding'
 import { ACTION_TYPES } from '@/types/finding'
-
-export interface LoadedRun {
-  run: RunInfo
-  findings: Finding[]
-  /** Woher die Daten stammen – für den Hinweis im Banner. */
-  source: { kind: 'build'; label: string } | { kind: 'file'; label: string }
-}
-
-export class LoadError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'LoadError'
-  }
-}
-
-async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url)
-  if (!response.ok) throw new LoadError(`${url}: HTTP ${response.status}`)
-  return (await response.json()) as T
-}
-
-/** Findings und Lauf-Kopf, wie `scripts/build-data.mjs` sie erzeugt. */
-export async function loadRunFromBuild(): Promise<LoadedRun> {
-  const [run, findings] = await Promise.all([
-    fetchJson<RunInfo>('data/run.json'),
-    fetchJson<Finding[]>('data/findings.json'),
-  ])
-  return { run, findings, source: { kind: 'build', label: 'Beispiel-Findings' } }
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -65,14 +40,12 @@ function checkFinding(index: number, value: unknown): Finding {
   return value as unknown as Finding
 }
 
-/** Liest ein Findings-JSON: entweder ein Array oder `{ findings: [...] }`. */
-export function parseFindings(text: string): Finding[] {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(text)
-  } catch (error) {
-    throw new LoadError(`Datei ist kein gültiges JSON: ${(error as Error).message}`)
-  }
+/**
+ * Prüft eine bereits geparste Findings-Liste: entweder ein Array oder
+ * `{ findings: [...] }`. Einstiegspunkt für Quellen, die schon JSON in der Hand
+ * haben (`fetch` → `response.json()`).
+ */
+export function checkFindings(parsed: unknown): Finding[] {
   const list = Array.isArray(parsed)
     ? parsed
     : isRecord(parsed) && Array.isArray(parsed.findings)
@@ -92,6 +65,17 @@ export function parseFindings(text: string): Finding[] {
     seen.add(finding.finding_id)
   }
   return findings
+}
+
+/** Liest ein Findings-JSON aus Text. */
+export function parseFindings(text: string): Finding[] {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch (error) {
+    throw new LoadError(`Datei ist kein gültiges JSON: ${(error as Error).message}`)
+  }
+  return checkFindings(parsed)
 }
 
 /** Genau ein Wert über alle Findings – sonst gehören sie nicht zu einem Lauf. */
@@ -126,10 +110,4 @@ export function deriveRun(findings: readonly Finding[]): RunInfo {
     tables_loaded: 0,
     company_codes: companyCodes,
   }
-}
-
-/** „Findings-Datei laden" aus dem Banner. */
-export async function loadRunFromFile(file: File): Promise<LoadedRun> {
-  const findings = parseFindings(await file.text())
-  return { run: deriveRun(findings), findings, source: { kind: 'file', label: file.name } }
 }

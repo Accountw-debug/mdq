@@ -18,6 +18,7 @@ import {
   companyCodeOptions,
   countByActionType,
   impactCents,
+  indexOfId,
   selectVisibleFindings,
   sortFindings,
 } from '@/lib/select-findings'
@@ -257,6 +258,29 @@ describe('Tab-Zähler', () => {
     ]
     expect(countByActionType(findings, withFilters({ side: 'AP' }), '').review).toBe(1)
     expect(countByActionType(findings, EMPTY_FILTERS, 'gibtesnicht').review).toBe(0)
+  })
+})
+
+describe('indexOfId', () => {
+  it('findet die Position in der sichtbaren Liste', () => {
+    const visible = selectVisibleFindings(examples, {
+      tab: 'review',
+      filters: EMPTY_FILTERS,
+      search: '',
+      sort: DEFAULT_SORT,
+    })
+    expect(indexOfId(visible, 'F-e2f7b19c4d83')).toBe(1)
+  })
+
+  it('meldet -1 für ein herausgefiltertes und für gar kein Finding', () => {
+    const visible = selectVisibleFindings(examples, {
+      tab: 'review',
+      filters: withFilters({ companyCode: '2000' }),
+      search: '',
+      sort: DEFAULT_SORT,
+    })
+    expect(indexOfId(visible, 'F-c41d7e9b2a60')).toBe(-1)
+    expect(indexOfId(visible, null)).toBe(-1)
   })
 })
 

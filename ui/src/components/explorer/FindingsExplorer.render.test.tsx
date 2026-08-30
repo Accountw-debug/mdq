@@ -107,6 +107,22 @@ describe('Explorer im Browser-Markup', () => {
     expect(html).toContain('>offen<')
   })
 
+  /**
+   * Vorbereitung der Virtualisierung: jede Zeile ist gleich hoch, und der Kopf
+   * klebt am eigenen Scrollbereich der Tabelle. Beides muss im Markup ankommen –
+   * ein Fenster über 10.000 Findings rechnet später mit genau dieser Höhe.
+   */
+  it('gibt jeder Zeile dieselbe feste Höhe', () => {
+    const html = render()
+    const heights = html.match(/height:56px/g) ?? []
+    expect(heights).toHaveLength(rowCount(html))
+  })
+
+  it('hält den Tabellenkopf im eigenen Scrollbereich fest', () => {
+    const html = render()
+    expect(html).toContain('sticky top-0')
+  })
+
   // Der Drawer hängt in einem Portal; `renderToStaticMarkup` kennt keine Portale und
   // gibt seinen Inhalt nicht aus. Die Karte selbst prüft `ReviewCard.render.test.tsx`,
   // die dafür ohne Portal auskommt.

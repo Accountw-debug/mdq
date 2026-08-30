@@ -19,6 +19,13 @@ export type DecisionsAction =
   | { type: 'clear'; findingId: string }
   /** Neue Findings-Datei: alte Entscheidungen gehören nicht zum neuen Lauf. */
   | { type: 'reset' }
+  /**
+   * Entscheidungsdatei eingelesen. Sie **ersetzt** den Stand der Sitzung, sie
+   * mischt nicht: „gestern weitergearbeitet" ist ein Zustand, nicht die Summe
+   * zweier (Freigabe Victor, 2026-08-30). Gibt es lokale Entscheidungen, fragt
+   * die Oberfläche vorher nach.
+   */
+  | { type: 'import'; records: DecisionsState }
 
 export function decisionsReducer(state: DecisionsState, action: DecisionsAction): DecisionsState {
   switch (action.type) {
@@ -34,6 +41,9 @@ export function decisionsReducer(state: DecisionsState, action: DecisionsAction)
 
     case 'reset':
       return Object.keys(state).length === 0 ? state : NO_DECISIONS
+
+    case 'import':
+      return { ...action.records }
   }
 }
 

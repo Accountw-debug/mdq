@@ -1,0 +1,44 @@
+/**
+ * Der Vertrag der Datei `decisions.json` – Export **und** Import.
+ *
+ * Was das UI schreibt, muss es am nächsten Tag wieder einlesen können: derselbe
+ * Bearbeiter, derselbe Lauf, Arbeit fortsetzen statt neu anfangen (ui/NOTES.md,
+ * 2026-08-30). Deshalb steht die Version in der Datei und nicht im Kopf.
+ *
+ * Versionsregel:
+ * - Zusätzliche, optionale Felder lassen `format_version` unverändert. Ein älterer
+ *   Leser nennt sie als unbekannt (Regel 4 – nichts stumm verwerfen), liest den
+ *   Rest aber weiter.
+ * - Alles, was einen älteren Leser falsch verstehen ließe (Feld entfällt, Bedeutung
+ *   ändert sich, neuer Pflichtwert), erhöht `format_version`.
+ * - Ein Leser nimmt genau die Versionen, die er kennt; jede andere bricht ab.
+ *
+ * Reserviert für Aufgabe 7 und heute **nicht** geschrieben: `sample_reviewed`
+ * (die geprüfte Stichprobe je Regelgruppe). Es ist additiv und ändert die Version
+ * nicht.
+ */
+
+import type { DecisionRecord } from '@/types/decision'
+import type { IsoDate, IsoDateTime } from '@/types/finding'
+
+export const DECISIONS_FORMAT = 'mdq.decisions'
+
+/** Die einzige Version, die dieses UI schreibt und liest. */
+export const DECISIONS_FORMAT_VERSION = 1
+
+export interface DecisionsFile {
+  format: typeof DECISIONS_FORMAT
+  format_version: number
+  /**
+   * Der Lauf, zu dem die Entscheidungen gefallen sind – mitsamt Datenstand und
+   * Versionen. Beim Einlesen ist das die Probe, ob Datei und Bildschirm zusammengehören.
+   */
+  run_id: string
+  data_as_of: IsoDate
+  engine_version: string
+  pack_version: string
+  exported_at: IsoDateTime
+  /** Der Bearbeiter aus dem Datenstand-Banner; steht zusätzlich in jedem Satz als `by`. */
+  exported_by: string
+  decisions: DecisionRecord[]
+}

@@ -4,11 +4,27 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+/**
+ * Angepasst gegenüber shadcn: der Container nimmt `className` und `ref` entgegen.
+ * Grund: der Findings-Explorer braucht ihn als **begrenzten** Scrollbereich mit
+ * klebendem Kopf (Vorbereitung der Virtualisierung); der Container ist der
+ * scrollende Vorfahr, an dem `position: sticky` und später der Virtualizer hängen.
+ * Ohne die beiden Props ließe er sich von außen weder messen noch begrenzen.
+ */
+function Table({
+  className,
+  containerClassName,
+  containerRef,
+  ...props
+}: React.ComponentProps<"table"> & {
+  containerClassName?: string
+  containerRef?: React.Ref<HTMLDivElement>
+}) {
   return (
     <div
+      ref={containerRef}
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className={cn("relative w-full overflow-x-auto", containerClassName)}
     >
       <table
         data-slot="table"

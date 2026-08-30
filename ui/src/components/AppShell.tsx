@@ -1,15 +1,22 @@
 import type { ReactNode } from 'react'
 import { BookOpenIcon, LayoutDashboardIcon, ListChecksIcon } from 'lucide-react'
-import { DataBanner } from '@/components/DataBanner'
+import { DataBanner, type DecisionsFileControls } from '@/components/DataBanner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import type { LoadedRun } from '@/lib/load-run'
+import type { FindingsSource } from '@/sources'
 import { cn } from '@/lib/utils'
+import type { RunInfo } from '@/types/finding'
 
 /**
  * App-Rahmen: schmale linke Navigation, Datenstand-Banner, Inhalt.
  *
  * Kein Router (Spec Sprint 5) – drei Ansichten reichen, der Zustand bleibt im
  * Speicher. Das Banner steht über dem Inhalt und damit auf jedem Screen.
+ *
+ * Der Rahmen ist genau fensterhoch und scrollt nicht: der Inhaltsbereich ist eine
+ * Flex-Spalte mit `min-h-0`, damit eine Ansicht sich selbst begrenzen kann. Der
+ * Findings-Explorer nutzt das für den eigenen Scrollbereich seiner Tabelle
+ * (Grundlage der Virtualisierung). Eine Ansicht, die selbst lang wird, bringt
+ * ihr `overflow-y-auto` mit.
  */
 
 export type View = 'dashboard' | 'findings' | 'rules'
@@ -29,21 +36,23 @@ export function AppShell({
   onViewChange,
   reviewer,
   onReviewerChange,
+  decisionsFile,
   children,
 }: {
-  run: LoadedRun['run']
-  source: LoadedRun['source']
+  run: RunInfo
+  source: FindingsSource
   onSelectFile: (file: File) => void
   loadError: string | null
   view: View
   onViewChange: (view: View) => void
   reviewer: string
   onReviewerChange: (reviewer: string) => void
+  decisionsFile: DecisionsFileControls
   children: ReactNode
 }) {
   return (
     <TooltipProvider>
-      <div className="flex min-h-svh bg-background text-foreground">
+      <div className="flex h-svh overflow-hidden bg-background text-foreground">
         <nav aria-label="Hauptnavigation" className="w-44 shrink-0 border-r px-3 py-4">
           <div className="px-2 pb-4">
             <div className="text-sm font-semibold tracking-tight">MDQ</div>
@@ -83,8 +92,9 @@ export function AppShell({
             loadError={loadError}
             reviewer={reviewer}
             onReviewerChange={onReviewerChange}
+            decisionsFile={decisionsFile}
           />
-          <main className="min-w-0 flex-1 p-6">{children}</main>
+          <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-6">{children}</main>
         </div>
       </div>
     </TooltipProvider>

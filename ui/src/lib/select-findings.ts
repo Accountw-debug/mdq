@@ -194,6 +194,16 @@ export function selectVisibleFindings(findings: readonly Finding[], query: Query
 }
 
 /**
+ * Position eines Findings in der sichtbaren Liste – `-1`, wenn es nicht darin
+ * vorkommt. Der Index ist die Schnittstelle zur Tabelle: mit Virtualisierung ist
+ * die gewählte Zeile womöglich gar nicht gerendert und nur über ihn erreichbar.
+ */
+export function indexOfId(findings: readonly Finding[], findingId: string | null): number {
+  if (findingId == null) return -1
+  return findings.findIndex((finding) => finding.finding_id === findingId)
+}
+
+/**
  * Zähler der Tabs – nach Filter und Suche, damit die Zahl am Tab zur Tabelle passt.
  * Jeder Aktionstyp kommt vor, auch mit 0 (die Beispiele haben keine Massenänderung).
  */
