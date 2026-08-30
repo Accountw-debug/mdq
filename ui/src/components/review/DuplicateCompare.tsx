@@ -112,9 +112,8 @@ export function DuplicateCompare({
       */}
       {missingFields.length > 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
-          <span className="font-medium">Platzhalter:</span> Für den Vergleich fehlen{' '}
-          {missingFields.join(', ')}. Diese Felder stehen nicht strukturiert im Finding;
-          sie kommen mit der vorgeschlagenen Schema-Erweiterung <Key>entity.records</Key>.
+          <span className="font-medium">Platzhalter:</span> {missingFields.join(', ')} stehen
+          nicht strukturiert im Finding – sie kommen mit <Key>entity.records</Key>.
         </p>
       )}
 

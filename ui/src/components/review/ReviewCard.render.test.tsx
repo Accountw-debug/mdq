@@ -110,6 +110,43 @@ describe('Review-Karte für alle sechs Beispiele', () => {
     expect(html).toContain('Rechnung B')
   })
 
+  it('zeigt bei der Doppelzahlung beide Belege als Karten vor Ist und Soll', () => {
+    const html = render(byId('F-c41d7e9b2a60'))
+    expect(html).toContain('Belegpaar')
+    expect(html).toContain('1000/2026/1900004411')
+    expect(html).toContain('1000/2026/1900004587')
+    // Referenz, Belegdatum und Zahldatum stehen als Felder, nicht als Satz.
+    expect(html).toContain('Belegdatum')
+    expect(html).toContain('Bezahlt am')
+    expect(html).toContain('28.03.2026')
+    expect(html).toContain('09.04.2026')
+    // Belegpaar steht vor Ist und Soll (Freigabe Victor).
+    expect(html.indexOf('Belegpaar')).toBeLessThan(html.indexOf('Ist und Soll'))
+  })
+
+  it('nennt den Fuzzy-Grund einmal und weist das Netting nach', () => {
+    const html = render(byId('F-c41d7e9b2a60'))
+    expect(html).toContain('Warum dieses Paar')
+    expect(html).toContain('Netting-Nachweis')
+    expect(html).toContain('keine Gutschrift über 32.000,00 EUR')
+    // Die Quellenlage steht über den Karten, nicht zusätzlich in Ist|Soll.
+    expect(html).not.toContain('Quellenlage: ')
+  })
+
+  it('benennt den Betrag je Beleg als Platzhalter, statt ihn zuzuschreiben', () => {
+    const html = render(byId('F-c41d7e9b2a60'))
+    expect(html).toContain('Platzhalter:')
+    expect(html).toContain('entity.documents')
+  })
+
+  it('fällt beim Skonto ohne Belege sauber auf die normale Karte zurück', () => {
+    const html = render(byId('F-5e8a2c7f0b14'))
+    expect(html).not.toContain('Belegpaar')
+    expect(html).not.toContain('Netting-Nachweis')
+    // Ohne Belegansicht bleibt die Quellenlage, wo sie immer stand.
+    expect(html).toContain('Quellenlage: ')
+  })
+
   it('zeigt bei der Entscheidung beide Optionen mit ihrer Konsequenz', () => {
     const html = render(byId('F-9d0b3f6a1c7e'))
     expect(html).toContain('Löschvormerkung aufheben, Posten normal mahnen')

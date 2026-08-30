@@ -4,6 +4,7 @@ import { Key } from '@/components/Key'
 import { ActionBar } from '@/components/review/ActionBar'
 import { AssignDialog } from '@/components/review/AssignDialog'
 import { CurrentProposed } from '@/components/review/CurrentProposed'
+import { DocumentPairSection } from '@/components/review/DocumentPair'
 import { DuplicateCompare } from '@/components/review/DuplicateCompare'
 import { EvidencePanel } from '@/components/review/EvidencePanel'
 import { Explanation } from '@/components/review/Explanation'
@@ -11,6 +12,7 @@ import { ImpactSection } from '@/components/review/ImpactSection'
 import { RejectDialog } from '@/components/review/RejectDialog'
 import { Relevance } from '@/components/review/Relevance'
 import { Remediation } from '@/components/review/Remediation'
+import { buildDocumentPair } from '@/lib/documents'
 import { buildDuplicateComparison } from '@/lib/duplicate'
 import { formatMoney } from '@/lib/format'
 import { acceptBlockedReason, createDecision } from '@/lib/review'
@@ -147,6 +149,9 @@ export function ReviewCard({
   // Tabelle wäre schlechter als gar keine.
   const comparison =
     finding.category === 'duplicate' ? buildDuplicateComparison(finding) : null
+  // Bei Geldabfluss mit Belegpaar steht die Belegansicht vor Ist|Soll (Spec, Aufgabe 5):
+  // erst welche zwei Belege, dann welches Feld. Ohne Belege bleibt die Karte, wie sie ist.
+  const documentPair = buildDocumentPair(finding)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -199,6 +204,7 @@ export function ReviewCard({
         nicht an der des Browserfensters. Die Abschnitte messen deshalb diesen Kasten.
       */}
       <div className="@container min-h-0 flex-1 overflow-y-auto">
+        {documentPair && <DocumentPairSection pair={documentPair} />}
         {comparison ? (
           <DuplicateCompare finding={finding} comparison={comparison} />
         ) : (
@@ -206,6 +212,7 @@ export function ReviewCard({
             finding={finding}
             chosenOption={chosenOption}
             onChooseOption={setChosenOption}
+            omitSourceSummary={documentPair != null}
           />
         )}
         <EvidencePanel finding={finding} />

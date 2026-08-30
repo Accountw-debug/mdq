@@ -13,15 +13,21 @@ import type { Finding, ProposedOption } from '@/types/finding'
  * - kein Wert, aber `proposed.display` → „Empfehlung" mit dem Satz. Ein Text, der die
  *   Handlung beschreibt, ist kein fehlendes Soll (Beobachtung Victor, 3b).
  * - weder Wert noch Text → „Soll" mit dem Hinweis, dass entschieden werden muss.
+ *
+ * `omitSourceSummary`: bei der Belegpaar-Ansicht steht die Quellenlage schon als
+ * „Warum dieses Paar" über den Belegkarten. Zweimal derselbe Satz auf einer Karte
+ * liest sich wie zwei Aussagen.
  */
 export function CurrentProposed({
   finding,
   chosenOption,
   onChooseOption,
+  omitSourceSummary = false,
 }: {
   finding: Finding
   chosenOption: string | null
   onChooseOption: (label: string | null) => void
+  omitSourceSummary?: boolean
 }) {
   const { current, proposed } = finding
   const options = proposed?.options ?? []
@@ -77,7 +83,7 @@ export function CurrentProposed({
             </p>
           )}
 
-          {proposed?.source_summary && (
+          {proposed?.source_summary && !omitSourceSummary && (
             <p className="mt-3 border-t pt-2 text-xs">
               <span className="text-muted-foreground">Quellenlage: </span>
               {proposed.source_summary}

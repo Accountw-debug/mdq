@@ -29,6 +29,16 @@ diese Datei wird dann geleert.
 
 Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
 
+- **2026-08-30 · Ab 30.08.: UI ist Produktcode, kein Prototyp.** Freigabe Victor. Daraus
+  folgen drei Festlegungen: Datenzugriff hinter einem `FindingsSource`-Adapter (Datei,
+  später Lauf-Verzeichnis oder API, ohne dass die Screens es merken); Export-/Import-Format
+  für Entscheidungen als spätere Persistenz festziehen (was Aufgabe 7 schreibt, muss sich
+  auch wieder einlesen lassen); Tabelle virtualisierungsfähig schneiden (Zeilenhöhe und
+  Zeilenzugriff so, dass ein Fenster über 10.000 Findings ohne Umbau nachrüstbar ist).
+  Grund: der Satz „das Design bleibt, der Code ist austauschbar" aus der Spec gilt nicht
+  mehr – was hier entsteht, wird weitergepflegt. Verworfen: Prototypen-Freiheiten jetzt
+  und Aufräumen später.
+
 - **2026-08-30 · Tailwind v4 statt v3.** Grund: der aktuelle `shadcn`-CLI initialisiert
   gegen v4 (`@tailwindcss/vite`, Theme über CSS-Variablen in `src/index.css`, keine
   `tailwind.config.js`); v3 hieße gegen den Strom des Generators arbeiten.
@@ -197,8 +207,75 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   `missingFields` folgt daraus, statt fest zu stehen: alles aus der Feldliste der Spec, wozu
   keine Zeile entstanden ist.
 
+- **2026-08-30 · Die Belegpaar-Ansicht steht vor Ist|Soll und ersetzt es nicht.** Freigabe
+  Victor. Anders als bei der Dublette steht in `current` ein echtes Feld (`BSAK.XBLNR`), und
+  der fehlende Bindestrich zwischen „RE-4711" und „RE4711" ist der Kern des Findings – Ist|Soll
+  bleibt also stehen. Die erste Frage am Schreibtisch lautet aber „welche zwei Belege", nicht
+  „welches Feld"; deshalb steht die Belegansicht darüber. Verworfen: Belegpaar zwischen Ist|Soll
+  und Evidenz, verworfen: Belegpaar an Stelle von Ist|Soll wie bei der Dublette.
+- **2026-08-30 · Beleg und Evidenz werden über die Referenz verbunden, nicht über die Position.**
+  `entity.documents` trägt nur den Schlüssel; Referenz, Datum und Betrag stehen im Text der
+  Evidenz, deren `reference` `"<BUKRS>/<GJAHR>/<BELNR>"` lautet. Die Zuordnung ist damit belegt
+  (anders als bei der Dublette, wo sie geraten gewesen wäre). Zweiter Versuch: die Belegnummer
+  als **ganzes** Segment der Referenz – als Teilzeichenkette fände `1900004411` auch
+  `11900004411`. Findet ein Beleg keine Evidenz, gibt `buildDocumentPair` `null` zurück und die
+  Karte sieht aus wie jede andere; zwei halbe Belegkarten sind schlechter als keine.
+- **2026-08-30 · Der Evidenztext wird zerlegt, aber alles oder nichts.** Aus „RE-4711, Belegdatum
+  01.03.2026, bezahlt 28.03.2026" werden drei Felder – nur dann, wenn das Muster bei **jedem**
+  Beleg greift; sonst steht bei allen der Satz wörtlich da. Dieselbe Regel wie beim Adress-Split
+  in Aufgabe 4: sonst stünde auf einer Karte ein Feldraster und auf der anderen ein Satz. Der
+  Widerspruch zu „aus Prosa werden keine Vergleichszeilen gelesen" ist keiner – dort war die
+  Zuordnung zum Konto ungeklärt, hier nennt die Referenz den Beleg.
+- **2026-08-30 · Der Betrag je Beleg wird benannt, nicht zugeschrieben.** Freigabe Victor.
+  32.000,00 € ist die Euro-Wirkung des Findings und steht als Prosa in `current.display`
+  („Zwei bezahlte Rechnungen über 32.000,00 EUR"); dass **jeder einzelne** Beleg über diesen
+  Betrag lautet, steht in keinem Feld. Unter den Karten steht deshalb ein Satz „Platzhalter:
+  Betrag je Beleg …" (Regel 4). Die Abnahme „F-003 vollständig" ist damit bis zur
+  Schema-Erweiterung formal knapp verfehlt.
+- **2026-08-30 · Die Quellenlage steht bei der Belegansicht nur einmal.** `source_summary` ist
+  der Fuzzy-Grund und gehört unter die Karten („Warum dieses Paar"); `CurrentProposed` bekommt
+  dafür die Prop `omitSourceSummary`. Verworfen: denselben Satz zweimal auf derselben Karte
+  stehen lassen – zwei Vorkommen lesen sich wie zwei Aussagen.
+- **2026-08-30 · Das Evidenz-Panel bleibt vollständig.** Die Belegansicht verbraucht keine
+  Einträge, sie liest sie nur mit; „Evidenz (3)" zeigt weiterhin alle drei. Die Belegkarte ist
+  die Lesehilfe, das Panel die Liste, gegen die geprüft wird. Verworfen: Einträge oben
+  „aufbrauchen" – dann verschwände das Panel bei F-c41d7e9b2a60 ganz und mit ihm die Zusage aus
+  Aufgabe 3, dass dort jede Quelle steht.
+- **2026-08-30 · `line_item` im Typ optional.** Das Schema führt es nicht unter `required`
+  (`entity.documents[].required = [company_code, fiscal_year, document_no]`), der Typ verlangte
+  es. Jetzt `line_item?: string | null` – der Vertrag ist das Schema, nicht die Beispieldatei.
+
 ## Offene Fragen an die Engine-Session (`main`)
 
+- **`entity.documents` trägt nur den Schlüssel – die Belegkarte braucht Referenz, Datum und
+  Betrag.** *(2026-08-30, aus Aufgabe 5. Freigabe Victor als Rückmeldung.)* Die Spec verlangt je
+  Beleg Belegnummer, Datum, Referenz und Betrag. Strukturiert vorhanden ist davon die
+  Belegnummer; Referenz und Datum liest das UI heute aus dem Freitext der zugehörigen Evidenz
+  („RE-4711, Belegdatum 01.03.2026, bezahlt 28.03.2026"), der Betrag je Beleg steht nirgends.
+  Vorschlag:
+
+  ```yaml
+  entity:
+    documents:
+      - company_code: "1000"
+        fiscal_year: "2026"
+        document_no: "1900004411"
+        line_item: "001"
+        reference: <string|null>          # XBLNR
+        document_date: <YYYY-MM-DD|null>  # BLDAT
+        cleared_on: <YYYY-MM-DD|null>     # AUGDT, „bezahlt am"
+        amount: <string|null>             # zwei Dezimalen als String (Regel 2)
+        currency: <string|null>           # immer neben dem Betrag (Regel 2)
+  ```
+
+  Alle neuen Felder optional und nullbar. Mit ihnen fällt die Textzerlegung ersatzlos weg und
+  der Betrag je Beleg muss nicht länger als Platzhalter benannt werden. Kein Blocker.
+- **Der Netting-Nachweis wird am Wort „Netting" in der `note` erkannt.** *(2026-08-30, aus
+  Aufgabe 5. Als Übergang abgestimmt.)* Ob eine Evidenz die Gutschrift-/Storno-Suche ist, hängt
+  heute an einer Formulierung in einem Freitextfeld; eine andere Wortwahl lässt den Nachweis
+  still in die allgemeine Evidenzliste rutschen. Vorschlag: `netting` in die Enum-Liste des schon
+  vorgeschlagenen `evidence.reference_kind` aufnehmen (neben `document | master_field | cluster |
+  external_query | statement`). Kein Blocker.
 - **`entity.records` fehlt – der Dubletten-Vergleich hat nur ein Drittel seiner Zeilen.**
   *(2026-08-30, aus Aufgabe 4. Von der Spec als Pflicht-Rückmeldung genannt.)* Die Spec
   verlangt je Konto Name, Straße, PLZ/Ort, Land, USt-ID, IBAN, Zahlungsbedingung, offene
@@ -335,3 +412,16 @@ Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
   `ReviewCard.render`), `npm run lint` und `npm run build` ohne Befund. Zwei neue
   Schema-Rückmeldungen: `entity.records`, Golden Record je Feld.
   Nächster Schritt: Aufgabe 5 – Belegpaar-Ansicht für F-003 (Doppelzahlung).
+- **2026-08-30 · Aufgabe 5 (Belegpaar-Ansicht).** `src/lib/documents.ts` (reine Logik:
+  Belegschlüssel, Zuordnung der Evidenz über die Referenz, Alles-oder-nichts-Zerlegung des
+  Evidenztexts, Netting-Erkennung) und `src/components/review/DocumentPair.tsx`; der Abschnitt
+  steht bei `leakage` mit mindestens zwei zuordenbaren Belegen **vor** Ist|Soll, sonst gar nicht.
+  F-c41d7e9b2a60 zeigt zwei Belegkarten mit Referenz, Belegdatum und Zahldatum, den Fuzzy-Grund
+  als „Warum dieses Paar", den Netting-Nachweis und den Platzhalter für den Betrag je Beleg;
+  F-5e8a2c7f0b14 (Skonto, keine Belege) fällt auf die normale Karte zurück und behält seine
+  Quellenlage in Ist|Soll. 199 Tests grün (neu: `documents`, vier neue in `ReviewCard.render`),
+  `npm run lint` und `npm run build` ohne Befund. Zwei neue Schema-Rückmeldungen:
+  `entity.documents[].{reference, document_date, cleared_on, amount, currency}` und
+  `reference_kind: netting`. Nächster Schritt: Aufgabe 5b – die drei Produktcode-Punkte
+  (`FindingsSource`-Adapter, Export-/Import-Format, virtualisierungsfähige Tabelle), erst danach
+  Aufgabe 6 (Dashboard).

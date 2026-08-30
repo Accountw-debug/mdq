@@ -74,7 +74,8 @@ export interface FindingDocument {
   company_code: string
   fiscal_year: string
   document_no: string
-  line_item: string | null
+  /** Im Schema nicht unter `required` – kann fehlen oder null sein. */
+  line_item?: string | null
 }
 
 export interface FindingEntity {
