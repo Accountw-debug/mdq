@@ -563,31 +563,16 @@ def test_demo_mandant_verliert_keine_zeile(demo_canonical):
         assert entry.rows + entry.rejected + entry.out_of_scope == staged, entry.table
 
 
-def test_demo_mandant_rejects_sind_erklaert(demo_canonical):
-    """Die einzigen Rejects sind doppelte Gutschriftsnummern – ein Befund im Generator.
+def test_demo_mandant_hat_keine_rejects(demo_canonical):
+    """Der ganze Mandant wird kanonisch – keine Zeile bleibt liegen.
 
-    `postings.py` zieht die Gutschriftsnummer aus dem Nummernkreis des Rechnungsjahres,
-    setzt das Geschaeftsjahr des Belegs aber aus dem Gutschriftsdatum. Kreuzt die
-    Gutschrift den Jahreswechsel, treffen zwei Kreise im selben Geschaeftsjahr aufeinander
-    und `item_key` ist nicht mehr eindeutig. Der Test haelt fest, dass es keinen **anderen**
-    Grund gibt; er bleibt gruen, sobald der Generator korrigiert ist.
+    Bis D-080 waren es 74: `postings.py` zog die Gutschriftsnummer aus dem Nummernkreis
+    des Rechnungsjahrs, setzte das Geschaeftsjahr aber aus dem Gutschriftsdatum, und ueber
+    den Jahreswechsel hinweg kollidierten zwei Kreise im selben `item_key`.
     """
-    con, _ = demo_canonical
-    reasons = {reason for _, reason in rejects(con)}
-    assert all("kommt in" in reason and "mehrfach vor" in reason for reason in reasons)
-    # Betroffen sind ausschliesslich Gutschriften – die Belegarten DG (AR) und KG (AP).
-    doc_types = set()
-    for source in ("BSID", "BSIK"):
-        doc_types.update(
-            row[0]
-            for row in con.execute(
-                f'SELECT DISTINCT s."BLART" FROM "staged_{source}" s '
-                "JOIN reject r ON r.row_no = s._row_no AND r.source_table = ? "
-                "WHERE r.stage = 'canonical'",
-                [source],
-            ).fetchall()
-        )
-    assert doc_types and doc_types <= {"DG", "KG"}
+    con, result = demo_canonical
+    assert rejects(con) == []
+    assert result.rejected_total == 0
 
 
 def test_demo_mandant_ist_deterministisch(demo_client):

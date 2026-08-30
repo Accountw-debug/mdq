@@ -62,7 +62,7 @@
       "table": "BSID",
       "file": "BSID.txt",
       "rows": 8532,
-      "sha256": "384e56cc9f573e2e31e57d5e8d985dd568191b63f3771c8e8c604ae876a4f40d"
+      "sha256": "72fb9b393bb4245d4e63e2847d78f16f5b8d253fc8b20d3af360efd542df10b5"
     },
     {
       "table": "BSAD",
@@ -74,7 +74,7 @@
       "table": "BSIK",
       "file": "BSIK.txt",
       "rows": 4255,
-      "sha256": "258188182d7a765e2201a148da9421b0c60a1856f55cd6114588e559248f0b9e"
+      "sha256": "47ffd22d68102a8f8692810e4430f5fd2e3e145e872072ddaa50cc12f56c0eda"
     },
     {
       "table": "BSAK",

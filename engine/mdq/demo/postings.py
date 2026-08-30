@@ -390,9 +390,20 @@ def build_items(rng, partners: list[Partner], role: str) -> list[FiItem]:
     credit_prefix = DOC_TYPES[f"{side}_credit"][1]
     for invoice in invoices:
         if rng.random() < CREDIT_MEMO_SHARE:
-            document_date = invoice.document_date
-            number = numbers.next(credit_prefix, invoice.company_code, f"{document_date.year}")
-            items.append(_credit_memo(rng, invoice, f"{side}_credit", number))
+            # Die Nummer kommt aus dem Kreis des Geschaeftsjahrs, in dem die Gutschrift
+            # gebucht wird - so nummeriert SAP, und nur so bleibt der Belegschluessel
+            # (BUKRS|GJAHR|BELNR|BUZEI) eindeutig. Die Gutschrift liegt 5 bis 45 Tage nach
+            # der Rechnung und kann deshalb im Folgejahr liegen; ihre Nummer laesst sich
+            # erst vergeben, wenn der Beleg datiert ist (D-080).
+            memo = _credit_memo(rng, invoice, f"{side}_credit", "")
+            items.append(
+                replace(
+                    memo,
+                    document_no=numbers.next(
+                        credit_prefix, memo.company_code, memo.fiscal_year
+                    ),
+                )
+            )
 
     items.sort(key=lambda item: (item.company_code, item.fiscal_year, item.document_no))
     return items

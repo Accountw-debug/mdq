@@ -97,6 +97,24 @@ def test_keys_keep_leading_zeros(demo_client) -> None:
         assert len(row["BUZEI"]) == 3
 
 
+def test_document_key_is_unique_across_all_item_tables(demo_client) -> None:
+    """(BUKRS, GJAHR, BELNR, BUZEI) ist der Belegschluessel – er darf sich nie wiederholen.
+
+    Der Stolperdraht zu D-080: Gutschriften liegen 5 bis 45 Tage nach ihrer Rechnung und
+    koennen im Folgejahr landen. Zieht ihre Nummer aus dem Nummernkreis des Rechnungsjahrs,
+    treffen ueber den Jahreswechsel zwei Kreise im selben Geschaeftsjahr aufeinander und
+    `fi_item.item_key` ist nicht mehr eindeutig – 37 Paare waren es, bis die Nummer aus dem
+    Kreis des eigenen Geschaeftsjahrs kam.
+    """
+    out, _ = demo_client
+    seen: dict[tuple[str, str, str, str], str] = {}
+    for table in ("BSID", "BSAD", "BSIK", "BSAK"):
+        for row in demo_rows(out, table):
+            key = (row["BUKRS"], row["GJAHR"], row["BELNR"], row["BUZEI"])
+            assert key not in seen, f"{key} steht in {table} und in {seen[key]}"
+            seen[key] = table
+
+
 def test_amounts_parse_as_decimal_with_two_places(demo_client) -> None:
     """Regel 2: Beträge sind Decimal mit zwei Nachkommastellen, nie float."""
     out, _ = demo_client
