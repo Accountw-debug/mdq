@@ -52,11 +52,18 @@ function render(
 /**
  * Ist der Knopf mit dieser Beschriftung gesperrt? Geprüft wird das Attribut
  * `disabled=""` – die Klassenliste enthält mit `disabled:opacity-50` schon das Wort.
+ *
+ * Gesucht wird nur innerhalb der Knöpfe: „Übernehmen" steht auch in der Zeile der
+ * getroffenen Entscheidung, und die kommt im Markup vor den Knöpfen.
  */
 function disabled(html: string, label: string): boolean {
-  const fragment = html.split('<button').find((part) => part.includes(`${label}<`))
+  const fragment = html
+    .split('<button')
+    .slice(1)
+    .map((part) => part.slice(0, part.indexOf('</button>')))
+    .find((part) => part.includes(label))
   if (fragment == null) throw new Error(`Knopf fehlt: ${label}`)
-  return fragment.slice(0, fragment.indexOf('</button>')).includes('disabled=""')
+  return fragment.includes('disabled=""')
 }
 
 describe('Review-Karte für alle sechs Beispiele', () => {
@@ -114,7 +121,6 @@ describe('Review-Karte für alle sechs Beispiele', () => {
     const html = render(byId('F-e2f7b19c4d83'))
     expect(disabled(html, 'Übernehmen')).toBe(true)
     expect(disabled(html, 'Ablehnen')).toBe(false)
-    expect(html).toContain('Kein Soll ermittelbar')
     expect(html).toContain('widerspricht dem Soll')
     expect(html.indexOf('Mod-97-Prüfung')).toBeLessThan(html.indexOf('Wie beheben'))
     expect(html).toContain('Deshalb Schadensklasse 1')
@@ -151,5 +157,48 @@ describe('Review-Karte für alle sechs Beispiele', () => {
     expect(html).toContain('freigegeben – Umsetzung offen')
     expect(html).toContain('30.08.2026 10:00 UTC')
     expect(html).toContain('Zurücknehmen')
+  })
+
+  it('nennt die Spalte „Empfehlung", wenn nur proposed.display vorliegt', () => {
+    // F-e2f7b19c4d83 hat kein `proposed.value`, aber einen Handlungssatz. Der feste
+    // Hinweis wäre hier falsch – es gibt sehr wohl ein Soll, nur keinen Feldwert.
+    const html = render(byId('F-e2f7b19c4d83'))
+    expect(html).toContain('Empfehlung')
+    expect(html).not.toContain('Kein Soll ermittelbar – Entscheidung/Prüfung')
+    expect(html).toContain('Anfrage an Lieferant')
+  })
+
+  it('nennt den Hinweis nur, wenn weder Wert noch Text vorliegen', () => {
+    // F-9d0b3f6a1c7e: `value` und `display` sind null, es gibt nur Optionen.
+    const html = render(byId('F-9d0b3f6a1c7e'))
+    expect(html).toContain('Kein Soll ermittelbar – Entscheidung/Prüfung')
+    expect(html).not.toContain('Empfehlung')
+  })
+
+  it('führt in der Evidenz die Referenz vor dem Quellentyp', () => {
+    const html = render(byId('F-c41d7e9b2a60'))
+    const reference = html.indexOf('1000/2026/1900004411')
+    const sourceType = html.indexOf('Regelprüfung')
+    expect(reference).toBeGreaterThan(-1)
+    expect(sourceType).toBeGreaterThan(reference)
+  })
+
+  it('sperrt nach einer Entscheidung alles außer Zurücknehmen und Später', () => {
+    const html = render(byId('F-c41d7e9b2a60'), {
+      decision: {
+        finding_id: 'F-c41d7e9b2a60',
+        action: 'accept',
+        reason_code: null,
+        reason: 'Vorschlag übernommen',
+        assigned_to: null,
+        by: 'V. Test',
+        at: '2026-08-30T10:00:00.000Z',
+      },
+    })
+    for (const label of ['Übernehmen', 'Ablehnen', 'Zuweisen']) {
+      expect(disabled(html, label)).toBe(true)
+    }
+    expect(disabled(html, 'Zurücknehmen')).toBe(false)
+    expect(disabled(html, 'Später')).toBe(false)
   })
 })

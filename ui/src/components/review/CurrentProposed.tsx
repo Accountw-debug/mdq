@@ -7,9 +7,12 @@ import type { Finding, ProposedOption } from '@/types/finding'
  * Ist | Soll nebeneinander (Spec Sprint 5, Aufgabe 3, Punkt 2).
  *
  * Links steht, was im Quellsystem steht – Tabelle und Feld in Monospace, damit der
- * Weg nach SAP klar ist. Rechts steht der Vorschlag mit seiner Quellenlage. Gibt es
- * keinen Vorschlag, steht dort der Hinweis, dass entschieden werden muss – nie ein
- * erfundener Wert.
+ * Weg nach SAP klar ist. Rechts stehen drei Fälle, nie ein erfundener Wert:
+ *
+ * - `proposed.value` gesetzt → „Soll" mit dem Wert.
+ * - kein Wert, aber `proposed.display` → „Empfehlung" mit dem Satz. Ein Text, der die
+ *   Handlung beschreibt, ist kein fehlendes Soll (Beobachtung Victor, 3b).
+ * - weder Wert noch Text → „Soll" mit dem Hinweis, dass entschieden werden muss.
  */
 export function CurrentProposed({
   finding,
@@ -22,11 +25,17 @@ export function CurrentProposed({
 }) {
   const { current, proposed } = finding
   const options = proposed?.options ?? []
-  const hasProposedValue = proposed?.value != null && proposed.value !== ''
+  const proposedValue = proposed?.value == null || proposed.value === '' ? null : proposed.value
+  const proposedDisplay =
+    proposed?.display == null || proposed.display === '' ? null : proposed.display
+  // „Empfehlung", sobald ein Satz da steht – „Kein Soll ermittelbar" nur, wenn wirklich
+  // nichts vorliegt.
+  const kind = proposedValue != null ? 'value' : proposedDisplay != null ? 'advice' : 'none'
 
   return (
     <Section title="Ist und Soll">
-      <div className="grid gap-3 sm:grid-cols-2">
+      {/* Zwei Spalten erst, wenn jede einen ganzen Satz tragen kann (~19rem je Spalte). */}
+      <div className="grid gap-3 @min-[38rem]:grid-cols-2">
         <div className="rounded-lg border bg-muted/30 p-3">
           <div className="text-xs font-medium">Ist</div>
           <div className="mt-1">
@@ -47,21 +56,27 @@ export function CurrentProposed({
         </div>
 
         <div className="rounded-lg border p-3">
-          <div className="text-xs font-medium">Soll</div>
-          {hasProposedValue ? (
-            <p className="mt-2 break-words">
-              <Key className="text-[0.95em]">{proposed?.value}</Key>
-            </p>
-          ) : (
+          <div className="text-xs font-medium">{kind === 'advice' ? 'Empfehlung' : 'Soll'}</div>
+
+          {kind === 'value' && (
+            <>
+              <p className="mt-2 break-words">
+                <Key className="text-[0.95em]">{proposedValue}</Key>
+              </p>
+              {proposedDisplay && (
+                <p className="mt-1 text-xs text-muted-foreground">{proposedDisplay}</p>
+              )}
+            </>
+          )}
+
+          {kind === 'advice' && <p className="mt-2 break-words">{proposedDisplay}</p>}
+
+          {kind === 'none' && (
             <p className="mt-2 text-muted-foreground">
               Kein Soll ermittelbar – Entscheidung/Prüfung
             </p>
           )}
-          {proposed?.display && (
-            <p className={cn('text-xs text-muted-foreground', hasProposedValue ? 'mt-1' : 'mt-2')}>
-              {proposed.display}
-            </p>
-          )}
+
           {proposed?.source_summary && (
             <p className="mt-3 border-t pt-2 text-xs">
               <span className="text-muted-foreground">Quellenlage: </span>
@@ -95,7 +110,7 @@ function Options({
   return (
     <div className="mt-3">
       <div className="text-xs text-muted-foreground">Optionen – eine wählen, dann übernehmen</div>
-      <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+      <div className="mt-1.5 grid gap-2 @min-[38rem]:grid-cols-2">
         {options.map((option) => {
           const active = option.label === chosen
           return (

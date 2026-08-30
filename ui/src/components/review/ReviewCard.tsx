@@ -46,7 +46,9 @@ export function ReviewCard({
   const [chosenOption, setChosenOption] = useState<string | null>(null)
   const [dialog, setDialog] = useState<'reject' | 'assign' | null>(null)
 
-  const canDecide = reviewer.trim() !== ''
+  // Entschieden ist entschieden: die Tastatur darf die Sperre der Knöpfe nicht umgehen.
+  const decided = decision != null
+  const canDecide = reviewer.trim() !== '' && !decided
 
   function accept() {
     if (!canDecide || acceptBlockedReason(finding, chosenOption) != null) return
@@ -104,6 +106,7 @@ export function ReviewCard({
       switch (event.key) {
         case 'a':
         case 'A':
+          if (!canDecide) break
           event.preventDefault()
           accept()
           break
@@ -157,8 +160,11 @@ export function ReviewCard({
                 </>
               )}
               <span aria-hidden>·</span>
-              <Key>{finding.rule_id}</Key>
-              <span>v{finding.rule_version}</span>
+              {/* Regel und Version bleiben zusammen – „v1.0" allein in einer Zeile
+                  ist keine Angabe (Beobachtung Victor, 3b). */}
+              <span className="whitespace-nowrap">
+                <Key>{finding.rule_id}</Key> v{finding.rule_version}
+              </span>
             </div>
           </div>
           {impact && (
@@ -181,7 +187,11 @@ export function ReviewCard({
         {finding.title && <p className="pt-2 text-sm font-medium">{finding.title}</p>}
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/*
+        `@container`: Ob Ist und Soll nebeneinander passen, hängt an der Breite der Karte,
+        nicht an der des Browserfensters. Die Abschnitte messen deshalb diesen Kasten.
+      */}
+      <div className="@container min-h-0 flex-1 overflow-y-auto">
         <CurrentProposed
           finding={finding}
           chosenOption={chosenOption}

@@ -133,6 +133,34 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   `impact_eur` gezeigt wird.** Die Währung steht im Finding und gehört neben den Betrag
   (Regel 2); unbekannte Währungen behalten ihren Code. Nur `formatEur` bliebe stumm falsch,
   sobald ein Lauf CHF liefert.
+- **2026-08-30 · Die Drawer-Breite läuft über `--sheet-width`, nicht über `className`.**
+  Die Breite steht in `sheet.tsx` als `data-[side=right]:sm:max-w-…`; ein `sm:max-w-3xl`
+  am Aufruf trägt diese Varianten nicht, `tailwind-merge` sieht keinen Konflikt und lässt
+  beide Klassen stehen – im erzeugten CSS gewinnt die Regel mit den Varianten, weil sie
+  später steht. Die Review-Karte war deshalb 24rem breit statt der angeschriebenen 48rem.
+  `sheet.tsx` liest jetzt `max-w-[var(--sheet-width,24rem)]`, `ReviewDrawer` setzt 44rem
+  (≈700 px). Verworfen: `!max-w-*` mit `!important`, verworfen: Radix-Content selbst bauen.
+- **2026-08-30 · Ist | Soll bricht nach der Kartenbreite um, nicht nach der Fensterbreite.**
+  Der Scrollbereich der Karte ist `@container`, die zwei Spalten erscheinen ab `@min-[38rem]`
+  (≈19rem je Spalte, genug für einen ganzen Satz). `sm:` maß das Browserfenster und damit
+  das Falsche – im Drawer sagt es nichts über den vorhandenen Platz. Container-Queries sind
+  in Tailwind v4 im Kern, keine neue Abhängigkeit.
+- **2026-08-30 · Drei Fälle rechts statt zwei: Soll / Empfehlung / kein Soll.** Freigabe
+  Victor. `proposed.value` gesetzt → „Soll" mit Wert; nur `proposed.display` → „Empfehlung"
+  mit dem Satz; weder noch → „Soll" mit „Kein Soll ermittelbar – Entscheidung/Prüfung".
+  Grund: ein Handlungssatz ist ein Soll, nur keines, das in ein Feld passt; der feste
+  Hinweis behauptete dort Ratlosigkeit, wo eine Empfehlung steht. F-9d0b3f6a1c7e (nur
+  Optionen) behält den Hinweis wie in der Spec.
+- **2026-08-30 · Überschrift der Evidenzkarte ist die Referenz, der Quellentyp steht klein
+  darunter.** Freigabe Victor. „Regelprüfung" (`deterministic`) beschreibt die Hälfte aller
+  Einträge und sagt nichts; `1000/2026/1900004411` sagt, worum es geht. Die Referenz steht
+  wörtlich da – ein Wort wie „Beleg" davor stünde in keinem Feld; dafür liegt der Vorschlag
+  `evidence.reference_kind` bei der Engine-Session.
+- **2026-08-30 · Nach einer Entscheidung sind Übernehmen, Ablehnen und Zuweisen gesperrt.**
+  Freigabe Victor. Ein zweiter Klick würde die erste Entscheidung stillschweigend
+  überschreiben; der Weg zurück heißt „Zurücknehmen". Die Tastatur (`A`/`R`/`Z`) ist
+  mitgesperrt, sonst umginge sie die Knöpfe. „Später" bleibt aktiv: es schreibt nichts,
+  es springt nur zum nächsten offenen Finding.
 - **2026-08-30 · „Findings-Datei laden" liegt im Datenstand-Banner.** Freigabe Victor.
   Die Datei wird nur im Speicher gehalten (kein `localStorage`), der Lauf-Kopf wird wie
   im Build-Skript abgeleitet. Unbrauchbare Dateien brechen mit Grund ab statt halb zu
@@ -152,11 +180,21 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   den Empfänger als `assigned_to` im eigenen Entscheidungssatz und exportiert ihn in
   Aufgabe 7 als zusätzliches Feld. Vorschlag: `decision.assigned_to` (optional, String)
   ins Schema aufnehmen. Kein Blocker.
-- **F-e2f7b19c4d83 doppelt den Satz „Kein Soll ermittelbar".** Die Spec verlangt rechts
-  den festen Hinweis „Kein Soll ermittelbar – Entscheidung/Prüfung"; `proposed.display`
-  dieses Beispiels beginnt mit demselben Satz. Auf der Karte steht es dadurch zweimal.
-  Beobachtung fürs Erste – Vorschlag: in `proposed.display` mit der Handlung beginnen
-  („Anfrage an Lieferant über bekannte Telefonnummer …"). Für den Buchhalter-Test notiert.
+- **`proposed.display` von F-e2f7b19c4d83 beginnt mit „Kein Soll ermittelbar".** Die
+  Dopplung auf der Karte ist mit Aufgabe 3b weg (der feste Hinweis erscheint dort nicht
+  mehr), der Vorschlag ans Schema bleibt: Über der Spalte steht jetzt „Empfehlung", darunter
+  liest sich „Kein Soll ermittelbar – keine zweite Quelle. Anfrage an Lieferant …" wie ein
+  Widerspruch. Vorschlag: `proposed.display` mit der Handlung beginnen („Anfrage an
+  Lieferant über bekannte Telefonnummer …"); die fehlende zweite Quelle steht schon in
+  `source_summary`. Kein Blocker.
+- **`evidence.reference_kind` fehlt.** *(Vorschlag Victor, 2026-08-30.)* Die Evidenzkarte
+  trägt seit 3b die Referenz als Überschrift. Was die Referenz ist, steht aber nirgends:
+  `1000/2026/1900004411` ist ein Beleg, `KNA1.LAND1` ein Stammfeld, `cluster-000412` ein
+  Cluster – `source_type` unterscheidet das nicht (alle drei Beispiele stehen unter
+  `deterministic` bzw. `model`). Vorschlag: `evidence.reference_kind` (optional, Enum)
+  mit `document | master_field | cluster | external_query | statement`; das UI stellt der
+  Referenz dann das passende Wort voran („Beleg 1000/2026/1900004411"). Bis dahin steht
+  die Referenz wörtlich da, ohne erfundenes Substantiv. Kein Blocker.
 - **`entity.company_code` ist optional** – F-7b2e8c1d9a3f (Dublette) hat keinen. Das UI
   führt dafür den Filterwert „ohne Buchungskreis". Falls Dubletten-Findings künftig einen
   Buchungskreis bekommen sollen, sag Bescheid; erfunden wird hier keiner.
@@ -199,4 +237,25 @@ Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
   Tastatur `A`/`R`/`Z` und `J`/`K` in der offenen Karte. Schadensklasse 1 sperrt
   „Übernehmen". 154 Tests grün (neu: `review`, `decisions`, `ReviewCard.render`),
   `npm run lint` und `npm run build` ohne Befund.
+  Nächster Schritt: Aufgabe 4 – Dubletten-Vergleich für F-7b2e8c1d9a3f.
+- **2026-08-30 · Erster Durchlauf durch die sechs Findings (Victor).** Fünf Beobachtungen,
+  die als Aufgabe 3b vor Aufgabe 4 abgearbeitet werden:
+  1. **Der Drawer ist zu schmal.** Ist und Soll quetschen sich, die Quellenlage wird zur
+     Textwand. Er braucht etwa die doppelte Breite (~700 px); Ist | Soll stehen nur dann
+     nebeneinander, wenn jede Spalte ein ganzer Satz sein darf.
+  2. **„Kein Soll ermittelbar" ist falsch, wenn `proposed.value` leer, aber
+     `proposed.display` vorhanden ist.** Dann lautet die Überschrift „Empfehlung"; der
+     Hinweis „Kein Soll ermittelbar" gilt nur bei komplett fehlendem `proposed`.
+  3. **Das Evidenz-Label „Regelprüfung" sagt nichts.** Überschrift der Evidenzkarte ist die
+     Referenz (z. B. „Beleg 1000/2026/1900004411"), der Quellentyp steht klein darunter.
+  4. **Nach einer Entscheidung bleiben Übernehmen/Ablehnen/Zuweisen aktiv.** Einmal
+     entschieden, werden sie deaktiviert; nur „Zurücknehmen" bleibt.
+  5. **„v1.0" steht allein in einer Zeile im Kopf.** Die Version gehört hinter die Regel-ID.
+- **2026-08-30 · Aufgabe 3b (Nacharbeit Review-Karte).** Fünf Punkte umgesetzt: Drawer
+  44rem statt faktisch 24rem (die alte Breitenklasse war wirkungslos, siehe Entscheidung),
+  Ist | Soll über `@container` statt `sm:`, „Empfehlung" als dritter Fall neben Soll und
+  „Kein Soll ermittelbar", Referenz als Überschrift der Evidenzkarte, Sperre der drei
+  Entscheidungen nach der Entscheidung (auch für `A`/`R`/`Z`), Regel-ID und Version in
+  einer Zeile. 158 Tests grün (vier neue in `ReviewCard.render`), `npm run lint` und
+  `npm run build` ohne Befund. Neue Schema-Rückmeldung: `evidence.reference_kind`.
   Nächster Schritt: Aufgabe 4 – Dubletten-Vergleich für F-7b2e8c1d9a3f.

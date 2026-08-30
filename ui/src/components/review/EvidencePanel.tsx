@@ -50,14 +50,25 @@ function EvidenceCard({ entry }: { entry: Evidence }) {
         entry.agrees ? 'bg-muted/20' : 'border-destructive/30 bg-destructive/5',
       )}
     >
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      {/*
+        Überschrift ist die Referenz, nicht der Quellentyp: „1000/2026/1900004411" sagt,
+        worum es geht, „Regelprüfung" sagt nichts (Beobachtung Victor, 3b). Der Quellentyp
+        steht klein darunter – er ordnet die Karte ein, er benennt sie nicht.
+      */}
+      <div className="flex items-baseline gap-2">
         <Agreement agrees={entry.agrees} />
-        <span className="text-sm font-medium">{SOURCE_TYPE_LABELS[entry.source_type]}</span>
-        <Key className="text-muted-foreground">{entry.reference}</Key>
-        {observedAt && <span className="ml-auto text-xs text-muted-foreground">{observedAt}</span>}
+        <div className="min-w-0 flex-1">
+          <Key className="text-[0.95em] break-all">{entry.reference}</Key>
+          <div className="text-xs text-muted-foreground">
+            {SOURCE_TYPE_LABELS[entry.source_type]}
+          </div>
+        </div>
+        {observedAt && (
+          <span className="shrink-0 text-xs text-muted-foreground">{observedAt}</span>
+        )}
       </div>
       {entry.value && (
-        <p className="mt-1.5 break-words">
+        <p className="mt-2 break-words">
           <Key className="text-[0.95em]">{entry.value}</Key>
         </p>
       )}

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { ReviewCard } from '@/components/review/ReviewCard'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import type { DecisionRecord } from '@/types/decision'
@@ -33,7 +34,14 @@ export function ReviewDrawer({
 }) {
   return (
     <Sheet open={open && finding != null} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full gap-0 p-0 sm:max-w-3xl">
+      {/*
+        Breite über `--sheet-width` (siehe `sheet.tsx`): Ist und Soll brauchen je einen
+        ganzen Satz nebeneinander, die Quellenlage darf keine Textwand werden.
+      */}
+      <SheetContent
+        className="w-full gap-0 p-0"
+        style={{ '--sheet-width': '44rem' } as CSSProperties}
+      >
         {finding && (
           <>
             <SheetHeader className="sr-only">

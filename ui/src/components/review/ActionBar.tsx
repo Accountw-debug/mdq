@@ -14,9 +14,14 @@ import type { Finding } from '@/types/finding'
  * „Übernehmen" ist bei Schadensklasse 1 gesperrt – Bankdaten nie im Alleingang
  * (CLAUDE.md, Regel 11). Der Grund steht im Tooltip, nicht im Kleingedruckten.
  * Ohne Bearbeiternamen ist keine Entscheidung möglich: `decision.by` ist Pflicht.
+ *
+ * Ist entschieden, sind alle drei Entscheidungen gesperrt – ein zweiter Klick würde die
+ * erste Entscheidung stillschweigend überschreiben. Der Weg zurück heißt „Zurücknehmen".
+ * „Später" bleibt frei: es schreibt nichts, es springt nur weiter.
  */
 
 const MISSING_REVIEWER = 'Erst oben im Datenstand-Banner den Bearbeiter eintragen'
+const ALREADY_DECIDED = 'Bereits entschieden – erst zurücknehmen'
 
 export function ActionBar({
   finding,
@@ -40,7 +45,10 @@ export function ActionBar({
   onClearDecision: () => void
 }) {
   const noReviewer = reviewer.trim() === ''
+  const decided = decision != null
   const acceptBlocked = acceptBlockedReason(finding, chosenOption)
+  // Reihenfolge der Gründe: entschieden schlägt alles, dann der fehlende Bearbeiter.
+  const blocked = decided ? ALREADY_DECIDED : noReviewer ? MISSING_REVIEWER : null
 
   return (
     <div className="flex flex-col gap-2">
@@ -62,24 +70,24 @@ export function ActionBar({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <Guarded reason={acceptBlocked ?? (noReviewer ? MISSING_REVIEWER : null)}>
-          <Button disabled={acceptBlocked != null || noReviewer} onClick={onAccept}>
+        <Guarded reason={blocked ?? acceptBlocked}>
+          <Button disabled={blocked != null || acceptBlocked != null} onClick={onAccept}>
             <CheckIcon data-icon="inline-start" />
             Übernehmen
             <Kbd>A</Kbd>
           </Button>
         </Guarded>
 
-        <Guarded reason={noReviewer ? MISSING_REVIEWER : null}>
-          <Button variant="destructive" disabled={noReviewer} onClick={onOpenReject}>
+        <Guarded reason={blocked}>
+          <Button variant="destructive" disabled={blocked != null} onClick={onOpenReject}>
             <XIcon data-icon="inline-start" />
             Ablehnen
             <Kbd>R</Kbd>
           </Button>
         </Guarded>
 
-        <Guarded reason={noReviewer ? MISSING_REVIEWER : null}>
-          <Button variant="outline" disabled={noReviewer} onClick={onOpenAssign}>
+        <Guarded reason={blocked}>
+          <Button variant="outline" disabled={blocked != null} onClick={onOpenAssign}>
             <UserPlusIcon data-icon="inline-start" />
             Zuweisen
             <Kbd>Z</Kbd>
@@ -93,7 +101,9 @@ export function ActionBar({
         </Button>
       </div>
 
-      {noReviewer && <p className="text-xs text-muted-foreground">{MISSING_REVIEWER}.</p>}
+      {noReviewer && !decided && (
+        <p className="text-xs text-muted-foreground">{MISSING_REVIEWER}.</p>
+      )}
     </div>
   )
 }
