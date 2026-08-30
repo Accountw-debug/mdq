@@ -1,0 +1,28 @@
+[project]
+name = "mdq"
+version = "0.1.0"
+description = "Finance Master Data & Leakage Check – Prototyp-Engine"
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb>=1.1",
+    "pyyaml>=6.0",
+    "jsonschema>=4.23",
+    "rapidfuzz>=3.9",
+    "python-stdnum>=1.20",
+    "schwifty>=2024.9",
+    "typer>=0.12",
+    "rich>=13.7",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.6",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["engine/tests", "logic"]

@@ -1,0 +1,6 @@
+KUNNR	LAND1	NAME1	NAME2	ORT01	PSTLZ	STRAS	STCEG	XCPDK	LOEVM	ERDAT
+0000100234	DE	Müller Maschinenbau GmbH		Augsburg	86159	Robert-Bosch-Str. 12	DE123456789			20190412
+0000100987	DE	Mueller Maschinenbau GmbH		Augsburg	86159	Robert Bosch Straße 12	DE123456780			20230105
+0000101502	DE	Hartmann Logistik e.K.	Inh. Jörg Hartmann	Bremen	28195	Überseestadt 5			X	20150930
+0000109999	DE	CpD Inland						X		20100101
+0000102201	AT	Österreichische Prüf GmbH		Wien	1010	Kärntner Straße 1	ATU12345678			20211122

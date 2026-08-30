@@ -1,0 +1,74 @@
+finding_id: F-9d0b3f6a1c7e
+run_id: demo-2026-08-30
+rule_id: AR-CON-002
+rule_version: "1.0"
+engine_version: "0.1.0"
+pack_version: "0.1"
+side: AR
+category: consistency
+severity: high
+damage_class: 3
+tier: decision
+action_type: decision
+title: "Löschvormerkung bei Debitor mit offenen Posten (8.930,00 EUR)"
+entity:
+  bp_key: "C:0000101502"
+  role: CUSTOMER
+  company_code: "1000"
+  display_name: "Hartmann Logistik e.K., Bremen"
+relevance:
+  open_items_eur: "8930.00"
+  volume_12m_eur: "0.00"
+  last_activity_on: "2025-11-03"
+current:
+  source_table: KNA1
+  source_field: LOEVM
+  value: "X"
+  display: "Löschvormerkung gesetzt am 14.01.2026 durch MEIER-K"
+proposed:
+  value: null
+  display: null
+  source_summary: "Offene Posten 8.930,00 EUR (3 Belege, ältester 03.11.2025) bei gesetzter Löschvormerkung"
+  options:
+    - label: "Löschvormerkung aufheben, Posten normal mahnen"
+      consequence: "Konto nimmt wieder am Mahnlauf teil; Forderung wird weiterverfolgt"
+    - label: "Posten ausbuchen oder umbuchen, Löschvormerkung beibehalten"
+      consequence: "Forderung wird abgeschrieben oder auf anderes Konto verlagert; Konto bleibt zur Löschung vorgemerkt"
+evidence:
+  - source_type: deterministic
+    reference: "BSID 1000"
+    value: "8930.00 EUR"
+    observed_at: "2026-08-28"
+    agrees: true
+    note: "Summe offene Posten"
+  - source_type: change_document
+    reference: "CDHDR 0000834112"
+    value: "LOEVM: '' → 'X'"
+    observed_at: "2026-01-14"
+    agrees: true
+    note: "Gesetzt durch MEIER-K, Transaktion XD06"
+impact_eur:
+  amount: "8930.00"
+  currency: EUR
+  formula: "Summe offener Posten im Buchungskreis 1000"
+  netted_against: null
+why: >
+  Ein zur Löschung vorgemerktes Konto mit offenen Posten wird im Mahnlauf übersprungen,
+  die Forderung veraltet unbemerkt. Bei der S/4-Konvertierung blockiert die
+  Löschvormerkung die Übernahme.
+if_wrong: >
+  Wird die Löschvormerkung entfernt, obwohl das Konto bewusst stillgelegt wurde
+  (z. B. Insolvenz), laufen Mahnungen an einen insolventen Kunden.
+remediation:
+  sap_transaction: XD06 / FB05
+  path: "Entscheidung, dann XD06 (Löschvormerkung) oder FB05 (Umbuchung)"
+  field: LOEVM
+  mass_change_eligible: false
+  steps:
+    - "Grund der Löschvormerkung bei MEIER-K klären"
+    - "Option A oder B wählen; Entscheidung wird im Audit-Trail gespeichert"
+related_finding_ids: []
+status: open
+decision: null
+data_as_of: "2026-08-28"
+created_at: "2026-08-30T09:15:00Z"

@@ -1,0 +1,67 @@
+finding_id: F-3a9f1c2d4e5b
+run_id: demo-2026-08-30
+rule_id: AR-VAL-001
+rule_version: "1.0"
+engine_version: "0.1.0"
+pack_version: "0.1"
+side: AR
+category: validity
+severity: high
+damage_class: 2
+tier: B
+action_type: review
+title: "USt-ID-Präfix passt nicht zum Sitzland (DE)"
+entity:
+  bp_key: "C:0000100234"
+  role: CUSTOMER
+  company_code: "1000"
+  display_name: "Müller Maschinenbau GmbH, Augsburg"
+  related_bp_keys: ["C:0000100987"]
+relevance:
+  open_items_eur: "45210.00"
+  volume_12m_eur: "312400.00"
+  last_activity_on: "2026-08-12"
+current:
+  source_table: KNA1
+  source_field: STCEG
+  value: "AT U12345678"
+  display: null
+proposed:
+  value: "DE123456780"
+  display: null
+  source_summary: "Dublette C:0000100987 (Mueller Maschinenbau GmbH, Augsburg) führt DE123456780 – VIES-Bestätigung steht aus"
+evidence:
+  - source_type: deterministic
+    reference: "KNA1.LAND1"
+    value: "DE"
+    observed_at: null
+    agrees: true
+    note: "Sitzland DE, erwartetes Präfix DE"
+  - source_type: duplicate_record
+    reference: "C:0000100987"
+    value: "DE123456780"
+    observed_at: "2026-08-28"
+    agrees: true
+    note: "Gleicher Name und Adresse (normalisiert), gültiges Format"
+impact_eur: null
+why: >
+  Eine USt-ID mit falschem Länderpräfix scheitert bei der qualifizierten Bestätigung und
+  gefährdet die Steuerfreiheit innergemeinschaftlicher Lieferungen. Auf Rechnungen ist sie
+  Pflichtangabe nach § 14 UStG.
+if_wrong: >
+  Wird eine falsche ID übernommen, bleibt sie ungültig – kein Geldschaden, aber die
+  Korrektur wiederholt sich. Vor Übernahme VIES prüfen; die Engine hebt dann auf Stufe A.
+remediation:
+  sap_transaction: XD02
+  path: "Steuerung → USt-IdNr."
+  field: STCEG
+  mass_change_eligible: false
+  steps:
+    - "VIES-Prüfung für DE123456780 durchführen"
+    - "XD02 → Steuerung → USt-IdNr. ändern"
+    - "Dubletten-Finding F-7b2e… bearbeiten (führendes Konto festlegen)"
+related_finding_ids: ["F-7b2e8c1d9a3f"]
+status: open
+decision: null
+data_as_of: "2026-08-28"
+created_at: "2026-08-30T09:15:00Z"

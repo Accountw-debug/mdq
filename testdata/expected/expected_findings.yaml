@@ -1,0 +1,8 @@
+# Erwartete Findings des Demo-Mandanten – Spec und Regression zugleich.
+# Wird in Sprint 2 zusammen mit dem Generator gefüllt. Format je Eintrag:
+#   - { rule_id: AR-VAL-001, bp_key: "C:0000100234" }
+#   - { rule_id: AP-LEA-001, bp_key: "V:0000200845", document_no: "1900004587" }
+# Regel: Diese Datei wird NIE an den Code angepasst. Weicht ein Lauf ab, ist entweder der
+# Generator, die Regel oder die Erwartung falsch – das wird geklärt, nicht weggetestet.
+version: "0.1"
+findings: []

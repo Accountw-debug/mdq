@@ -1,0 +1,150 @@
+# Normalisierung von Firmennamen für Dubletten-Matching (name_norm).
+# Reihenfolge: 1) Umlaute/Transliteration 2) Rauschen entfernen 3) Rechtsform kanonisieren
+# 4) Kleinbuchstaben, Sonderzeichen raus, Mehrfach-Leerzeichen zusammenziehen.
+version: "0.1"
+
+transliteration:
+  ä: ae
+  ö: oe
+  ü: ue
+  ß: ss
+  é: e
+  è: e
+  ê: e
+  á: a
+  à: a
+  ó: o
+  ú: u
+  ñ: n
+  ç: c
+
+# Tokens, die für die Identität keine Rolle spielen (werden entfernt)
+noise_tokens:
+  - fa
+  - fa.
+  - firma
+  - i.l.
+  - i.g.
+  - i.a.
+  - werk
+  - niederlassung
+  - zweigniederlassung
+  - zentrale
+  - hauptverwaltung
+  - "c/o"
+  - z.hd.
+  - zhd
+  - the
+  - "&"
+  - und
+  - "+"
+
+# Rechtsformen: kanonische Form -> Varianten (Groß-/Kleinschreibung egal)
+legal_forms:
+  gmbh:
+    - g.m.b.h.
+    - g.m.b.h
+    - ges.m.b.h.
+    - gesmbh
+    - gesellschaft mit beschraenkter haftung
+    - gesellschaft mit beschränkter haftung
+    - gmbh.
+  gmbh_co_kg:
+    - gmbh & co. kg
+    - gmbh & co kg
+    - gmbh und co. kg
+    - gmbh+co.kg
+    - gmbh & co.kg
+    - g.m.b.h. & co. kg
+  ag:
+    - aktiengesellschaft
+    - a.g.
+  ag_co_kg:
+    - ag & co. kg
+    - ag & co kg
+  kg:
+    - kommanditgesellschaft
+    - k.g.
+  ohg:
+    - offene handelsgesellschaft
+    - o.h.g.
+  ek:
+    - e.k.
+    - e. k.
+    - eingetragener kaufmann
+    - eingetragene kauffrau
+    - e.kfm.
+    - e.kfr.
+  ug:
+    - ug (haftungsbeschraenkt)
+    - ug (haftungsbeschränkt)
+    - ug haftungsbeschraenkt
+    - unternehmergesellschaft
+  se:
+    - societas europaea
+  eg:
+    - e.g.
+    - eingetragene genossenschaft
+  ev:
+    - e.v.
+    - eingetragener verein
+  stiftung: []
+  kgaa:
+    - kgaa
+    - kommanditgesellschaft auf aktien
+  # Österreich / Schweiz
+  gesmbh_at:
+    - ges.m.b.h.
+  # International
+  ltd:
+    - limited
+    - ltd.
+    - co. ltd
+    - co., ltd.
+  plc:
+    - p.l.c.
+    - public limited company
+  inc:
+    - inc.
+    - incorporated
+  llc:
+    - l.l.c.
+  corp:
+    - corp.
+    - corporation
+  sa:
+    - s.a.
+    - société anonyme
+    - sociedad anonima
+    - sociedad anónima
+  sas:
+    - s.a.s.
+  sarl:
+    - s.a.r.l.
+    - s.à r.l.
+    - sàrl
+  srl:
+    - s.r.l.
+    - s.r.l
+  spa:
+    - s.p.a.
+  bv:
+    - b.v.
+  nv:
+    - n.v.
+  sp_z_oo:
+    - sp. z o.o.
+    - sp.z o.o.
+    - spolka z ograniczona odpowiedzialnoscia
+  sro:
+    - s.r.o.
+    - spol. s r.o.
+  as:
+    - a.s.
+  ab:
+    - aktiebolag
+  oy:
+    - oyj
+
+# Für Matching wird die Rechtsform als eigenes Feld geführt (legal_form) und aus dem Namen
+# entfernt. Gleicher Kernname + andere Rechtsform = Hinweis, nicht Dublette (z. B. GmbH vs. AG).

@@ -1,0 +1,26 @@
+# Daten – niemals einchecken
+data/
+runs/
+*.duckdb
+*.duckdb.wal
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Node / UI
+node_modules/
+ui/dist/
+
+# Secrets & lokale Einstellungen
+.env
+.env.*
+.claude/settings.local.json
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/

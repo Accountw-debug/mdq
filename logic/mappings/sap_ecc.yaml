@@ -1,0 +1,335 @@
+# Mapping SAP ECC (SE16N-/FBL-Exports) -> kanonisches Schema
+# Quelle der Wahrheit für Feldlisten. Aus dieser Datei wird die Extraktionsanleitung generiert.
+# Konventionen:
+#   - Schlüssel unkonvertiert (führende Nullen), Datum YYYYMMDD oder DD.MM.YYYY (Erkennung),
+#     Beträge mit Dezimalkomma oder -punkt (Erkennung), Vorzeichen ggf. nachgestellt ("1.234,56-").
+#   - "X"-Kennzeichen -> BOOLEAN.
+#   - Unbekannte Spalten im Export -> Fehler (CLAUDE.md Regel 4). Zusatzspalten müssen hier stehen oder unter ignore.
+version: "0.1"
+detect:
+  # Erkennung der Tabelle anhand vorhandener Spalten (technische Namen)
+  KNA1: [KUNNR, LAND1, NAME1, ORT01]
+  KNB1: [KUNNR, BUKRS, AKONT]
+  KNBK: [KUNNR, BANKS, BANKL, BANKN]
+  TIBAN: [BANKS, BANKL, BANKN, IBAN]
+  KNVP: [KUNNR, PARVW, KUNN2]
+  KNVV: [KUNNR, VKORG, VTWEG, SPART]
+  KNB5: [KUNNR, BUKRS, MABER]
+  LFA1: [LIFNR, LAND1, NAME1, ORT01]
+  LFB1: [LIFNR, BUKRS, AKONT]
+  LFBK: [LIFNR, BANKS, BANKL, BANKN]
+  BSID: [KUNNR, BELNR, BUZEI, DMBTR, AUGDT]
+  BSAD: [KUNNR, BELNR, BUZEI, DMBTR, AUGBL]
+  BSIK: [LIFNR, BELNR, BUZEI, DMBTR, AUGDT]
+  BSAK: [LIFNR, BELNR, BUZEI, DMBTR, AUGBL]
+  T052: [ZTERM, ZTAG1, ZPRZ1]
+  T052U: [ZTERM, TEXT1]
+  ADR6: [ADDRNUMBER, SMTP_ADDR]
+  CDHDR: [OBJECTCLAS, OBJECTID, CHANGENR]
+  CDPOS: [OBJECTCLAS, CHANGENR, TABNAME, FNAME]
+
+tables:
+  KNA1:
+    target: business_partner
+    role: CUSTOMER
+    key: KUNNR
+    fields:
+      KUNNR: source_id
+      LAND1: country
+      NAME1: name1
+      NAME2: name2
+      NAME3: name3
+      NAME4: name4
+      SORTL: search_term
+      ORT01: city
+      PSTLZ: postal_code
+      REGIO: region
+      STRAS: street
+      PFACH: po_box
+      PSTL2: po_box_postal_code
+      ADRNR: address_id
+      KTOKD: account_group
+      XCPDK: is_one_time            # X -> true
+      LOEVM: deletion_flag          # X -> true
+      SPERR: central_block          # X -> true
+      KNRZA: alt_payer_key          # -> 'C:' || KNRZA
+      KONZS: group_key
+      SPRAS: language
+      ERDAT: created_on
+      ERNAM: created_by
+      TELF1: phone
+      STCD1: tax_id.TAX1            # -> bp_tax_id
+      STCD2: tax_id.TAX2
+      STCEG: tax_id.VAT
+    ignore: [MANDT, ANRED, TELFX, TELF2, DUEFL, NODEL, CASSD, KUKLA, BRSCH, STKZU, STKZN, ADRNR2]
+  KNB1:
+    target: bp_company_code
+    role: CUSTOMER
+    key: [KUNNR, BUKRS]
+    fields:
+      KUNNR: bp_key
+      BUKRS: company_code
+      AKONT: recon_account
+      ZTERM: payment_terms
+      MAHNA: dunning_procedure
+      SPERR: posting_block
+      LOEVM: deletion_flag
+      ZWELS: payment_methods
+      ZAHLS: payment_block
+      KNRZB: alt_payer_key
+      TOGRU: tolerance_group
+      ZUAWA: sort_key
+      ERDAT: created_on
+      ERNAM: created_by
+    ignore: [MANDT, XVERR, FDGRV, VZSKZ, XAUSZ, ZINDT, ZINRT, MGRUP, ZSABE, KVERM, ALTKN, XEDIP, HBKID]
+  KNBK:
+    target: bp_bank_account
+    role: CUSTOMER
+    key: [KUNNR, BANKS, BANKL, BANKN]
+    fields:
+      KUNNR: bp_key
+      BANKS: bank_country
+      BANKL: bank_key
+      BANKN: account_number
+      BKONT: bank_control_key
+      BVTYP: partner_bank_type
+      KOINH: account_holder
+      XEZER: collection_auth
+    join:
+      TIBAN: [BANKS, BANKL, BANKN, BKONT]   # liefert iban
+    ignore: [MANDT, BKREF, EBPP_ACCNAME]
+  TIBAN:
+    target: bp_bank_account.iban
+    key: [BANKS, BANKL, BANKN, BKONT]
+    fields:
+      BANKS: bank_country
+      BANKL: bank_key
+      BANKN: account_number
+      BKONT: bank_control_key
+      IBAN: iban
+      VALID_FROM: valid_from
+    ignore: [MANDT, ERDAT, ERNAM]
+  KNVP:
+    target: bp_partner_function
+    role: CUSTOMER
+    key: [KUNNR, VKORG, VTWEG, SPART, PARVW, PARZA]
+    fields:
+      KUNNR: bp_key
+      VKORG: sales_org
+      VTWEG: dist_channel
+      SPART: division
+      PARVW: function
+      KUNN2: partner_bp_key         # -> 'C:' || KUNN2
+      PARZA: counter
+    ignore: [MANDT, LIFNR, PERNR, PARNR, KNREF, DEFPA]
+  KNVV:
+    target: null                    # V2: sales_area – noch nicht im kanonischen Schema
+    status: later
+    fields_of_interest: [KUNNR, VKORG, VTWEG, SPART, ZTERM, INCO1, INCO2, WAERS, KDGRP, AUFSD, LIFSD, FAKSD, LOEVM]
+  KNB5:
+    target: bp_dunning
+    role: CUSTOMER
+    key: [KUNNR, BUKRS, MABER]
+    fields:
+      KUNNR: bp_key
+      BUKRS: company_code
+      MABER: dunning_area
+      MAHNS: dunning_level
+      MADAT: last_dunned_on
+      MANSP: dunning_block
+      KNRMA: dunning_recipient_key
+    ignore: [MANDT]
+  LFA1:
+    target: business_partner
+    role: VENDOR
+    key: LIFNR
+    fields:
+      LIFNR: source_id
+      LAND1: country
+      NAME1: name1
+      NAME2: name2
+      NAME3: name3
+      NAME4: name4
+      SORTL: search_term
+      ORT01: city
+      PSTLZ: postal_code
+      REGIO: region
+      STRAS: street
+      PFACH: po_box
+      PSTL2: po_box_postal_code
+      ADRNR: address_id
+      KTOKK: account_group
+      XCPDK: is_one_time
+      LOEVM: deletion_flag
+      SPERR: central_block
+      LNRZA: alt_payer_key          # -> 'V:' || LNRZA
+      KONZS: group_key
+      SPRAS: language
+      ERDAT: created_on
+      ERNAM: created_by
+      TELF1: phone
+      STCD1: tax_id.TAX1
+      STCD2: tax_id.TAX2
+      STCEG: tax_id.VAT
+    ignore: [MANDT, ANRED, TELFX, SPERM, SPERQ, XZEMP, EMNFR, DUEFL, NODEL, KUNNR]
+  LFB1:
+    target: bp_company_code
+    role: VENDOR
+    key: [LIFNR, BUKRS]
+    fields:
+      LIFNR: bp_key
+      BUKRS: company_code
+      AKONT: recon_account
+      ZTERM: payment_terms
+      SPERR: posting_block
+      LOEVM: deletion_flag
+      ZWELS: payment_methods
+      ZAHLS: payment_block
+      LNRZB: alt_payer_key
+      TOGRU: tolerance_group
+      REPRF: double_invoice_check    # Prüfung doppelte Rechnung – wichtig für AP-LEA
+      ZUAWA: sort_key
+      ERDAT: created_on
+      ERNAM: created_by
+    ignore: [MANDT, XVERR, QLAND, MINDK, HBKID, XEDIP, ZINDT, FDGRV, ALTKN, XPORE, CERDT, KVERM]
+  LFBK:
+    target: bp_bank_account
+    role: VENDOR
+    key: [LIFNR, BANKS, BANKL, BANKN]
+    fields:
+      LIFNR: bp_key
+      BANKS: bank_country
+      BANKL: bank_key
+      BANKN: account_number
+      BKONT: bank_control_key
+      BVTYP: partner_bank_type
+      KOINH: account_holder
+      XEZER: collection_auth
+    join:
+      TIBAN: [BANKS, BANKL, BANKN, BKONT]
+    ignore: [MANDT, BKREF, EBPP_ACCNAME]
+
+  # Posten – BSID/BSAD (Debitor) und BSIK/BSAK (Kreditor) haben dieselbe Struktur.
+  # Alternativ ein FBL5N-/FBL1N-Export "alle Posten" mit Layout dieser Felder.
+  BSID: &fi_customer
+    target: fi_item
+    role: CUSTOMER
+    is_open: true
+    key: [BUKRS, GJAHR, BELNR, BUZEI]
+    fields:
+      KUNNR: bp_key
+      BUKRS: company_code
+      GJAHR: fiscal_year
+      BELNR: document_no
+      BUZEI: line_item
+      BUDAT: posting_date
+      BLDAT: document_date
+      CPUDT: entry_date
+      BLART: doc_type
+      BSCHL: posting_key
+      SHKZG: debit_credit
+      UMSKZ: special_gl
+      WAERS: currency
+      WRBTR: amount_doc
+      DMBTR: amount_local
+      XBLNR: reference
+      ZUONR: assignment
+      SGTXT: item_text
+      ZFBDT: baseline_date
+      ZTERM: payment_terms
+      ZBD1T: cash_disc_days1
+      ZBD1P: cash_disc_pct1
+      SKFBT: cash_disc_base
+      SKNTO: cash_disc_taken
+      ZLSCH: payment_method
+      ZLSPR: payment_block
+      REBZG: invoice_ref_doc
+      HKONT: gl_account
+      AUGDT: clearing_date
+      AUGBL: clearing_doc
+    ignore: [MANDT, UMSKS, MONAT, GSBER, MWSKZ, MWSTS, ZBD2T, ZBD2P, ZBD3T, WSKTO, REBZJ, REBZZ, REBZT,
+             MANSP, MSCHL, MANST, MADAT, XREF1, XREF2, XREF3, VBELN, VBEL2, KKBER, FILKD, ZLSCH2]
+  BSAD:
+    <<: *fi_customer
+    is_open: false
+  BSIK: &fi_vendor
+    target: fi_item
+    role: VENDOR
+    is_open: true
+    key: [BUKRS, GJAHR, BELNR, BUZEI]
+    fields:
+      LIFNR: bp_key
+      BUKRS: company_code
+      GJAHR: fiscal_year
+      BELNR: document_no
+      BUZEI: line_item
+      BUDAT: posting_date
+      BLDAT: document_date
+      CPUDT: entry_date
+      BLART: doc_type
+      BSCHL: posting_key
+      SHKZG: debit_credit
+      UMSKZ: special_gl
+      WAERS: currency
+      WRBTR: amount_doc
+      DMBTR: amount_local
+      XBLNR: reference
+      ZUONR: assignment
+      SGTXT: item_text
+      ZFBDT: baseline_date
+      ZTERM: payment_terms
+      ZBD1T: cash_disc_days1
+      ZBD1P: cash_disc_pct1
+      SKFBT: cash_disc_base
+      SKNTO: cash_disc_taken
+      ZLSCH: payment_method
+      ZLSPR: payment_block
+      REBZG: invoice_ref_doc
+      EBELN: po_number
+      HKONT: gl_account
+      AUGDT: clearing_date
+      AUGBL: clearing_doc
+    ignore: [MANDT, UMSKS, MONAT, GSBER, MWSKZ, MWSTS, ZBD2T, ZBD2P, ZBD3T, WSKTO, REBZJ, REBZZ, REBZT,
+             XREF1, XREF2, XREF3, EBELP, EMPFB, FILKD, ZLSCH2]
+  BSAK:
+    <<: *fi_vendor
+    is_open: false
+  T052:
+    target: payment_terms
+    key: [ZTERM, ZTAGG]
+    fields:
+      ZTERM: terms_key
+      ZTAGG: day_limit
+      ZTAG1: days1
+      ZPRZ1: pct1
+      ZTAG2: days2
+      ZPRZ2: pct2
+      ZTAG3: days3
+    join:
+      T052U: [ZTERM]                # TEXT1 -> description (SPRAS = DE bevorzugt)
+    ignore: [MANDT, ZDART, ZFAEL, ZMONA, ZSTG1, ZSMN1, ZSTG2, ZSMN2, ZSTG3, ZSMN3, XSPLT, KOART, XSCRC]
+  ADR6:
+    target: business_partner.email
+    key: [ADDRNUMBER]
+    fields:
+      ADDRNUMBER: address_id
+      SMTP_ADDR: email
+    ignore: [CLIENT, PERSNUMBER, DATE_FROM, CONSNUMBER, FLGDEFAULT, FLG_NOUSE, HOME_FLAG, VALID_FROM, VALID_TO, REMARK, DFT_RECEIV]
+  CDHDR:
+    target: change_document
+    status: later
+    filter: "OBJECTCLAS IN ('DEBI','KRED')"
+    fields_of_interest: [OBJECTCLAS, OBJECTID, CHANGENR, USERNAME, UDATE, UTIME, TCODE]
+  CDPOS:
+    target: change_document
+    status: later
+    fields_of_interest: [OBJECTCLAS, OBJECTID, CHANGENR, TABNAME, FNAME, VALUE_NEW, VALUE_OLD, CHNGIND]
+
+derivations:
+  bp_key: "role CUSTOMER -> 'C:' || KUNNR ; role VENDOR -> 'V:' || LIFNR (jeweils unkonvertiert)"
+  amount_signed_local: "SHKZG = 'S' -> +DMBTR ; SHKZG = 'H' -> -DMBTR (genau einmal, beim Staging)"
+  reference_norm: "upper(regexp_replace(XBLNR, '[^A-Za-z0-9]', '', 'g'))"
+  name_norm: "siehe logic/dictionaries/legal_forms.yaml + street_abbreviations.yaml (Umlaute, Rauschen, Rechtsformen)"
+  iban_norm: "upper(replace(IBAN, ' ', ''))"
+  iban_valid: "schwifty.IBAN.validate – NULL wenn keine IBAN"
+  item_key: "BUKRS || '|' || GJAHR || '|' || BELNR || '|' || BUZEI"

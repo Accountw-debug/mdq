@@ -1,0 +1,68 @@
+finding_id: F-5e8a2c7f0b14
+run_id: demo-2026-08-30
+rule_id: AP-LEA-002
+rule_version: "1.0"
+engine_version: "0.1.0"
+pack_version: "0.1"
+side: AP
+category: leakage
+severity: medium
+damage_class: 3
+tier: C
+action_type: process
+title: "Skontoverlust 12 Monate: 4.812,40 EUR bei 23 Rechnungen"
+entity:
+  bp_key: "V:0000200117"
+  role: VENDOR
+  company_code: "1000"
+  display_name: "Elektro Brandt GmbH & Co. KG, Kassel"
+relevance:
+  open_items_eur: "18400.00"
+  volume_12m_eur: "240620.00"
+  last_activity_on: "2026-08-25"
+current:
+  source_table: BSAK
+  source_field: SKNTO
+  value: "0.00"
+  display: "23 von 31 Rechnungen nach Skontofrist bezahlt (Zahlungsbedingung ZB02: 14 Tage 2 %, 30 Tage netto)"
+proposed:
+  value: null
+  display: "Zahllauf-Timing für diesen Kreditor prüfen (Zahllauf wöchentlich → Skontofrist verpasst)"
+  source_summary: "Statistik aus BSAK: Zahlungen im Mittel am Tag 19 nach Belegdatum, Skontofrist Tag 14"
+evidence:
+  - source_type: statistics
+    reference: "BSAK 2025-09..2026-08"
+    value: "23 Rechnungen, Skontobasis 240.620,00 EUR, Skonto 2 % nicht genutzt"
+    observed_at: "2026-08-28"
+    agrees: true
+    note: "Zahlungen Tag 15–24 nach Belegdatum"
+  - source_type: deterministic
+    reference: "T052 ZB02"
+    value: "14 Tage 2 %, 30 Tage netto"
+    observed_at: null
+    agrees: true
+    note: "Zahlungsbedingung laut LFB1"
+impact_eur:
+  amount: "4812.40"
+  currency: EUR
+  formula: "Skontobasis 240.620,00 EUR × 2 % = 4.812,40 EUR (nur Rechnungen, die nach Skontofrist bezahlt wurden)"
+  netted_against: null
+why: >
+  Skonto ist der billigste Kredit, den es gibt: 2 % bei 16 Tagen früherer Zahlung
+  entspricht über 40 % p. a. Verpasstes Skonto ist realer, wiederkehrender Abfluss.
+if_wrong: >
+  Kein Datenfehler – es wird nichts geändert, nur ein Prozessvorschlag gemacht. Liquidität
+  muss den früheren Zahllauf hergeben.
+remediation:
+  sap_transaction: F110
+  path: "Zahllauf-Parameter: Termin/Frequenz oder Zahlwegauswahl für diesen Kreditor"
+  field: null
+  mass_change_eligible: false
+  steps:
+    - "Zahllauf-Frequenz oder 'nächstes Buchungsdatum' so setzen, dass Skontofrist erreicht wird"
+    - "Alternativ Zahlungsbedingung mit Lieferant neu verhandeln"
+related_finding_ids: []
+status: open
+decision: null
+data_as_of: "2026-08-28"
+created_at: "2026-08-30T09:15:00Z"

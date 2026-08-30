@@ -1,0 +1,55 @@
+# Normalisierung von Straßen und Orten (street_norm, city_norm)
+version: "0.1"
+
+street:
+  strasse:        [str., str, straße, strasse, -str., -str, -straße, -strasse]
+  platz:          [pl., platz]
+  weg:            [weg]
+  allee:          [allee]
+  ring:           [ring]
+  chaussee:       [chaussee, ch.]
+  gasse:          [gasse, g.]
+  ufer:           [ufer]
+  damm:           [damm]
+  postfach:       [postfach, pf, pf., p.f., pob, p.o. box, po box, boîte postale, bp, casella postale]
+  avenue:         [ave., ave, av., avenue]
+  road:           [rd., rd, road]
+  street:         [st., st, street]
+  boulevard:      [blvd., blvd, bd, boulevard]
+  rue:            [rue, r.]
+  via:            [via, v.]
+  calle:          [calle, c/, c.]
+  laan:           [laan, ln.]
+  straat:         [straat, str]
+  ulica:          [ul., ul, ulica]
+
+# Hausnummer wird abgetrennt und separat verglichen (Zusätze wie 12a, 12-14, 12/1 vereinheitlicht)
+house_number_regex: "(\\d+)\\s*([a-zA-Z]?)(?:\\s*[-/]\\s*(\\d+))?$"
+
+city:
+  # Ortsteile und Zusätze, die entfernt werden
+  strip_suffixes:
+    - " am main"
+    - " a. main"
+    - " a.m."
+    - " an der donau"
+    - " a.d. donau"
+    - " an der saale"
+    - " im breisgau"
+    - " i. br."
+    - " i.br."
+    - " (westf.)"
+    - " (westfalen)"
+    - " (oldb)"
+    - " ot "
+    - " - "
+  # Alternative Schreibweisen
+  aliases:
+    muenchen: [munich, monaco di baviera, münchen]
+    koeln: [cologne, köln]
+    nuernberg: [nuremberg, nürnberg]
+    wien: [vienna, vienne]
+    zuerich: [zurich, zürich]
+    frankfurt: [frankfurt am main, frankfurt/main, frankfurt a. m., ffm]
+
+# Abgleich PLZ ↔ Ort erfolgt über eine PLZ-Liste (OpenPLZ, V1 optional); hier nur Formatmuster.

@@ -1,0 +1,74 @@
+finding_id: F-7b2e8c1d9a3f
+run_id: demo-2026-08-30
+rule_id: AR-DUP-001
+rule_version: "1.0"
+engine_version: "0.1.0"
+pack_version: "0.1"
+side: AR
+category: duplicate
+severity: high
+damage_class: 2
+tier: B
+action_type: review
+title: "Dubletten-Verdacht: 2 Debitorenkonten für Müller Maschinenbau GmbH, Augsburg"
+entity:
+  bp_key: "C:0000100234"
+  role: CUSTOMER
+  company_code: null
+  display_name: "Müller Maschinenbau GmbH, Augsburg"
+  related_bp_keys: ["C:0000100987"]
+relevance:
+  open_items_eur: "51610.00"
+  volume_12m_eur: "338900.00"
+  last_activity_on: "2026-08-12"
+current:
+  source_table: KNA1
+  source_field: KUNNR
+  value: "0000100234 | 0000100987"
+  display: "Müller Maschinenbau GmbH, Robert-Bosch-Str. 12, 86159 Augsburg | Mueller Maschinenbau GmbH, Robert Bosch Straße 12, 86159 Augsburg"
+proposed:
+  value: "0000100234"
+  display: "Führendes Konto 0000100234 (45.210 € OP, letzte Zahlung 12.08.2026); 0000100987 sperren"
+  source_summary: "Name und Straße nach Normalisierung identisch, gleiche PLZ, USt-ID auf 0000100987 gültig im Format – kein Regulierer-Bezug in KNVP"
+evidence:
+  - source_type: model
+    reference: "cluster-000412"
+    value: "name_norm gleich, street_norm gleich, postal_code gleich"
+    observed_at: null
+    agrees: true
+    note: "Match-Gründe: Mueller→Müller (Transliteration), Straße/Str. (Wörterbuch)"
+  - source_type: deterministic
+    reference: "KNVP"
+    value: "kein RG/RE-Bezug zwischen den Konten"
+    observed_at: null
+    agrees: true
+    note: "Zentralregulierer ausgeschlossen"
+  - source_type: statistics
+    reference: "BSAD 2024-09..2026-08"
+    value: "0000100234: 27 Zahlungen | 0000100987: 2 Zahlungen"
+    observed_at: "2026-08-28"
+    agrees: true
+    note: "Survivorship: Aktivität"
+impact_eur: null
+why: >
+  Zahlungen dieses Kunden können auf zwei Konten landen; offene Posten, Mahnstufen und
+  Kreditlimit sind auf beide verteilt. Bei der S/4-Konvertierung entstehen zwei Business
+  Partner.
+if_wrong: >
+  Werden zwei bewusst getrennte Gesellschaften zusammengeführt, müssen umgebuchte Posten
+  zurückgeholt werden. Deshalb Review – bei Ablehnung mit Grund landet das Paar in der
+  Whitelist.
+remediation:
+  sap_transaction: XD05 / XD06 / FB05
+  path: "Führendes Konto bestätigen, Dublette sperren, offene Posten umbuchen"
+  field: null
+  mass_change_eligible: false
+  steps:
+    - "Golden Record prüfen: USt-ID von 0000100987 (nach VIES) auf 0000100234 übernehmen"
+    - "2 offene Posten (6.400 €) von 0000100987 per FB05 auf 0000100234 umbuchen"
+    - "0000100987: XD05 Sperre, XD06 Löschvormerkung"
+related_finding_ids: ["F-3a9f1c2d4e5b"]
+status: open
+decision: null
+data_as_of: "2026-08-28"
+created_at: "2026-08-30T09:15:00Z"

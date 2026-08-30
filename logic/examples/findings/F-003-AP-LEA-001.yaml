@@ -1,0 +1,80 @@
+finding_id: F-c41d7e9b2a60
+run_id: demo-2026-08-30
+rule_id: AP-LEA-001
+rule_version: "1.0"
+engine_version: "0.1.0"
+pack_version: "0.1"
+side: AP
+category: leakage
+severity: critical
+damage_class: 2
+tier: B
+action_type: review
+title: "Mögliche Doppelzahlung: 32.000,00 EUR an Kreditor, Referenz RE-4711 / RE4711"
+entity:
+  bp_key: "V:0000200845"
+  role: VENDOR
+  company_code: "1000"
+  display_name: "Stahlhandel Bergmann KG, Essen"
+  documents:
+    - { company_code: "1000", fiscal_year: "2026", document_no: "1900004411", line_item: "001" }
+    - { company_code: "1000", fiscal_year: "2026", document_no: "1900004587", line_item: "001" }
+relevance:
+  open_items_eur: "0.00"
+  volume_12m_eur: "1284000.00"
+  last_activity_on: "2026-08-20"
+current:
+  source_table: BSAK
+  source_field: XBLNR
+  value: "RE-4711 | RE4711"
+  display: "Zwei bezahlte Rechnungen über 32.000,00 EUR"
+proposed:
+  value: null
+  display: "Rückforderung an Lieferant oder Verrechnung mit nächster Rechnung"
+  source_summary: "Belegpaar 1900004411 / 1900004587: gleicher Betrag, Referenz nahezu identisch, 9 Tage Abstand, keine Gutschrift in 180 Tagen"
+evidence:
+  - source_type: deterministic
+    reference: "1000/2026/1900004411"
+    value: "RE-4711, Belegdatum 01.03.2026, bezahlt 28.03.2026"
+    observed_at: "2026-03-01"
+    agrees: true
+    note: "Rechnung A"
+  - source_type: deterministic
+    reference: "1000/2026/1900004587"
+    value: "RE4711, Belegdatum 10.03.2026, bezahlt 09.04.2026"
+    observed_at: "2026-03-10"
+    agrees: true
+    note: "Rechnung B – Referenz ohne Bindestrich erfasst, dadurch REPRF-Prüfung umgangen"
+  - source_type: deterministic
+    reference: "BSAK Gutschriften 10.03.–06.09.2026"
+    value: "keine Gutschrift über 32.000,00 EUR"
+    observed_at: "2026-08-28"
+    agrees: true
+    note: "Netting-Prüfung"
+impact_eur:
+  amount: "32000.00"
+  currency: EUR
+  formula: "Betrag der zweiten Zahlung 32.000,00 EUR; keine Gutschrift/Storno gefunden"
+  netted_against: null
+why: >
+  Zwei Rechnungen mit praktisch gleicher Referenz und identischem Betrag wurden beide
+  bezahlt. Die SAP-Doppelerfassungsprüfung greift nur bei exakt gleicher Referenz –
+  "RE-4711" und "RE4711" umgehen sie.
+if_wrong: >
+  Handelt es sich um zwei echte Lieferungen mit unglücklicher Nummerierung, wäre eine
+  Rückforderung peinlich. Deshalb beide Rechnungsbilder prüfen, bevor der Lieferant
+  angeschrieben wird.
+remediation:
+  sap_transaction: FBL1N
+  path: "Belegpaar prüfen, dann Rückforderung/Verrechnung"
+  field: null
+  mass_change_eligible: false
+  steps:
+    - "Rechnungsbilder zu 1900004411 und 1900004587 vergleichen (Lieferschein, Positionen)"
+    - "Rückforderung mit Anschreiben-Vorlage oder Verrechnung mit nächster Rechnung anstoßen"
+    - "LFB1-REPRF für V:0000200845 prüfen; Erfassungsrichtlinie für Referenzen schärfen"
+related_finding_ids: []
+status: open
+decision: null
+data_as_of: "2026-08-28"
+created_at: "2026-08-30T09:15:00Z"
