@@ -30,6 +30,11 @@ Fünf hässliche Varianten derselben KNA1-Zeilen. Der Loader muss alle identisch
 | `KNA1_utf8bom_tab_quoted.txt` | UTF-8 mit BOM | Tab | Felder in Anführungszeichen |
 | `BSID_formats.txt` | UTF-8 | Tab | Betrag `1.234,56`, `1234.56`, nachgestelltes Minus `1.234,56-`, Datum `20260830` und `30.08.2026` |
 
+**`BSID_formats.txt` ist kein realistischer Export.** Ein echter SE16N-Export verwendet in der ganzen
+Datei dieselbe Dezimaldarstellung (SAP-Benutzereinstellung SU3); hier stehen deutsche und ISO-Schreibweise
+bewusst in derselben Spalte, damit `parse_amount` auf Wert-Ebene beide Formen beherrscht. Die Erkennung der
+Notation je Datei kommt in Sprint 3 (D-035).
+
 ## Erwartete Findings (`expected/`)
 
 `expected_findings.yaml`: Liste `{rule_id, bp_key, company_code?, document_no?}` –

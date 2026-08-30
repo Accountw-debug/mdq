@@ -23,4 +23,4 @@ Format je Session: Datum · Ziel · Ergebnis · Offen/Nächster Schritt (max. 3 
   Nächster Schritt: Sprint 1, Aufgabe 5 – Loader für SE16N-Exports (`mdq/loader.py`, `mdq/formats.py`).
 - **2026-08-30 · Sprint 1, Aufgabe 5: Loader und SAP-Formate.** `mdq/loader.py` (Encoding per BOM/UTF-8/CP1252, Trenner aus der Kopfzeile, `raw_<TABELLE>` mit TEXT-Spalten, `sha256` über Originalbytes, `record_reject`) und `mdq/formats.py` (`parse_amount`, `parse_date` mit SAP-Initialwerten).
   Ergebnis: `uv run pytest` 205 passed, `uv run ruff check .` sauber; die vier KNA1-Samples ergeben zellengleiche Tabellen, Umlaute und führende Nullen intakt, CP1252 als Warnung markiert. D-031 bis D-036 ergänzt.
-  Nächster Schritt: Sprint 1, Aufgabe 6 – Run-Report (`mdq/report.py`). Offen: mehrdeutiges Betragsformat `1.234` (D-035) von Victor bestätigen lassen.
+  Nächster Schritt: Sprint 1, Aufgabe 6 – Run-Report (`mdq/report.py`). D-035 von Victor bestätigt und um die Notationserkennung je Datei für Sprint 3 ergänzt.

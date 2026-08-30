@@ -49,3 +49,9 @@ Encoding-Samples identisch ein. Dazu 30 Beispiel-Findings (Victor) und Regelkata
 ## Nicht in Sprint 1
 Mapping SAP → kanonisch (Sprint 3), Demo-Mandant-Generator (Sprint 2), Dubletten (Sprint 4),
 Euro-Wirkung (Sprint 4), UI (Sprint 5), Docker/Auth/Cloud (nie in diesem Prototyp).
+
+**Erkennung der Dezimalnotation je Datei (Sprint 3):** `parse_amount` beherrscht in Sprint 1
+beide Schreibweisen auf Wert-Ebene und lehnt mehrdeutige Werte wie `1.234` ab. Sprint 3
+ermittelt die Notation je Datei aus den eindeutigen Werten, wendet sie auf die mehrdeutigen
+an und bietet den Laufparameter `--decimal-notation de|iso` für Dateien ohne eindeutigen
+Wert; ohne beides bleibt es beim Reject. Siehe D-035.
