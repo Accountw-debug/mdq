@@ -34,6 +34,7 @@ proposed:
 evidence:
   - source_type: deterministic
     reference: "KNA1.LAND1"
+    reference_kind: master_field
     value: "DE"
     observed_at: null
     agrees: true

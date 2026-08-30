@@ -19,3 +19,9 @@ Dezimalen. Keine echten Firmen oder Personen – nur erfundene.
 
 Der `relevance`-Block trägt `open_items`, `volume_12m`, `currency` (Hauswährung, Pflicht)
 und `last_activity_on`. Beträge werden nicht umgerechnet – die Währung steht daneben (D-030).
+
+Seit Schema 1.1 (D-069) gibt es vier weitere optionale Felder: `evidence[].reference_kind`
+(was die Referenz ist), Belegdaten in `entity.documents[]` (`reference`, `document_date`,
+`cleared_on`, `amount`, `currency`), `entity.records[]` (je Konto die Vergleichsfelder) und
+`proposed.golden_record` (je Feld der beste Wert mit Herkunft). Gefüllt wird nur, was in der
+Datei belegt ist – ein Feld, dessen Wert nirgends steht, bleibt weg. IBANs nur maskiert.

@@ -1,6 +1,7 @@
 """Schema-Validierung von Findings."""
 
 import json
+import re
 
 import pytest
 from typer.testing import CliRunner
@@ -12,6 +13,8 @@ from mdq.findings import (
     duplicate_finding_ids,
     iter_finding_files,
     load_finding_file,
+    load_schema,
+    schema_version,
     validate_finding,
 )
 
@@ -109,6 +112,208 @@ def test_unknown_field_is_rejected(minimal_finding) -> None:
     assert any("unbekanntes_feld" in message for message in validate_finding(minimal_finding))
 
 
+
+# --- Schema-Erweiterungen aus dem UI (Sprint 3, Aufgabe 0) ---------------------------
+
+#: Ein vollstaendig gefuellter Beleg. Alle Werte erfunden (Regel 8).
+DOCUMENT = {
+    "company_code": "1000",
+    "fiscal_year": "2026",
+    "document_no": "1900004411",
+    "line_item": "001",
+    "reference": "RE-0001",
+    "document_date": "2026-03-01",
+    "cleared_on": "2026-03-28",
+    "amount": "32000.00",
+    "currency": "EUR",
+}
+
+#: Ein Kontosatz fuer den Feld-fuer-Feld-Vergleich. Alle Werte erfunden (Regel 8).
+RECORD_FIELDS = {
+    "name": "Testkonto Eins",
+    "street": "Teststrasse 1",
+    "postal_code": "86159",
+    "city": "Testort",
+    "country": "DE",
+    "vat_id": "DE000000001",
+    "iban_masked": "DE44 \u202649 32",
+    "payment_terms": "ZB01",
+    "open_items": "45210.00",
+    "currency": "EUR",
+    "last_activity_on": "2026-08-12",
+}
+
+GOLDEN_ENTRY = {
+    "value": "DE000000001",
+    "source_bp_key": "C:0000000002",
+    "source_type": "duplicate_record",
+}
+
+
+def _with_document(finding: dict, **overrides) -> dict:
+    finding["entity"]["documents"] = [DOCUMENT | overrides]
+    return finding
+
+
+def _with_record(finding: dict, **overrides) -> dict:
+    finding["entity"]["records"] = [{"bp_key": "C:0000000001", "fields": RECORD_FIELDS | overrides}]
+    return finding
+
+
+def _with_golden_record(finding: dict, golden: dict) -> dict:
+    finding["proposed"] = {
+        "value": "0000000001",
+        "source_summary": "Testfall Schema-Validierung",
+        "golden_record": golden,
+    }
+    return finding
+
+
+def test_schema_carries_a_version() -> None:
+    """Die Version steht im Schema, nicht in jedem Finding (D-069)."""
+    assert re.fullmatch(r"[0-9]+\.[0-9]+", schema_version())
+
+
+def test_record_fields_and_golden_record_share_one_field_list() -> None:
+    """Beide beschreiben dieselben Felder; zwei Listen duerfen nicht auseinanderlaufen."""
+    schema = load_schema()
+    records = schema["properties"]["entity"]["properties"]["records"]
+    golden = schema["properties"]["proposed"]["properties"]["golden_record"]
+    assert sorted(records["items"]["properties"]["fields"]["properties"]) == sorted(
+        golden["properties"]
+    )
+
+
+def test_extended_document_fields_are_valid(minimal_finding) -> None:
+    assert validate_finding(_with_document(minimal_finding)) == []
+
+
+def test_document_amount_as_float_is_rejected(minimal_finding) -> None:
+    """Regel 2: auch am Beleg ist der Betrag ein String mit zwei Dezimalen."""
+    finding = _with_document(minimal_finding, amount=32000.00)
+    assert any("entity.documents[0].amount" in m for m in validate_finding(finding))
+
+
+def test_document_amount_needs_two_decimals(minimal_finding) -> None:
+    finding = _with_document(minimal_finding, amount="32000")
+    assert any("entity.documents[0].amount" in m for m in validate_finding(finding))
+
+
+def test_document_cleared_on_must_be_a_date(minimal_finding) -> None:
+    finding = _with_document(minimal_finding, cleared_on="gestern")
+    assert any("entity.documents[0].cleared_on" in m for m in validate_finding(finding))
+
+
+def test_unknown_document_field_is_rejected(minimal_finding) -> None:
+    finding = _with_document(minimal_finding, waehrung="EUR")
+    assert any("waehrung" in m for m in validate_finding(finding))
+
+
+def test_reference_kind_is_accepted(minimal_finding) -> None:
+    minimal_finding["evidence"] = [
+        {
+            "source_type": "deterministic",
+            "reference": "BSAK Gutschriften",
+            "reference_kind": "netting",
+            "value": None,
+            "agrees": True,
+        }
+    ]
+    assert validate_finding(minimal_finding) == []
+
+
+def test_unknown_reference_kind_is_rejected(minimal_finding) -> None:
+    """Ein falscher Enum-Wert waere sonst ein Wort, das die UI nicht kennt."""
+    minimal_finding["evidence"] = [
+        {
+            "source_type": "deterministic",
+            "reference": "BSAK Gutschriften",
+            "reference_kind": "beleg",
+            "value": None,
+            "agrees": True,
+        }
+    ]
+    assert any("evidence[0].reference_kind" in m for m in validate_finding(minimal_finding))
+
+
+def test_records_are_valid(minimal_finding) -> None:
+    assert validate_finding(_with_record(minimal_finding)) == []
+
+
+def test_record_with_unknown_field_is_rejected(minimal_finding) -> None:
+    """Regel 4: ein zusaetzliches Feld ist ein Fehler, kein stiller Zusatz."""
+    finding = _with_record(minimal_finding, kreditlimit="10000.00")
+    assert any("kreditlimit" in m for m in validate_finding(finding))
+
+
+def test_record_with_unknown_key_beside_fields_is_rejected(minimal_finding) -> None:
+    _with_record(minimal_finding)
+    minimal_finding["entity"]["records"][0]["role"] = "CUSTOMER"
+    assert any("role" in m for m in validate_finding(minimal_finding))
+
+
+def test_record_needs_bp_key_and_fields(minimal_finding) -> None:
+    minimal_finding["entity"]["records"] = [{"fields": {}}]
+    assert any("bp_key" in m for m in validate_finding(minimal_finding))
+
+
+def test_record_open_items_as_float_is_rejected(minimal_finding) -> None:
+    finding = _with_record(minimal_finding, open_items=45210.00)
+    assert any("entity.records[0].fields.open_items" in m for m in validate_finding(finding))
+
+
+def test_unmasked_iban_is_rejected(minimal_finding) -> None:
+    """Regel 8: eine vollstaendige IBAN darf nicht in ein Finding geraten."""
+    finding = _with_record(minimal_finding, iban_masked="DE44500105175407324932")
+    assert any("entity.records[0].fields.iban_masked" in m for m in validate_finding(finding))
+
+
+def test_masked_iban_variants_are_accepted(minimal_finding) -> None:
+    for value in ("DE44 \u202649 32", "DE44\u20264932", "DE44...4932", "DE44 ***4932", None):
+        assert validate_finding(_with_record(minimal_finding, iban_masked=value)) == [], value
+
+
+def test_too_much_of_the_iban_visible_is_rejected(minimal_finding) -> None:
+    """Hoechstens die ersten vier und die letzten vier Zeichen."""
+    finding = _with_record(minimal_finding, iban_masked="DE4450 \u20264932 99")
+    assert any("entity.records[0].fields.iban_masked" in m for m in validate_finding(finding))
+
+
+def test_golden_record_is_valid(minimal_finding) -> None:
+    assert validate_finding(_with_golden_record(minimal_finding, {"vat_id": GOLDEN_ENTRY})) == []
+
+
+def test_golden_record_unknown_field_name_is_rejected(minimal_finding) -> None:
+    """Die Feldnamen sind dieselben wie im Kontosatz; ein Tippfehler faellt auf."""
+    finding = _with_golden_record(minimal_finding, {"ust_id": GOLDEN_ENTRY})
+    assert any("ust_id" in m for m in validate_finding(finding))
+
+
+def test_golden_record_entry_needs_its_source(minimal_finding) -> None:
+    """Ohne Quellkonto waere es ein Wert ohne Herkunft."""
+    entry = {k: v for k, v in GOLDEN_ENTRY.items() if k != "source_bp_key"}
+    finding = _with_golden_record(minimal_finding, {"vat_id": entry})
+    assert any("source_bp_key" in m for m in validate_finding(finding))
+
+
+def test_golden_record_source_type_uses_the_evidence_list(minimal_finding) -> None:
+    finding = _with_golden_record(minimal_finding, {"vat_id": GOLDEN_ENTRY | {"source_type": "geraten"}})
+    assert any("golden_record.vat_id.source_type" in m for m in validate_finding(finding))
+
+
+def test_decision_assigned_to_is_accepted(minimal_finding) -> None:
+    """Der Empfaenger der Zuweisung – `by` ist der Entscheider, nicht der Bearbeiter."""
+    minimal_finding["status"] = "rejected"
+    minimal_finding["decision"] = {
+        "by": "test.user",
+        "at": "2026-08-30T09:15:00Z",
+        "reason": "Testfall",
+        "reason_code": "data_correct",
+        "assigned_to": "test.kollege",
+    }
+    assert validate_finding(minimal_finding) == []
+
+
 # --- Regel 8: keine Geschaeftspartnerdaten in Meldungen ------------------------------
 
 
@@ -123,6 +328,19 @@ def test_messages_never_quote_values(minimal_finding) -> None:
     joined = " ".join(errors)
     for secret in secrets:
         assert secret not in joined
+
+
+def test_messages_never_quote_record_values(minimal_finding) -> None:
+    """Auch die neuen Felder duerfen ihren Wert nicht in die Meldung tragen."""
+    iban = "DE02120300000000202051"
+    _with_record(minimal_finding, iban_masked=iban, name="Mustermann Handels GmbH")
+    minimal_finding["entity"]["records"][0]["fields"]["country"] = "Deutschland"
+    errors = validate_finding(minimal_finding)
+    assert errors
+    joined = " ".join(errors)
+    assert iban not in joined
+    assert "Mustermann Handels GmbH" not in joined
+    assert "Deutschland" not in joined
 
 
 # --- Determinismus (Regel 9) ---------------------------------------------------------

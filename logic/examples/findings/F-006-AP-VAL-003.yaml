@@ -39,6 +39,7 @@ evidence:
     note: "Mod-97-Prüfung fehlgeschlagen"
   - source_type: payment_run
     reference: "REGUH 2025-09..2026-08"
+    reference_kind: payment_run
     value: "keine erfolgreiche Zahlung an diese IBAN"
     observed_at: "2026-08-28"
     agrees: false

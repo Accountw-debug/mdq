@@ -17,6 +17,25 @@ entity:
   company_code: null
   display_name: "Müller Maschinenbau GmbH, Augsburg"
   related_bp_keys: ["C:0000100987"]
+  records:
+    - bp_key: "C:0000100234"
+      fields:
+        name: "Müller Maschinenbau GmbH"
+        street: "Robert-Bosch-Str. 12"
+        postal_code: "86159"
+        city: "Augsburg"
+        vat_id: "AT U12345678"
+        open_items: "45210.00"
+        currency: "EUR"
+    - bp_key: "C:0000100987"
+      fields:
+        name: "Mueller Maschinenbau GmbH"
+        street: "Robert Bosch Straße 12"
+        postal_code: "86159"
+        city: "Augsburg"
+        vat_id: "DE123456780"
+        open_items: "6400.00"
+        currency: "EUR"
 relevance:
   open_items: "51610.00"
   volume_12m: "338900.00"
@@ -31,9 +50,15 @@ proposed:
   value: "0000100234"
   display: "Führendes Konto 0000100234 (45.210 € OP, letzte Zahlung 12.08.2026); 0000100987 sperren"
   source_summary: "Name und Straße nach Normalisierung identisch, gleiche PLZ, USt-ID auf 0000100987 gültig im Format – kein Regulierer-Bezug in KNVP"
+  golden_record:
+    vat_id:
+      value: "DE123456780"
+      source_bp_key: "C:0000100987"
+      source_type: duplicate_record
 evidence:
   - source_type: model
     reference: "cluster-000412"
+    reference_kind: cluster
     value: "name_norm gleich, street_norm gleich, postal_code gleich"
     observed_at: null
     agrees: true
@@ -46,6 +71,7 @@ evidence:
     note: "Zentralregulierer ausgeschlossen"
   - source_type: statistics
     reference: "BSAD 2024-09..2026-08"
+    reference_kind: statement
     value: "0000100234: 27 Zahlungen | 0000100987: 2 Zahlungen"
     observed_at: "2026-08-28"
     agrees: true

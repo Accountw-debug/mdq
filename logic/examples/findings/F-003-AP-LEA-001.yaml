@@ -17,8 +17,24 @@ entity:
   company_code: "1000"
   display_name: "Stahlhandel Bergmann KG, Essen"
   documents:
-    - { company_code: "1000", fiscal_year: "2026", document_no: "1900004411", line_item: "001" }
-    - { company_code: "1000", fiscal_year: "2026", document_no: "1900004587", line_item: "001" }
+    - company_code: "1000"
+      fiscal_year: "2026"
+      document_no: "1900004411"
+      line_item: "001"
+      reference: "RE-4711"
+      document_date: "2026-03-01"
+      cleared_on: "2026-03-28"
+      amount: "32000.00"
+      currency: "EUR"
+    - company_code: "1000"
+      fiscal_year: "2026"
+      document_no: "1900004587"
+      line_item: "001"
+      reference: "RE4711"
+      document_date: "2026-03-10"
+      cleared_on: "2026-04-09"
+      amount: "32000.00"
+      currency: "EUR"
 relevance:
   open_items: "0.00"
   volume_12m: "1284000.00"
@@ -36,18 +52,21 @@ proposed:
 evidence:
   - source_type: deterministic
     reference: "1000/2026/1900004411"
+    reference_kind: document
     value: "RE-4711, Belegdatum 01.03.2026, bezahlt 28.03.2026"
     observed_at: "2026-03-01"
     agrees: true
     note: "Rechnung A"
   - source_type: deterministic
     reference: "1000/2026/1900004587"
+    reference_kind: document
     value: "RE4711, Belegdatum 10.03.2026, bezahlt 09.04.2026"
     observed_at: "2026-03-10"
     agrees: true
     note: "Rechnung B – Referenz ohne Bindestrich erfasst, dadurch REPRF-Prüfung umgangen"
   - source_type: deterministic
     reference: "BSAK Gutschriften 10.03.–06.09.2026"
+    reference_kind: netting
     value: "keine Gutschrift über 32.000,00 EUR"
     observed_at: "2026-08-28"
     agrees: true

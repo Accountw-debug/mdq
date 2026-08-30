@@ -15,13 +15,15 @@
 | **Ist (current)** | Wert wie im SAP, mit Tabelle und Feld |
 | **Soll (proposed)** | Vorgeschlagener Wert mit Quellenlage |
 | **Evidenz (evidence)** | Einzelne Quelle mit Wert, Referenz, Datum, Übereinstimmung |
+| **Nachweisart (reference_kind)** | Was die Referenz einer Evidenz ist: `document` (FI-Beleg `BUKRS/GJAHR/BELNR`), `master_field` (Stammfeld wie `KNA1.LAND1`), `cluster` (Dubletten-Cluster), `external_query` (externe Abfrage, z. B. VIES), `statement` (Postenübersicht über ein Konto und einen Zeitraum), `netting` (Suche nach Gutschrift/Storno), `payment_run` (Zahllauf), `policy`. Die `source_type` sagt das nicht: Beleg, Stammfeld und Cluster stehen alle unter `deterministic` bzw. `model`. Optional – ohne Angabe zeigt die UI die Referenz wörtlich |
 | **Quellenlage** | Menschenlesbare Zusammenfassung der Evidenzen („bestätigt durch VIES und Rechnung 4711") |
 | **Herkunft (source)** | Woher ein normalisierter Wert im Staging stammt: `dictionary`, `regex` oder `model`. Steht zusammen mit einer Konfidenz an jedem normalisierten Feld; ein Finding auf einem `model`-Feld kommt ohne zweite Quelle nicht über Stufe B (D-067) |
 | **Euro-Wirkung (impact_eur)** | Betrag mit offengelegter Rechnung |
 | **Offene Posten (open_items)** | Summe der am Datenstand nicht ausgeglichenen Posten des BP in Hauswährung |
 | **Volumen 12 Monate (volume_12m)** | Summe der Rechnungsbeträge (brutto, Belegarten Rechnung) mit Buchungsdatum in den 12 Monaten vor dem Datenstand, abzüglich Gutschriften im selben Fenster – **unabhängig davon, ob die Rechnung ausgeglichen ist**. Zusammen mit den offenen Posten das Relevanzgewicht eines BP |
 | **Letzte Aktivität (last_activity_on)** | Spätestes Datum aus Buchungs- und Ausgleichsdatum aller Posten des BP. Ein Konto ohne Posten hat keine letzte Aktivität (`null`) |
-| **Golden Record** | Vorschlag für das führende Konto und je Feld den besten Wert bei Dubletten |
+| **Golden Record** | Vorschlag für das führende Konto (`proposed.value`) und je Feld den besten Wert mit seiner Herkunft (`proposed.golden_record`: je Feld `value`, `source_bp_key`, `source_type`) |
+| **Kontosatz (entity.records)** | Je beteiligtem Konto die Vergleichsfelder in Feldform statt als Fließtext: Name, Straße, PLZ, Ort, Land, USt-ID, maskierte IBAN, Zahlungsbedingung, offene Posten, Währung, letzte Aktivität. Grundlage des Feld-für-Feld-Vergleichs bei Dubletten. Beträge als String mit zwei Dezimalen, IBAN nur maskiert (höchstens die ersten vier und die letzten vier Zeichen, Regel 8) |
 | **Survivorship** | Regeln, welcher Wert je Feld gewinnt (VIES-geprüft > zuletzt geändert > vollständigster) |
 | **Whitelist** | Vom Kunden abgelehnte Vorschläge/„bewusst getrennt"-Paare, bleiben über Läufe |
 | **Policy** | Kundenregel, die einen `decision`-Fall deterministisch macht |

@@ -1,8 +1,61 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mdq.local/schemas/finding.schema.json",
+  "version": "1.1",
   "title": "MDQ Finding",
   "description": "Ein Finding ist eine Feststellung einer Regel zu einem Geschäftspartner oder Beleg(paar). Zentrales Objekt der Lösung.",
+  "$defs": {
+    "amount_string": {
+      "type": "string",
+      "pattern": "^-?[0-9]+\\.[0-9]{2}$",
+      "description": "Betrag als String mit zwei Dezimalen – nie float (Regel 2)"
+    },
+    "amount_string_or_null": {
+      "type": ["string", "null"],
+      "pattern": "^-?[0-9]+\\.[0-9]{2}$",
+      "description": "Wie amount_string, darf aber fehlen"
+    },
+    "currency_code": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "ISO-4217 – steht immer neben dem Betrag (Regel 2)"
+    },
+    "currency_code_or_null": {
+      "type": ["string", "null"],
+      "pattern": "^[A-Z]{3}$",
+      "description": "Wie currency_code, darf aber fehlen"
+    },
+    "date_or_null": {
+      "type": ["string", "null"],
+      "format": "date"
+    },
+    "bp_key": {
+      "type": "string",
+      "pattern": "^[CV]:[A-Za-z0-9]+$",
+      "description": "C:<KUNNR> oder V:<LIFNR>"
+    },
+    "iban_masked": {
+      "type": ["string", "null"],
+      "pattern": "^(?:[A-Za-z0-9] ?){0,4}(?:…|\\.\\.\\.|\\*{2,}) ?(?:[A-Za-z0-9] ?){0,4}$",
+      "description": "IBAN nur maskiert: höchstens die ersten vier und die letzten vier Zeichen sichtbar, dazwischen … oder *** (Regel 8). Beispiel: 'DE44 …49 32'"
+    },
+    "evidence_source_type": {
+      "type": "string",
+      "enum": ["deterministic", "vies", "iban_checksum", "duplicate_record", "invoice", "bank_statement",
+               "payment_run", "change_document", "statistics", "model", "external_register", "postal_code_list", "policy"]
+    },
+    "golden_record_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "source_bp_key", "source_type"],
+      "description": "Der beste Wert eines Feldes mit seiner Herkunft.",
+      "properties": {
+        "value": { "type": ["string", "null"] },
+        "source_bp_key": { "$ref": "#/$defs/bp_key", "description": "Konto, aus dem der Wert stammt" },
+        "source_type": { "$ref": "#/$defs/evidence_source_type", "description": "Wodurch der Wert belegt ist – dieselbe Liste wie bei evidence" }
+      }
+    }
+  },
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -49,7 +102,7 @@
       "additionalProperties": false,
       "required": ["bp_key", "role"],
       "properties": {
-        "bp_key": { "type": "string", "pattern": "^[CV]:[A-Za-z0-9]+$", "description": "C:<KUNNR> oder V:<LIFNR>" },
+        "bp_key": { "$ref": "#/$defs/bp_key" },
         "role": { "type": "string", "enum": ["CUSTOMER", "VENDOR"] },
         "company_code": { "type": ["string", "null"] },
         "display_name": { "type": ["string", "null"] },
@@ -59,7 +112,7 @@
         },
         "documents": {
           "type": "array",
-          "description": "Beteiligte Belege (z. B. Doppelzahlungspaar)",
+          "description": "Beteiligte Belege (z. B. Doppelzahlungspaar). Schlüssel sind Pflicht, die Belegdaten optional – eine Regel liefert sie, sobald sie sie hat.",
           "items": {
             "type": "object", "additionalProperties": false,
             "required": ["company_code", "fiscal_year", "document_no"],
@@ -67,7 +120,42 @@
               "company_code": { "type": "string" },
               "fiscal_year": { "type": "string" },
               "document_no": { "type": "string" },
-              "line_item": { "type": ["string", "null"] }
+              "line_item": { "type": ["string", "null"] },
+              "reference": { "type": ["string", "null"], "description": "Referenz des Belegs (XBLNR), z. B. 'RE-4711'" },
+              "document_date": { "$ref": "#/$defs/date_or_null", "description": "Belegdatum (BLDAT)" },
+              "cleared_on": { "$ref": "#/$defs/date_or_null", "description": "Ausgleichsdatum (AUGDT), „bezahlt am\u201c" },
+              "amount": { "$ref": "#/$defs/amount_string_or_null", "description": "Betrag des Belegs" },
+              "currency": { "$ref": "#/$defs/currency_code_or_null" }
+            }
+          }
+        },
+        "records": {
+          "type": "array",
+          "description": "Je beteiligtem Konto ein strukturierter Datensatz für den Feld-für-Feld-Vergleich. Vorgesehen für duplicate-Findings, nicht darauf beschränkt (auch zwei Konten mit derselben IBAN werden so vergleichbar).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["bp_key", "fields"],
+            "properties": {
+              "bp_key": { "$ref": "#/$defs/bp_key" },
+              "fields": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Nur die hier genannten Felder. Ein unbekanntes Feld ist ein Fehler, kein stiller Zusatz (Regel 4). Was das Konto nicht hergibt, bleibt weg oder null.",
+                "properties": {
+                  "name": { "type": ["string", "null"] },
+                  "street": { "type": ["string", "null"] },
+                  "postal_code": { "type": ["string", "null"] },
+                  "city": { "type": ["string", "null"] },
+                  "country": { "type": ["string", "null"], "pattern": "^[A-Z]{2}$", "description": "ISO-2, wie LAND1" },
+                  "vat_id": { "type": ["string", "null"] },
+                  "iban_masked": { "$ref": "#/$defs/iban_masked" },
+                  "payment_terms": { "type": ["string", "null"], "description": "Schlüssel wie ZTERM" },
+                  "open_items": { "$ref": "#/$defs/amount_string_or_null", "description": "Offene Posten dieses Kontos in der Hauswährung" },
+                  "currency": { "$ref": "#/$defs/currency_code_or_null", "description": "Hauswährung zu open_items (Regel 2)" },
+                  "last_activity_on": { "$ref": "#/$defs/date_or_null" }
+                }
+              }
             }
           }
         }
@@ -79,10 +167,10 @@
       "additionalProperties": false,
       "required": ["currency"],
       "properties": {
-        "open_items": { "type": "string", "pattern": "^-?[0-9]+\\.[0-9]{2}$" },
-        "volume_12m": { "type": "string", "pattern": "^-?[0-9]+\\.[0-9]{2}$" },
-        "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "Hauswährung – Beträge sind nicht umgerechnet" },
-        "last_activity_on": { "type": ["string", "null"], "format": "date" }
+        "open_items": { "$ref": "#/$defs/amount_string" },
+        "volume_12m": { "$ref": "#/$defs/amount_string" },
+        "currency": { "$ref": "#/$defs/currency_code", "description": "Hauswährung – Beträge sind nicht umgerechnet" },
+        "last_activity_on": { "$ref": "#/$defs/date_or_null" }
       }
     },
     "current": {
@@ -114,6 +202,24 @@
             "required": ["label", "consequence"],
             "properties": { "label": { "type": "string" }, "consequence": { "type": "string" } }
           }
+        },
+        "golden_record": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Je Feld der beste Wert mit Quelle (Glossar: Golden Record). proposed.value nennt das führende Konto, dieses Feld die Herkunft je Einzelwert. Dieselben Felder wie entity.records[].fields; ein unbekannter Feldname wird mit Namen gemeldet (Regel 4). Vorgesehen für duplicate-Findings.",
+          "properties": {
+            "name": { "$ref": "#/$defs/golden_record_entry" },
+            "street": { "$ref": "#/$defs/golden_record_entry" },
+            "postal_code": { "$ref": "#/$defs/golden_record_entry" },
+            "city": { "$ref": "#/$defs/golden_record_entry" },
+            "country": { "$ref": "#/$defs/golden_record_entry" },
+            "vat_id": { "$ref": "#/$defs/golden_record_entry" },
+            "iban_masked": { "$ref": "#/$defs/golden_record_entry" },
+            "payment_terms": { "$ref": "#/$defs/golden_record_entry" },
+            "open_items": { "$ref": "#/$defs/golden_record_entry" },
+            "currency": { "$ref": "#/$defs/golden_record_entry" },
+            "last_activity_on": { "$ref": "#/$defs/golden_record_entry" }
+          }
         }
       }
     },
@@ -124,12 +230,14 @@
         "additionalProperties": false,
         "required": ["source_type", "reference", "value", "agrees"],
         "properties": {
-          "source_type": {
-            "type": "string",
-            "enum": ["deterministic", "vies", "iban_checksum", "duplicate_record", "invoice", "bank_statement",
-                     "payment_run", "change_document", "statistics", "model", "external_register", "postal_code_list", "policy"]
-          },
+          "source_type": { "$ref": "#/$defs/evidence_source_type" },
           "reference": { "type": "string", "description": "Belegnummer, BP-Schlüssel, Abfrage-ID, Datei" },
+          "reference_kind": {
+            "type": "string",
+            "enum": ["document", "master_field", "cluster", "external_query", "statement",
+                     "netting", "payment_run", "policy"],
+            "description": "Was die Referenz ist. source_type sagt das nicht: '1000/2026/1900004411' (Beleg), 'KNA1.LAND1' (Stammfeld) und 'cluster-000412' stehen alle unter deterministic bzw. model. Das UI stellt der Referenz das passende Wort voran."
+          },
           "value": { "type": ["string", "null"] },
           "observed_at": { "type": ["string", "null"], "format": "date" },
           "agrees": { "type": "boolean", "description": "true = stützt das Soll, false = widerspricht" },
@@ -142,8 +250,8 @@
       "additionalProperties": false,
       "required": ["amount", "currency", "formula"],
       "properties": {
-        "amount": { "type": "string", "pattern": "^-?[0-9]+\\.[0-9]{2}$", "description": "Als String mit 2 Dezimalen – nie float" },
-        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "amount": { "$ref": "#/$defs/amount_string" },
+        "currency": { "$ref": "#/$defs/currency_code" },
         "formula": { "type": "string", "description": "Offengelegte Rechnung, z. B. '32000.00 × 2 % = 640.00'" },
         "netted_against": { "type": ["string", "null"], "description": "Gutschriften/Stornos, die abgezogen wurden" }
       }

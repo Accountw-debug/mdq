@@ -67,6 +67,19 @@ def load_schema() -> dict[str, Any]:
     return json.loads(FINDING_SCHEMA.read_text(encoding="utf-8"))
 
 
+def schema_version() -> str:
+    """Version des Finding-Schemas aus dem Metaschluessel ``version``.
+
+    Die Version steht im Schema, nicht in jedem Finding: sie beschreibt den Vertrag,
+    nicht den Einzelfall, und ein Pflichtfeld je Finding haette jede bestehende Datei
+    ungueltig gemacht. Der Lauf schreibt sie nach ``run.json`` (D-069).
+    """
+    version = load_schema().get("version")
+    if not isinstance(version, str) or not version:
+        raise FindingFileError("logic/finding.schema.json hat keinen Schluessel 'version'")
+    return version
+
+
 @lru_cache(maxsize=1)
 def _validator() -> Draft202012Validator:
     return Draft202012Validator(load_schema(), format_checker=format_checker)

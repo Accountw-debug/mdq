@@ -38,6 +38,7 @@ proposed:
 evidence:
   - source_type: deterministic
     reference: "BSID 1000"
+    reference_kind: statement
     value: "8930.00 EUR"
     observed_at: "2026-08-28"
     agrees: true

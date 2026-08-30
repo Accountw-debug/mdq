@@ -33,6 +33,7 @@ proposed:
 evidence:
   - source_type: statistics
     reference: "BSAK 2025-09..2026-08"
+    reference_kind: statement
     value: "23 Rechnungen, Skontobasis 240.620,00 EUR, Skonto 2 % nicht genutzt"
     observed_at: "2026-08-28"
     agrees: true
