@@ -22,7 +22,7 @@ Schwere: low/medium/high/critical · Schadensklasse: 1 Bankdaten / 2 steuerlich-
 | AR-CON-002 | Löschvormerkung/Sperre bei offenen Posten | consistency | high | 3 | decision | decision | business_partner, bp_company_code, fi_item | XD05/XD06 | impl |
 | AR-CON-003 | IBAN-Land ≠ Sitzland (Hinweis, kein Fehler) | consistency | low | 1 | C | review | business_partner, bp_bank_account | – | draft |
 | AR-CON-004 | Gleiche IBAN bei mehreren Debitoren ohne Regulierer-Bezug | consistency | high | 2 | B | review | bp_bank_account, bp_partner_function | XD02 | draft |
-| AR-HYG-001 | Kein Umsatz seit 24 Monaten und keine OP (Löschkandidat) | hygiene | low | 3 | A per Policy, sonst decision | mass_change | bp_relevance | XD06 | draft |
+| AR-HYG-001 | Kein Umsatz seit 24 Monaten und keine OP (Löschkandidat) | hygiene | low | 3 | decision (Policy kann zur Laufzeit auf A heben) | mass_change | bp_relevance | XD06 | draft |
 | AR-HYG-002 | Angelegt, nie bebucht (> 12 Monate) | hygiene | low | 3 | decision | decision | business_partner, bp_relevance | XD06 | draft |
 | AR-DUP-001 | Dubletten-Cluster (Name+Adresse normalisiert, USt-ID, IBAN) | duplicate | high | 2 | B | review | business_partner, bp_tax_id, bp_bank_account, bp_partner_function | XD05/XD06/FB05 | draft |
 | AR-LEA-001 | Unapplied Cash: Zahlungseingänge ohne Rechnungsbezug (Akonto) älter 30 Tage | leakage | medium | 3 | B | review | fi_item | F-32 | draft |
@@ -41,8 +41,8 @@ Schwere: low/medium/high/critical · Schadensklasse: 1 Bankdaten / 2 steuerlich-
 | AP-VAL-003 | IBAN-Prüfziffer ungültig | validity | critical | 1 | C | review | bp_bank_account | XK02 | draft |
 | AP-CON-001 | Gleiche IBAN bei mehreren Kreditoren | consistency | critical | 1 | C | review | bp_bank_account | XK02 | draft |
 | AP-CON-002 | IBAN-Land ≠ Sitzland bei Kreditor | consistency | medium | 1 | C | review | business_partner, bp_bank_account | – | draft |
-| AP-CON-003 | Zahlung an gesperrten/zur Löschung vorgemerkten Kreditor (letzte 12 Monate) | consistency | high | 3 | review | review | business_partner, bp_company_code, fi_item | – | draft |
-| AP-HYG-001 | Kein Einkauf seit 24 Monaten (Löschkandidat) | hygiene | low | 3 | A per Policy | mass_change | bp_relevance | XK06 | draft |
+| AP-CON-003 | Zahlung an gesperrten/zur Löschung vorgemerkten Kreditor (letzte 12 Monate) | consistency | high | 3 | C | review | business_partner, bp_company_code, fi_item | – | draft |
+| AP-HYG-001 | Kein Einkauf seit 24 Monaten (Löschkandidat) | hygiene | low | 3 | decision (Policy kann zur Laufzeit auf A heben) | mass_change | bp_relevance | XK06 | draft |
 | AP-RSK-001 | Bankdatenänderung kurz vor Zahlung (< 30 Tage) ohne Vier-Augen (V2: CDHDR) | risk | critical | 1 | C | process | change_document, fi_item | – | draft |
 | AP-DUP-001 | Kreditoren-Dubletten-Cluster | duplicate | high | 2 | B | review | business_partner, bp_tax_id, bp_bank_account | XK05/XK06 | draft |
 | AP-LEA-001 | Mögliche Doppelzahlung (Referenz fuzzy, gleicher Betrag, 60 Tage) | leakage | critical | 2 | B | review | business_partner, fi_item | FBL1N | impl |

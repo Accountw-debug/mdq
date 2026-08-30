@@ -9,9 +9,11 @@ from pathlib import Path
 from typing import Annotated, NoReturn
 
 import typer
+from rich import box
 from rich.console import Console
+from rich.table import Table
 
-from mdq import __version__
+from mdq import RULES_DIR, __version__
 from mdq.findings import (
     FindingFileError,
     duplicate_finding_ids,
@@ -19,6 +21,7 @@ from mdq.findings import (
     load_finding_file,
     validate_finding,
 )
+from mdq.rules import RuleError, load_rules
 
 #: Mindestens ein Finding ist ungueltig
 EXIT_INVALID = 1
@@ -108,9 +111,48 @@ def validate(
 
 
 @rules_app.command("list")
-def rules_list() -> None:
+def rules_list(
+    directory: Annotated[
+        Path,
+        typer.Option("--dir", help="Regelverzeichnis (Vorgabe: logic/rules/)."),
+    ] = RULES_DIR,
+) -> None:
     """Listet die Regeln mit ID, Version, Seite, Kategorie und Stufe."""
-    _not_implemented("rules list", "SPRINT-1, Aufgabe 3 – Regel-Loader")
+    try:
+        rules = load_rules(directory)
+    except RuleError as exc:
+        err_console.print(f"[bold red]Fehler:[/] {exc}")
+        raise typer.Exit(code=EXIT_INVALID) from exc
+
+    if not rules:
+        err_console.print(f"[bold red]Fehler:[/] keine Regeln unter {directory} gefunden.")
+        raise typer.Exit(code=EXIT_NO_INPUT)
+
+    # Ohne Titelspalte: der Titel enthaelt {params}-Platzhalter und wuerde in einer
+    # Liste nur Breite kosten. Er steht im Regelkopf und spaeter im Finding.
+    table = Table(box=box.SIMPLE)
+    for column in ("ID", "Ver", "Seite", "Kategorie", "Stufe", "Aktion", "SK", "Tab"):
+        table.add_column(column, no_wrap=True)
+
+    for rule in rules:
+        table.add_row(
+            rule.id,
+            rule.version,
+            rule.side,
+            rule.category,
+            rule.default_tier,
+            rule.default_action_type,
+            str(rule.damage_class),
+            str(len(rule.requires_tables)),
+        )
+    console.print(table)
+
+    warned = [rule for rule in rules if rule.warnings]
+    for rule in warned:
+        for message in rule.warnings:
+            console.print(f"[yellow]HINWEIS[/] {rule.id}: {message}")
+
+    console.print(f"\n{len(rules)} Regeln, {len(warned)} mit Hinweis.")
 
 
 @app.command()

@@ -20,11 +20,11 @@ def test_version_command_succeeds() -> None:
     assert __version__ in result.stdout
 
 
-def test_stub_command_exits_non_zero() -> None:
+def test_stub_command_exits_non_zero(tmp_path) -> None:
     """Ein noch nicht umgesetzter Befehl meldet nie einen leeren Erfolg (D-013).
 
-    Geprueft an `rules list` – `validate` ist seit Aufgabe 2 umgesetzt und wird in
-    engine/tests/test_findings.py geprueft.
+    Geprueft am letzten verbliebenen Stub `run` (Sprint 3); `validate` und `rules list`
+    sind umgesetzt und werden in test_findings.py bzw. test_rules.py geprueft.
     """
-    result = runner.invoke(app, ["rules", "list"])
+    result = runner.invoke(app, ["run", "--input", str(tmp_path), "--out", str(tmp_path)])
     assert result.exit_code == EXIT_NOT_IMPLEMENTED
