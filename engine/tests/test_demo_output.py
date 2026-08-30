@@ -31,10 +31,12 @@ DATE_COLUMNS = ("BUDAT", "BLDAT", "CPUDT", "ZFBDT", "AUGDT", "ERDAT", "MADAT", "
 SIZE_LIMIT_BYTES = 20 * 1024 * 1024
 
 
-def test_fifteen_tables_are_written(demo_client) -> None:
+def test_all_tables_are_written(demo_client) -> None:
+    """16 Dateien seit Sprint 3: T001 kam als Traeger der Hauswaehrung dazu (D-030)."""
     out, manifest = demo_client
     assert [entry["table"] for entry in manifest["tables"]] == list(TABLES)
-    assert len(TABLES) == 15
+    assert len(TABLES) == 16
+    assert "T001" in TABLES
     assert sorted(path.name for path in out.glob("*.txt")) == sorted(f"{t}.txt" for t in TABLES)
 
 
@@ -140,7 +142,10 @@ def test_dates_parse_and_initial_values_are_written(demo_client) -> None:
 
 
 def test_load_reads_every_table_without_rejects(demo_client) -> None:
-    """Akzeptanz aus SPRINT-2.md: 15 Tabellen, 0 Rejects, Zeilen laut Manifest."""
+    """Akzeptanz aus SPRINT-2.md: alle Tabellen, 0 Rejects, Zeilen laut Manifest.
+
+    Seit Sprint 3 sind es 16 statt 15: T001 liefert die Hauswaehrung (D-030).
+    """
     out, manifest = demo_client
     con = duckdb.connect(":memory:")
     con.execute(CANONICAL_SCHEMA.read_text(encoding="utf-8"))

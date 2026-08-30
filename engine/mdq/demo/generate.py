@@ -1,4 +1,4 @@
-"""Erzeugt den Demo-Mandanten: Stammdaten, Posten, 15 Exportdateien, Manifest.
+"""Erzeugt den Demo-Mandanten: Stammdaten, Posten, 16 Exportdateien, Manifest.
 
 Ablauf: Kontonummern ziehen → Stammsätze bauen → Posten buchen → Mahndaten aus den
 offenen Posten ableiten → Dateien schreiben. Jede Phase hat ihren eigenen Zufallsstrom
@@ -19,6 +19,8 @@ from mdq import DEMO_DEFECTS
 from mdq.demo import (
     ANCHOR_CUSTOMERS,
     ANCHOR_VENDORS,
+    COMPANY_CODE_NAMES,
+    COMPANY_CODES,
     CUSTOMER_COUNT,
     CUSTOMER_RANGE,
     DATA_AS_OF,
@@ -287,6 +289,24 @@ def dunning_rows(items: list[FiItem]) -> list[dict[str, str]]:
     return rows
 
 
+def company_code_rows() -> list[dict[str, str]]:
+    """T001 – die Buchungskreise des Mandanten mit ihrer Hauswährung.
+
+    V1 kennt genau eine Hauswährung (D-030); beide Buchungskreise führen deshalb EUR.
+    Der CHF-Mandant für den Abbruchtest ist ein eigener Mini-Mandant (Sprint 3, Aufgabe 9).
+    """
+    return [
+        {
+            "MANDT": MANDT,
+            "BUKRS": code,
+            "BUTXT": COMPANY_CODE_NAMES[code][0],
+            "WAERS": LOCAL_CURRENCY,
+            "LAND1": COMPANY_CODE_NAMES[code][1],
+        }
+        for code in COMPANY_CODES
+    ]
+
+
 def payment_terms_rows() -> list[dict[str, str]]:
     """T052 – Skontotage und -prozent je Zahlungsbedingung."""
     return [
@@ -357,7 +377,7 @@ def item_rows(items: list[FiItem], key_column: str, with_po: bool) -> list[dict[
 
 
 def build_client(seed: int, defects: Sequence[Defect] | None = None) -> DemoClient:
-    """Baut den Mandanten: Basis, dann Defekte, dann die 15 Tabellen als Zeilenlisten.
+    """Baut den Mandanten: Basis, dann Defekte, dann die 16 Tabellen als Zeilenlisten.
 
     ``defects=None`` liest die Standardliste aus `testdata/demo_mandant/defects.yaml`.
     Für den defektfreien Basis-Mandanten – gegen den `test_demo_base.py` prüft – wird
@@ -407,6 +427,7 @@ def build_client(seed: int, defects: Sequence[Defect] | None = None) -> DemoClie
         "BSAD": item_rows(cleared_customer, "KUNNR", with_po=False),
         "BSIK": item_rows(open_vendor, "LIFNR", with_po=True),
         "BSAK": item_rows(cleared_vendor, "LIFNR", with_po=True),
+        "T001": company_code_rows(),
         "T052": payment_terms_rows(),
         "T052U": payment_terms_text_rows(),
     }
@@ -416,7 +437,7 @@ def build_client(seed: int, defects: Sequence[Defect] | None = None) -> DemoClie
 def build_tables(
     seed: int, defects: Sequence[Defect] | None = None
 ) -> dict[str, list[dict[str, str]]]:
-    """Nur die 15 Tabellen – für Tests, die die erwarteten Findings nicht brauchen."""
+    """Nur die 16 Tabellen – für Tests, die die erwarteten Findings nicht brauchen."""
     return build_client(seed, defects).tables
 
 

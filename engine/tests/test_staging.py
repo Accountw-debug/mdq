@@ -173,7 +173,7 @@ def test_amount_with_three_decimals_is_not_rounded(macros) -> None:
 
 
 def test_macros_match_python_on_every_demo_value(staged) -> None:
-    """Zelle fuer Zelle: jeder eindeutige Wert jeder getypten Spalte, alle 15 Tabellen."""
+    """Zelle fuer Zelle: jeder eindeutige Wert jeder getypten Spalte, alle 16 Tabellen."""
     con, mapping, results = staged
     install_macros(con)
     geprueft = 0
@@ -201,9 +201,9 @@ def test_macros_match_python_on_every_demo_value(staged) -> None:
 
 
 def test_demo_client_stages_without_rejects(staged) -> None:
-    """0 Rejects ueber alle 15 Tabellen, keine Zeile verloren."""
+    """0 Rejects ueber alle 16 Tabellen, keine Zeile verloren."""
     con, _, results = staged
-    assert len(results) == 15
+    assert len(results) == 16  # 16 seit T001 (D-030)
     for result in results.values():
         assert result.rejected == 0, result.table
         assert result.rows_staged == result.rows_raw, result.table

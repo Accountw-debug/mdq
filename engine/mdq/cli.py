@@ -290,7 +290,7 @@ def demo_generate(
         ),
     ] = True,
 ) -> None:
-    """Erzeugt den synthetischen Demo-Mandanten (15 Dateien und manifest.json)."""
+    """Erzeugt den synthetischen Demo-Mandanten (16 Dateien und manifest.json)."""
     manifest = generate_demo(out, seed, None if defects else ())
 
     table = Table(box=box.SIMPLE)

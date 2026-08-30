@@ -83,6 +83,12 @@
       "sha256": "0211adaf017602a2259c747038455c7babba2a00fbfefa6bb101682eeee23be8"
     },
     {
+      "table": "T001",
+      "file": "T001.txt",
+      "rows": 2,
+      "sha256": "df4fb08391086930cfb7c237d65bef690a357df6113c7d081a475f16ab5a0f7a"
+    },
+    {
       "table": "T052",
       "file": "T052.txt",
       "rows": 5,
@@ -95,5 +101,5 @@
       "sha256": "a766d2a5b97bc26073162abe861061b5470245c215a402d5bf2cb9553fbf84b2"
     }
   ],
-  "total_rows": 76775
+  "total_rows": 76777
 }

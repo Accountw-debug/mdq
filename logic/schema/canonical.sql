@@ -24,6 +24,16 @@ CREATE TABLE IF NOT EXISTS reject (
     raw_excerpt     TEXT                     -- max. 200 Zeichen, keine BP-Daten in Logs – nur hier
 );
 
+-- Buchungskreise des Mandanten (T001). Traegt die Hauswaehrung, in der DMBTR und
+-- damit jeder Betrag des kanonischen Modells steht - ohne sie waere `amount_local`
+-- eine Zahl ohne Waehrung (Regel 2, D-030).
+CREATE TABLE IF NOT EXISTS company_code (
+    company_code    TEXT PRIMARY KEY,        -- BUKRS
+    name            TEXT,                    -- BUTXT
+    currency        TEXT NOT NULL,           -- WAERS: Hauswaehrung, nicht die Belegwaehrung
+    country         TEXT                     -- LAND1
+);
+
 CREATE TABLE IF NOT EXISTS business_partner (
     bp_key          TEXT PRIMARY KEY,
     role            TEXT NOT NULL CHECK (role IN ('CUSTOMER','VENDOR')),

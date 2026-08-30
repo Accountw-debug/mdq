@@ -15,6 +15,16 @@ für einen SAP-Key-User. Es wird nichts im System geändert, nur gelesen.
 
 ## Minimal-Set V1
 
+### Beide Seiten (Pflicht)
+
+| Tabelle | Inhalt | Felder (technisch) | Filter |
+|---|---|---|---|
+| T001 | Buchungskreise mit **Hauswährung** | BUKRS BUTXT WAERS LAND1 | BUKRS im Scope |
+
+Ohne T001 gibt es keine Hauswährung, und `DMBTR` wäre ein Betrag ohne Währung. Die
+Relevanzstufe bricht dann ab und nennt die fehlende Tabelle – ein Ersatz über die
+Belegwährung (`WAERS` in BSID/BSIK) wäre bei jeder Fremdwährungsrechnung falsch.
+
 ### Debitoren (AR)
 
 | Tabelle | Inhalt | Felder (technisch) | Filter |

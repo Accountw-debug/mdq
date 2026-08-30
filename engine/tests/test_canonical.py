@@ -73,6 +73,12 @@ TIBAN = """BANKS\tBANKL\tBANKN\tBKONT\tIBAN\tVALID_FROM
 DE\t50010517\t5407324931\t\tDE44 5001 0517 5407 3249 31\t20200101
 """
 
+#: Zwei Buchungskreise mit Hauswaehrung (T001)
+T001 = """BUKRS\tBUTXT\tWAERS\tLAND1
+1000\tDemo Industrie AG\tEUR\tDE
+2000\tDemo Vertrieb GmbH\tEUR\tDE
+"""
+
 T052 = """ZTERM\tZTAGG\tZTAG1\tZPRZ1
 ZB01\t00\t14\t2,000
 """
@@ -378,6 +384,48 @@ def test_normalisierte_namen_bleiben_leer(tmp_path):
         "WHERE name_norm IS NOT NULL OR city_norm IS NOT NULL OR street_norm IS NOT NULL"
     ).fetchone()[0] == 0
     assert any("Sprint 4" in warning for warning in result.warnings)
+
+
+# --- T001: die Buchungskreise und ihre Hauswaehrung ------------------------------------
+
+
+def test_t001_wird_zu_company_code(tmp_path):
+    """T001 traegt die Hauswaehrung; ohne sie waere `amount_local` eine Zahl ohne Waehrung."""
+    con, result = build(tmp_path, {"T001": T001})
+    assert con.execute(
+        "SELECT company_code, name, currency, country FROM company_code ORDER BY company_code"
+    ).fetchall() == [
+        ("1000", "Demo Industrie AG", "EUR", "DE"),
+        ("2000", "Demo Vertrieb GmbH", "EUR", "DE"),
+    ]
+    assert _rows(result, "company_code") == 2
+    assert _rejected(result, "company_code") == 0
+
+
+def test_t001_ohne_hauswaehrung_bricht_ab(tmp_path):
+    """WAERS ist Pflichtquelle: `company_code.currency` ist NOT NULL ohne DEFAULT (D-077)."""
+    ohne_waers = "BUKRS\tBUTXT\tLAND1\n1000\tDemo Industrie AG\tDE\n"
+    with pytest.raises(CanonicalError) as excinfo:
+        build(tmp_path, {"T001": ohne_waers})
+    message = str(excinfo.value)
+    assert "T001" in message and "WAERS" in message and "company_code.currency" in message
+
+
+def test_t001_mit_doppeltem_buchungskreis_wird_abgelehnt(tmp_path):
+    """Zwei Zeilen zu einem BUKRS: keine gewinnt still, beide werden abgelehnt (D-072)."""
+    doppelt = T001 + "1000\tDemo Industrie AG\tCHF\tCH\n"
+    con, result = build(tmp_path, {"T001": doppelt})
+    assert _rows(result, "company_code") == 1  # nur 2000 bleibt
+    assert _rejected(result, "company_code") == 2
+    assert all("1000" in reason for _table, reason in rejects(con))
+
+
+def test_t001_folgt_dem_scope(tmp_path):
+    """`--company-codes` waehlt auch die Buchungskreiszeile – kein Reject (D-075)."""
+    con, result = build(tmp_path, {"T001": T001}, Scope(company_codes=("1000",)))
+    assert con.execute("SELECT company_code FROM company_code").fetchall() == [("1000",)]
+    assert _out_of_scope(result, "company_code") == 1
+    assert _rejected(result, "company_code") == 0
 
 
 # --- Scope: erst filtern, dann pruefen (D-075) -----------------------------------------

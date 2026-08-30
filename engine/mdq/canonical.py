@@ -55,8 +55,11 @@ PREFIXED_TARGETS = ("alt_payer_key", "bp_key", "dunning_recipient_key", "partner
 #: Normalisierte Namens- und Adressfelder; ihre Definition kommt mit der Dubletten-Spec
 DEFERRED_TO_SPRINT_4 = ("city_norm", "name_norm", "street_norm")
 
-#: Reihenfolge des Aufbaus: Stammsatz vor allem, was auf ihn verweist (Regel 9)
+#: Reihenfolge des Aufbaus: Stammsatz vor allem, was auf ihn verweist (Regel 9).
+#: ``company_code`` steht ganz vorn: es traegt die Hauswaehrung, in der jeder Betrag
+#: der spaeteren Tabellen steht (D-030).
 TARGET_ORDER = (
+    "company_code",
     "business_partner",
     "bp_tax_id",
     "bp_company_code",
@@ -89,6 +92,7 @@ DERIVED_REQUIREMENTS = {
 #: Primaerschluessel der Zieltabellen – hier waere ein Duplikat sonst ein nackter
 #: Constraint-Fehler von DuckDB statt einer Meldung mit Grund (Regel 4)
 PRIMARY_KEYS = {
+    "company_code": ("company_code",),
     "business_partner": ("bp_key",),
     "bp_company_code": ("bp_key", "company_code"),
     "fi_item": ("item_key",),

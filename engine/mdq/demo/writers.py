@@ -141,5 +141,5 @@ def write_manifest(out_dir: Path, seed: int, entries: list[dict[str, Any]]) -> d
 
 
 def expected_tables() -> tuple[str, ...]:
-    """Die 15 Tabellen des Demo-Mandanten in Schreibreihenfolge."""
+    """Die 16 Tabellen des Demo-Mandanten in Schreibreihenfolge."""
     return TABLES

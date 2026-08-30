@@ -22,6 +22,7 @@ detect:
   BSAD: [KUNNR, BELNR, BUZEI, DMBTR, AUGBL]
   BSIK: [LIFNR, BELNR, BUZEI, DMBTR, AUGDT]
   BSAK: [LIFNR, BELNR, BUZEI, DMBTR, AUGBL]
+  T001: [BUKRS, BUTXT, WAERS]
   T052: [ZTERM, ZTAG1, ZPRZ1]
   T052U: [ZTERM, TEXT1]
   ADR6: [ADDRNUMBER, SMTP_ADDR]
@@ -294,6 +295,18 @@ tables:
   BSAK:
     <<: *fi_vendor
     is_open: false
+  # Buchungskreise des Mandanten. Liefert die Hauswaehrung: DMBTR steht in ihr, und
+  # ohne sie waere jeder kanonische Betrag eine Zahl ohne Waehrung (Regel 2, D-030).
+  T001:
+    target: company_code
+    key: BUKRS
+    fields:
+      BUKRS: company_code
+      BUTXT: name
+      WAERS: currency
+      LAND1: country
+    ignore: [MANDT, ORT01, SPRAS, KTOPL, PERIV, KOKFI, RCOMP, ADRNR, STCEG, FIKRS, WAABW,
+             XFDIS, TXJCD, XVALV, XSKFN, XBBBF, XBBBS]
   T052:
     target: payment_terms
     key: [ZTERM, ZTAGG]
@@ -363,7 +376,7 @@ field_types:
   integer: [MAHNS, ZBD1T, ZTAG1, ZTAG2, ZTAG3, ZTAGG]
   flag: [LOEVM, REPRF, SPERR, XCPDK, XEZER]
   text: [ADDRNUMBER, ADRNR, AKONT, AUGBL, BANKL, BANKN, BANKS, BELNR, BKONT, BLART, BSCHL, BUKRS,
-    BUZEI, BVTYP, EBELN, ERNAM, GJAHR, HKONT, IBAN, KNRMA, KNRZA, KNRZB, KOINH, KONZS,
+    BUTXT, BUZEI, BVTYP, EBELN, ERNAM, GJAHR, HKONT, IBAN, KNRMA, KNRZA, KNRZB, KOINH, KONZS,
     KTOKD, KTOKK, KUNN2, KUNNR, LAND1, LIFNR, LNRZA, LNRZB, MABER, MAHNA, MANSP, NAME1,
     NAME2, NAME3, NAME4, ORT01, PARVW, PARZA, PFACH, PSTL2, PSTLZ, REBZG, REGIO, SGTXT,
     SHKZG, SMTP_ADDR, SORTL, SPART, SPRAS, STCD1, STCD2, STCEG, STRAS, TELF1, TEXT1, TOGRU,

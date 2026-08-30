@@ -27,6 +27,13 @@ DEFAULT_SEED = 20260830
 MANDT = "100"
 COMPANY_CODES = ("1000", "2000")
 
+#: Namen und Sitzland der Buchungskreise (T001). Der Mandant ist erfunden; das sind
+#: keine Geschäftspartnerdaten, sondern die eigenen Buchungskreise des Demo-Kunden.
+COMPANY_CODE_NAMES = {
+    "1000": ("MDQ Demo Industrie AG", "DE"),
+    "2000": ("MDQ Demo Vertrieb GmbH", "DE"),
+}
+
 #: V1 kennt genau eine Hauswährung (D-030); mehrere würden den Lauf abbrechen
 LOCAL_CURRENCY = "EUR"
 
@@ -132,7 +139,7 @@ TABLES = (
     "KNA1", "KNB1", "KNBK", "KNVP", "KNB5",
     "LFA1", "LFB1", "LFBK", "TIBAN",
     "BSID", "BSAD", "BSIK", "BSAK",
-    "T052", "T052U",
+    "T001", "T052", "T052U",
 )
 
 
