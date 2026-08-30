@@ -7,6 +7,7 @@
 | **Finding** | Eine Feststellung einer Regel zu einem BP oder Beleg(paar). Zentrales Objekt, Schema `logic/finding.schema.json` |
 | **Regel (rule)** | Eine SQL-Query auf dem kanonischen Schema mit YAML-Kopf. ID-Format `<SEITE>-<KAT>-<NNN>`, z. B. `AR-VAL-001` |
 | **Kategorie (category)** | `completeness`, `validity`, `consistency`, `hygiene`, `risk`, `duplicate`, `leakage` |
+| **Geldabfluss (leakage)** | Kategorie für Findings mit echtem Geldabfluss: Doppel- und Überzahlungen, Skontoverlust, Unapplied Cash. Abgrenzung: Stammdatenfehler ohne Zahlungswirkung sind `validity` oder `consistency` |
 | **Schwere (severity)** | `low`, `medium`, `high`, `critical` – Dringlichkeit für den Kunden |
 | **Schadensklasse (damage_class)** | 1 = Geldwirkung bei Fehlkorrektur (Bankdaten), 2 = steuerlich/vertraglich, 3 = reversibel |
 | **Stufe (tier)** | `A` Soll (≥ 99 %), `B` Vorschlag (≥ 90 %), `C` Hinweis, `decision` Entscheidung |

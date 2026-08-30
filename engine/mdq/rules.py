@@ -18,6 +18,7 @@ from mdq import RULES_DIR
 REQUIRED_KEYS = (
     "id",
     "version",
+    "title",
     "side",
     "category",
     "severity",
@@ -32,9 +33,9 @@ REQUIRED_KEYS = (
     "tests",
 )
 
-#: Felder, die im Kopf stehen duerfen, aber nicht muessen. `title` ist auch im
-#: Finding-Schema optional.
-OPTIONAL_KEYS = ("title",)
+#: Felder, die im Kopf stehen duerfen, aber nicht muessen. Derzeit keine: `title` ist
+#: seit der Schema-Aenderung Pflicht, weil jedes Finding einen Titel tragen muss.
+OPTIONAL_KEYS = ()
 
 SIDES = ("AR", "AP", "CROSS")
 SEVERITIES = ("low", "medium", "high", "critical")
@@ -93,9 +94,9 @@ class Rule:
     if_wrong: str
     remediation: dict[str, Any]
     tests: dict[str, tuple[str, ...]]
+    title: str
     sql: str
     path: Path
-    title: str | None = None
 
     @property
     def warnings(self) -> list[str]:
@@ -250,7 +251,7 @@ def parse_rule(text: str, path: Path) -> Rule:
         errors.append("requires_tables: muss eine nicht-leere Liste von Tabellennamen sein")
         tables = []
 
-    for key in ("plain_logic", "why", "if_wrong"):
+    for key in ("title", "plain_logic", "why", "if_wrong"):
         _check_text(errors, head, key)
 
     plain_logic = head.get("plain_logic")
@@ -283,9 +284,9 @@ def parse_rule(text: str, path: Path) -> Rule:
         if_wrong=head["if_wrong"].strip(),
         remediation=remediation,
         tests=tests,
+        title=head["title"].strip(),
         sql=sql,
         path=path,
-        title=head.get("title"),
     )
 
 

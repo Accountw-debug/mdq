@@ -49,6 +49,7 @@ def minimal_finding() -> dict:
         "damage_class": 3,
         "tier": "C",
         "action_type": "review",
+        "title": "Testfall Schema-Validierung",
         "entity": {"bp_key": "C:0000000001", "role": "CUSTOMER"},
         "current": {"source_table": "KNA1", "source_field": "STCEG", "value": None},
         "why": "Testfall fuer die Schema-Validierung, fachlich ohne Bedeutung.",

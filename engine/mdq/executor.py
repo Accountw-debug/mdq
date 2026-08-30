@@ -286,9 +286,7 @@ def _build_finding(
         "action_type": row.get("action_type") or rule.default_action_type,
     }
 
-    if rule.title:
-        finding["title"] = _fill(rule.title, params, rule.id, "title")
-
+    finding["title"] = _fill(rule.title, params, rule.id, "title")
     finding["entity"] = _build_entity(row, rule)
 
     bp_relevance = relevance.get(row["bp_key"])

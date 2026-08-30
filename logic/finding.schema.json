@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": [
     "finding_id", "run_id", "rule_id", "rule_version", "engine_version", "pack_version",
-    "side", "category", "severity", "damage_class", "tier", "action_type",
+    "side", "category", "severity", "damage_class", "tier", "action_type", "title",
     "entity", "current", "why", "if_wrong", "remediation", "status", "data_as_of", "created_at"
   ],
   "properties": {
@@ -40,7 +40,10 @@
       "description": "A Soll (≥99 %), B Vorschlag (≥90 %), C Hinweis, decision = Entscheidung des Kunden"
     },
     "action_type": { "type": "string", "enum": ["mass_change", "review", "decision", "process"] },
-    "title": { "type": "string", "maxLength": 120, "description": "Kurzüberschrift für Listen" },
+    "title": {
+      "type": "string", "minLength": 1, "maxLength": 120,
+      "description": "Kurzüberschrift für Listen. Pflicht – die Engine füllt sie aus dem Regelkopf."
+    },
     "entity": {
       "type": "object",
       "additionalProperties": false,

@@ -98,6 +98,21 @@ def test_missing_plain_logic_is_reported(tmp_path, valid_rule_text) -> None:
     assert "plain_logic" in str(excinfo.value)
 
 
+def test_missing_title_is_reported(tmp_path, valid_rule_text) -> None:
+    """`title` ist Pflicht, seit das Finding-Schema es verlangt."""
+    text = valid_rule_text.replace('title: "Testregel"\n', "")
+    with pytest.raises(RuleError) as excinfo:
+        load_rule_file(_write(tmp_path, text))
+    assert "title" in str(excinfo.value)
+
+
+def test_empty_title_is_reported(tmp_path, valid_rule_text) -> None:
+    text = valid_rule_text.replace('title: "Testregel"', 'title: "   "')
+    with pytest.raises(RuleError) as excinfo:
+        load_rule_file(_write(tmp_path, text))
+    assert "title" in str(excinfo.value)
+
+
 def test_missing_header_is_reported(tmp_path) -> None:
     with pytest.raises(RuleError) as excinfo:
         load_rule_file(_write(tmp_path, "SELECT 1;\n"))

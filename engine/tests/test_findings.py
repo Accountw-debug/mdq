@@ -34,6 +34,18 @@ def test_minimal_finding_is_valid(minimal_finding) -> None:
     assert validate_finding(minimal_finding) == []
 
 
+def test_title_is_required(minimal_finding) -> None:
+    """Jedes Finding traegt einen Titel; die Engine fuellt ihn aus dem Regelkopf."""
+    del minimal_finding["title"]
+    assert any("title" in message for message in validate_finding(minimal_finding))
+
+
+def test_empty_title_is_rejected(minimal_finding) -> None:
+    """Pflichtfeld mit leerem Text waere ein Titel, der keiner ist."""
+    minimal_finding["title"] = ""
+    assert validate_finding(minimal_finding)
+
+
 # --- Invarianten aus dem Schema ------------------------------------------------------
 
 

@@ -10,7 +10,7 @@ Seite `AR|AP|CROSS`, Kategorie `COM` (completeness) `VAL` (validity) `CON` (cons
 /* ---
 id: AR-VAL-001
 version: "1.0"
-title: "..."                       # Kurzüberschrift, darf {params} enthalten
+title: "..."                       # Pflicht, Kurzüberschrift (max. 120 Zeichen), darf {params} enthalten
 side: AR
 category: validity
 severity: high
