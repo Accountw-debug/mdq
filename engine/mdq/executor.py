@@ -11,11 +11,13 @@ import json
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
+from functools import cache
 from typing import Any
 
 import duckdb
 
 from mdq.decisions import DecisionMemory, apply_decision
+from mdq.dictionaries import DictionaryError, DocumentTypes, load_document_types, substitute
 from mdq.findings import validate_finding
 from mdq.relevance import multiple_currencies_message
 from mdq.rules import Rule
@@ -81,6 +83,9 @@ class RunContext:
     #: Gepflegte Entscheidungen des Kunden. Sie unterdruecken kein Finding, sie setzen
     #: seinen Status (D-088); ohne Gedaechtnis bleibt jedes Finding ``open``.
     decisions: DecisionMemory | None = None
+    #: Belegartenklassen fuer die ``${doc_types...}``-Platzhalter im Regel-SQL (D-084);
+    #: ohne Angabe gilt ``logic/dictionaries/document_types.yaml``.
+    doc_types: DocumentTypes | None = None
 
 
 def finding_id_for(rule_id: str, row: dict[str, Any]) -> str:
@@ -93,6 +98,27 @@ def finding_id_for(rule_id: str, row: dict[str, Any]) -> str:
     parts.extend("" if row.get(column) is None else str(row[column]) for column in ID_COLUMNS)
     digest = hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()
     return f"F-{digest[:12]}"
+
+
+@cache
+def _default_doc_types() -> DocumentTypes:
+    """Das Woerterbuch aus ``logic/`` – einmal gelesen, nicht je Regel neu."""
+    return load_document_types()
+
+
+def rule_sql(rule: Rule, ctx: RunContext) -> str:
+    """Das auszufuehrende SQL: Belegartenlisten eingesetzt, sonst unveraendert (D-084).
+
+    Die Regel liest damit weiterhin nur das kanonische Schema; die Liste kommt als
+    Parameter von der Engine und steht nicht zweimal im Repo (Regel 5).
+    """
+    if "${" not in rule.sql:
+        return rule.sql
+    types = ctx.doc_types or _default_doc_types()
+    try:
+        return substitute(rule.sql, types, rule.id)
+    except DictionaryError as exc:
+        raise ExecutionError(str(exc)) from exc
 
 
 def missing_tables(con: duckdb.DuckDBPyConnection, rule: Rule) -> list[str]:
@@ -343,7 +369,7 @@ def execute_rule_rows(
         raise ExecutionError(f"{rule.id}: benoetigte Tabellen fehlen: {absent}")
 
     try:
-        cursor = con.execute(rule.sql)
+        cursor = con.execute(rule_sql(rule, ctx))
     except duckdb.Error as exc:
         raise ExecutionError(f"{rule.id}: SQL-Fehler ({type(exc).__name__}): {exc}") from exc
 

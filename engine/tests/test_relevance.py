@@ -280,10 +280,13 @@ def test_ohne_posten_ist_der_datenstand_pflicht(tmp_path):
 
 
 def test_woerterbuch_liest_die_klassen():
+    """`RE` steht bei den Kreditorenrechnungen, weil AP-LEA-001 sie seit jeher so fuehrt –
+    die Umstellung auf das Woerterbuch darf die Regel nicht verengen (D-084)."""
     types = load_document_types()
     assert types.for_role("CUSTOMER", "invoice") == ("DR",)
+    assert types.for_role("VENDOR", "invoice") == ("KR", "RE")
     assert types.for_role("VENDOR", "credit_memo") == ("KG",)
-    assert types.of("AP", "invoice", "credit_memo") == ("KG", "KR")
+    assert types.of("AP", "invoice", "credit_memo") == ("KG", "KR", "RE")
 
 
 def test_unbekannte_belegart_wird_gemeldet_statt_verschwiegen(tmp_path):

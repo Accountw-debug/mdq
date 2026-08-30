@@ -9,6 +9,7 @@ from decimal import Decimal
 
 import pytest
 
+from mdq.dictionaries import parse_document_types
 from mdq.executor import (
     ExecutionError,
     RunContext,
@@ -16,6 +17,7 @@ from mdq.executor import (
     finding_id_for,
     house_currency,
     missing_tables,
+    rule_sql,
 )
 from mdq.findings import validate_finding
 from mdq.rules import load_rules, parse_rule
@@ -483,6 +485,73 @@ def test_relevance_currency_is_not_assumed_eur(db, run_context) -> None:
     relevance = execute_rule(db, RULES["AR-VAL-001"], run_context)[0]["relevance"]
     assert relevance["currency"] == "CHF"
     assert relevance["open_items"] == "45210.00"
+
+
+# --- Belegarten aus dem Woerterbuch (D-084) ------------------------------------------
+
+
+def _doc_types(tmp_path, **sides):
+    """Ein eigenes Woerterbuch fuer den Test – Belegarten sind Customizing, keine Daten."""
+    spec = {
+        "AR": {"invoice": ["DR"], "credit_memo": ["DG"], "payment": ["DZ"], "reversal": []},
+        "AP": {"invoice": ["KR"], "credit_memo": ["KG"], "payment": ["KZ"], "reversal": []},
+    }
+    for side, classes in sides.items():
+        spec[side].update(classes)
+    return parse_document_types(
+        {"version": "0.1", "sides": spec}, tmp_path / "document_types.yaml"
+    )
+
+
+def test_platzhalter_werden_durch_belegarten_ersetzt(run_context) -> None:
+    """AP-LEA-001 traegt die Listen nicht mehr selbst – die Engine setzt sie ein."""
+    sql = rule_sql(RULES["AP-LEA-001"], run_context)
+    assert "${" not in sql
+    assert "'KG'" in sql and "'KR'" in sql and "'RE'" in sql
+
+
+def test_regel_ohne_platzhalter_bleibt_unveraendert(run_context) -> None:
+    rule = RULES["AR-VAL-001"]
+    assert rule_sql(rule, run_context) is rule.sql
+
+
+def test_das_woerterbuch_entscheidet_wirklich(db, run_context, tmp_path) -> None:
+    """Stolperdraht: kaeme die Liste weiter aus dem SQL, aenderte ein anderes
+    Woerterbuch nichts. Ohne KR als Rechnung findet die Regel das Paar nicht mehr."""
+    db.execute(INSERT_AP_LEA_001)
+    assert len(execute_rule(db, RULES["AP-LEA-001"], run_context)) == 1
+
+    ohne_kr = dataclasses.replace(
+        run_context, doc_types=_doc_types(tmp_path, AP={"invoice": ["RE"]})
+    )
+    assert execute_rule(db, RULES["AP-LEA-001"], ohne_kr) == []
+
+
+def test_leere_klasse_ist_ein_fehler_mit_namen(run_context, tmp_path) -> None:
+    """Eine leere Werteliste waere eine stumm weggelassene Bedingung (Regel 4)."""
+    rule = _rule(BASE_SELECT + " WHERE 'X' IN (${doc_types.AP.reversal})")
+    ctx = dataclasses.replace(run_context, doc_types=_doc_types(tmp_path))
+    with pytest.raises(ExecutionError) as excinfo:
+        rule_sql(rule, ctx)
+    assert "AP.reversal" in str(excinfo.value)
+
+
+def test_unbekannter_platzhalter_wird_benannt(run_context, tmp_path) -> None:
+    rule = _rule(BASE_SELECT + " WHERE 'X' = '${doc_types.AP.rechnungen}'")
+    ctx = dataclasses.replace(run_context, doc_types=_doc_types(tmp_path))
+    with pytest.raises(ExecutionError) as excinfo:
+        rule_sql(rule, ctx)
+    assert "rechnungen" in str(excinfo.value)
+
+
+def test_klassen_lassen_sich_verbinden(run_context, tmp_path) -> None:
+    """`credit_memo+reversal` – der Weg, auf dem D-082 spaeter geschlossen wird."""
+    rule = _rule(BASE_SELECT + " WHERE 'X' IN (${doc_types.AP.credit_memo+reversal})")
+    ctx = dataclasses.replace(
+        run_context, doc_types=_doc_types(tmp_path, AP={"reversal": ["KA"]})
+    )
+    sql = rule_sql(rule, ctx)
+    assert "'KA'" in sql and "'KG'" in sql
 
 
 # --- RunContext ----------------------------------------------------------------------

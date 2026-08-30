@@ -11,6 +11,7 @@ Fehler mit Namen, keine stille Vorgabe (Regel 4). Die Engine reicht die Listen d
 als ``params`` zu – Regel-SQL liest nur das kanonische Schema (Regel 5).
 """
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,6 +32,14 @@ REQUIRED_CLASSES = ("invoice", "credit_memo")
 
 #: Rolle im kanonischen Modell -> Seite im Woerterbuch
 ROLE_SIDE = {"CUSTOMER": "AR", "VENDOR": "AP"}
+
+#: Platzhalter im Regel-SQL: ``${doc_types.AP.credit_memo}`` – mehrere Klassen mit ``+``
+#: verbinden (``credit_memo+reversal``), sobald ein Kundenexport eine Stornobelegart
+#: liefert (offener Punkt aus D-082).
+PLACEHOLDER_RE = re.compile(r"\$\{doc_types\.([A-Za-z]+)\.([a-z_]+(?:\+[a-z_]+)*)\}")
+
+#: Ein Platzhalter, den niemand kennt – die Meldung nennt ihn (Regel 4)
+_ANY_PLACEHOLDER_RE = re.compile(r"\$\{[^}]*\}")
 
 
 class DictionaryError(ValueError):
@@ -157,3 +166,35 @@ def load_document_types(path: Path = DOCUMENT_TYPES) -> DocumentTypes:
     except yaml.YAMLError as exc:
         raise DictionaryError(f"{path.name}: kein gueltiges YAML ({type(exc).__name__})") from exc
     return parse_document_types(document, path)
+
+
+def substitute(sql: str, types: DocumentTypes, where: str) -> str:
+    """Ersetzt die ``${doc_types.<Seite>.<Klasse>}``-Platzhalter durch Wertelisten.
+
+    So bekommt eine Regel die Belegarten als Parameter, ohne selbst eine Datei zu lesen:
+    ihr SQL sieht am Ende nur noch das kanonische Schema und eine Werteliste (Regel 5).
+    Ein unbekannter Platzhalter und eine leere Klasse sind Fehler mit Namen – ein leeres
+    ``IN ()`` waere ein SQL-Fehler ohne Auskunft, und eine stillschweigend weggelassene
+    Bedingung waere schlimmer.
+    """
+
+    def replace(match: re.Match[str]) -> str:
+        side, joined = match.groups()
+        values = types.of(side, *joined.split("+"))
+        if not values:
+            raise DictionaryError(
+                f"{where}: {match.group(0)} ist leer – in {types.path.name} steht zu "
+                f"{side}.{joined} keine Belegart. Liste ergaenzen oder Bedingung streichen; "
+                "eine leere Werteliste waere eine stumm weggelassene Bedingung (Regel 4)."
+            )
+        return ", ".join("'" + value.replace("'", "''") + "'" for value in values)
+
+    text = PLACEHOLDER_RE.sub(replace, sql)
+    leftover = _ANY_PLACEHOLDER_RE.search(text)
+    if leftover:
+        raise DictionaryError(
+            f"{where}: unbekannter Platzhalter {leftover.group(0)}. Erlaubt ist "
+            "${doc_types.<AR|AP>.<invoice|credit_memo|payment|reversal>}, "
+            "mehrere Klassen mit + verbunden."
+        )
+    return text

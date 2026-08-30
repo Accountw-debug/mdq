@@ -9,9 +9,9 @@
 # `params` zu. Regel-SQL liest weiterhin ausschließlich das kanonische Schema (Regel 5);
 # kein Regeltext greift auf eine Datei zu.
 #
-# Vollständigkeit: hier stehen nur Belegarten, die im Demo-Mandanten tatsächlich
-# vorkommen und damit nachgewiesen sind. Ein echter Mandant führt weitere – Faktura aus
-# SD (`RV`), Rechnungseingang aus MM (`RE`, `RN`), Zahlprogramm (`ZP`) und vor allem
+# Vollständigkeit: hier stehen die Belegarten des Demo-Mandanten und die, die eine Regel
+# heute schon nennt (`RE` im SQL von AP-LEA-001). Ein echter Mandant führt weitere –
+# Faktura aus SD (`RV`), Rechnungseingang netto (`RN`), Zahlprogramm (`ZP`) und vor allem
 # kundeneigene Stornobelegarten. Sie werden beim Onboarding **hier** ergänzt, nachdem der
 # Kundenexport gezeigt hat, welche es gibt; geraten wird keine (D-082).
 version: "0.1"
@@ -28,8 +28,9 @@ sides:
     # eine erfundene Belegart wäre schlimmer als eine leere Liste.
     reversal: []
   AP:
-    # Kreditorenrechnung: erhöht die Verbindlichkeit (SHKZG = H)
-    invoice: [KR]
+    # Kreditorenrechnung (KR) und Logistik-Rechnung aus MM (RE): beide erhöhen die
+    # Verbindlichkeit (SHKZG = H). Genau diese zwei standen bisher im SQL von AP-LEA-001.
+    invoice: [KR, RE]
     # Kreditorengutschrift – das, was AP-LEA-001 als Netting anerkennt
     credit_memo: [KG]
     # Zahlungsausgang. Beim Kreditor ebenfalls Soll wie die Gutschrift – der Grund,
