@@ -11,6 +11,7 @@ import pytest
 from mdq import PROJECT_ROOT
 from mdq.loader import (
     RAW_EXCERPT_LIMIT,
+    ROW_NO_COLUMN,
     LoaderError,
     default_table_name,
     detect_delimiter,
@@ -97,11 +98,24 @@ def test_empty_cells_become_null(canonical_db, name) -> None:
 
 @pytest.mark.parametrize("name", [f[0] for f in KNA1_FILES])
 def test_all_columns_are_text(canonical_db, name) -> None:
+    """Alle Spalten der Datei sind TEXT; nur die Zeilennummer der Engine ist eine Zahl."""
     _load(canonical_db, name)
     types = canonical_db.execute(
-        "SELECT DISTINCT data_type FROM duckdb_columns() WHERE table_name = 'raw_KNA1'"
+        "SELECT DISTINCT data_type FROM duckdb_columns() "
+        f"WHERE table_name = 'raw_KNA1' AND column_name <> '{ROW_NO_COLUMN}'"
     ).fetchall()
     assert types == [("VARCHAR",)]
+
+
+@pytest.mark.parametrize("name", [f[0] for f in KNA1_FILES])
+def test_row_no_counts_the_data_lines(canonical_db, name) -> None:
+    """``_row_no`` ist 1-basiert ohne Kopfzeile – die Grundlage jedes spaeteren Rejects."""
+    result = _load(canonical_db, name)
+    numbers = canonical_db.execute(
+        f'SELECT "{ROW_NO_COLUMN}" FROM "raw_KNA1" ORDER BY 1'
+    ).fetchall()
+    assert [number for (number,) in numbers] == list(range(1, result.rows + 1))
+    assert ROW_NO_COLUMN not in result.columns
 
 
 # --- BSID: Formatdatei liest ebenfalls sauber ----------------------------------------

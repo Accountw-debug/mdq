@@ -5,7 +5,15 @@ from decimal import Decimal
 
 import pytest
 
-from mdq.formats import ParseError, parse_amount, parse_date
+from mdq.formats import (
+    ParseError,
+    detect_notation,
+    parse_amount,
+    parse_date,
+    parse_flag,
+    parse_integer,
+    parse_percent,
+)
 
 # --- Beträge -------------------------------------------------------------------------
 
@@ -128,3 +136,141 @@ def test_messages_never_quote_the_value(text) -> None:
             raised = True
             assert text not in str(exc), f"{parser.__name__} nennt den Wert in der Meldung"
     assert raised, "Testfall loest keinen ParseError aus"
+
+
+# --- Notation je Datei (D-035) --------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "notation", "expected"),
+    [
+        # der Trenner ist Tausendertrenner: 1234
+        ("1.234", "de", Decimal(1234)),
+        ("1,234", "iso", Decimal(1234)),
+        # der Trenner ist Dezimaltrenner
+        ("1,234", "de", Decimal("1.234")),
+        ("1.234", "iso", Decimal("1.234")),
+        # eindeutige Werte bleiben unabhaengig von der Notation, was sie sind
+        ("1.234,56", "de", Decimal("1234.56")),
+        ("1.234,56", "iso", Decimal("1234.56")),
+        ("1234.56", "de", Decimal("1234.56")),
+    ],
+)
+def test_notation_decides_only_the_ambiguous_case(text, notation, expected) -> None:
+    assert parse_amount(text, notation) == expected
+
+
+def test_ambiguous_amount_without_notation_stays_a_reject() -> None:
+    """Grenzfall: ohne Notation wird nicht geraten (D-035)."""
+    with pytest.raises(ParseError, match="mehrdeutig"):
+        parse_amount("1.234")
+
+
+NOTATIONS = [
+    # eindeutig deutsch
+    (["1.234,56"], "de"),
+    (["0,00"], "de"),
+    (["1.234.567"], "de"),
+    (["8.930,00", "1.234"], "de"),
+    # eindeutig ISO
+    (["1234.56"], "iso"),
+    (["1,234.56"], "iso"),
+    (["1,234,567"], "iso"),
+    # sagt nichts: nur mehrdeutige, leere oder trennerlose Werte
+    (["1.234"], None),
+    (["1234", "", "0"], None),
+    ([None, "   "], None),
+    # widersprechen sich zwei Werte, gewinnt keiner
+    (["1.234,56", "1,234.56"], None),
+]
+
+
+@pytest.mark.parametrize(("values", "expected"), NOTATIONS, ids=range(len(NOTATIONS)))
+def test_detect_notation(values, expected) -> None:
+    assert detect_notation(values) == expected
+
+
+def test_detect_notation_ignores_order() -> None:
+    """Determinismus: dieselben Werte ergeben dieselbe Notation, egal in welcher Folge."""
+    values = ["1.234", "0,00", "", "8.930,00"]
+    assert detect_notation(values) == detect_notation(list(reversed(values))) == "de"
+
+
+def test_detect_notation_skips_unparsable_values() -> None:
+    """Ein kaputter Wert entscheidet die Notation der Datei nicht mit."""
+    assert detect_notation(["12x34", "1.234,56"]) == "de"
+
+
+# --- Prozentsaetze (D-048) ------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("2,000", Decimal("2.000")),
+        ("2.000", Decimal("2.000")),
+        ("0,000", Decimal("0.000")),
+        ("100,000", Decimal("100.000")),
+        ("3", Decimal(3)),
+    ],
+)
+def test_parse_percent(text, expected) -> None:
+    """Ein einzelner Trenner ist im Prozentfeld immer der Dezimaltrenner."""
+    assert parse_percent(text) == expected
+
+
+@pytest.mark.parametrize("text", ["", "   ", None])
+def test_empty_percent_is_none(text) -> None:
+    assert parse_percent(text) is None
+
+
+@pytest.mark.parametrize("text", ["1.234,56", "2,0,0", "2x"])
+def test_bad_percent_raises(text) -> None:
+    with pytest.raises(ParseError):
+        parse_percent(text)
+
+
+def test_percent_ignores_the_file_notation() -> None:
+    """`2.000` ist ein Prozentsatz von 2, kein Tausender – auch in einer de-Datei."""
+    assert parse_percent("2.000") == parse_percent("2,000") == Decimal("2.000")
+
+
+# --- Ganzzahlen und Kennzeichen -------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [("30", 30), ("00", 0), ("0", 0), ("007", 7), ("-5", -5), ("", None), (None, None)],
+)
+def test_parse_integer(text, expected) -> None:
+    assert parse_integer(text) == expected
+
+
+@pytest.mark.parametrize("text", ["2,5", "2.5", "x"])
+def test_integer_with_separator_raises(text) -> None:
+    """Grenzfall: ein Zahlungsziel hat keine Nachkommastelle – nicht stillschweigend runden."""
+    with pytest.raises(ParseError):
+        parse_integer(text)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [("X", True), ("x", True), (" X ", True), ("", None), ("   ", None), (None, None)],
+)
+def test_parse_flag(text, expected) -> None:
+    assert parse_flag(text) is expected
+
+
+@pytest.mark.parametrize("text", ["Y", "0", "1", "XX"])
+def test_unknown_flag_raises(text) -> None:
+    """Trifft nicht: alles ausser leer und X ist ein Fehler, keine stille Annahme."""
+    with pytest.raises(ParseError):
+        parse_flag(text)
+
+
+def test_new_parsers_never_quote_the_value() -> None:
+    """Regel 8 gilt auch fuer die neuen Parser."""
+    for parser, text in ((parse_percent, "1.234,56"), (parse_integer, "2,5"), (parse_flag, "Y")):
+        with pytest.raises(ParseError) as excinfo:
+            parser(text)
+        assert text not in str(excinfo.value), parser.__name__

@@ -18,11 +18,17 @@ LOGIC_DIR = PROJECT_ROOT / "logic"
 #: Kanonisches Schema (DuckDB-Dialekt), das jede Regel liest
 CANONICAL_SCHEMA = LOGIC_DIR / "schema" / "canonical.sql"
 
+#: Staging-Makros (Typisierung raw -> staged), die ausgefuehrte Fassung von formats.py
+STAGING_MACROS = LOGIC_DIR / "schema" / "staging.sql"
+
 #: JSON-Schema, gegen das jedes Finding validiert wird
 FINDING_SCHEMA = LOGIC_DIR / "finding.schema.json"
 
 #: Verzeichnis der Regeldateien ``<ID>.rule.sql``
 RULES_DIR = LOGIC_DIR / "rules"
+
+#: Mapping SAP ECC -> kanonisches Schema; Quelle der Wahrheit fuer Feldlisten
+SAP_MAPPING = LOGIC_DIR / "mappings" / "sap_ecc.yaml"
 
 #: Fachlicher Regelkatalog: jede Zeile wird spaeter eine Regeldatei
 CATALOG_MD = RULES_DIR / "CATALOG.md"
@@ -49,6 +55,8 @@ __all__ = [
     "LOGIC_DIR",
     "PROJECT_ROOT",
     "RULES_DIR",
+    "SAP_MAPPING",
+    "STAGING_MACROS",
     "TESTDATA_DIR",
     "__version__",
 ]

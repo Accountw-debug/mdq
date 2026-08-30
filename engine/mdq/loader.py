@@ -7,6 +7,10 @@ bleiben (Regel 2, D-009), und Typ-Inferenz ist genau das, was sie frisst.
 Die Rohdatei wird nie verändert (Regel 3). Nicht-UTF-8-Dateien werden für den Import in
 eine temporäre UTF-8-Fassung übersetzt; der ``sha256`` bezieht sich immer auf die
 Originalbytes, sonst wäre er kein Beleg für die Eingabedatei.
+
+Jede Rohtabelle trägt zusätzlich ``_row_no``: die Nummer der Datenzeile in der Datei.
+Ohne sie könnte ein Reject aus einer späteren Stufe nicht sagen, welche Zeile gemeint
+ist (Regel 4), und eine im Nachhinein vergebene Nummer wäre nicht die der Datei.
 """
 
 import csv
@@ -22,6 +26,9 @@ DELIMITERS = (("\t", "Tab"), (";", "Semikolon"))
 
 #: Höchstlänge des Rohauszugs in ``reject`` – die einzige Stelle für Rohdaten
 RAW_EXCERPT_LIMIT = 200
+
+#: Zeilennummer der Datenzeile in der Datei, 1-basiert ohne Kopfzeile
+ROW_NO_COLUMN = "_row_no"
 
 _BOMS = (
     (b"\xef\xbb\xbf", "UTF-8-BOM", "utf-8-sig"),
@@ -131,7 +138,11 @@ def _check_columns(columns: list[str], path: Path) -> None:
 def load_table(
     con: duckdb.DuckDBPyConnection, path: Path, table: str | None = None
 ) -> LoadResult:
-    """Liest eine Exportdatei in die Tabelle ``raw_<TABELLE>``; alle Spalten TEXT."""
+    """Liest eine Exportdatei in ``raw_<TABELLE>``; alle Spalten der Datei als TEXT.
+
+    Dazu kommt ``_row_no`` als erste Spalte. ``LoadResult.columns`` bleibt die Kopfzeile
+    der Datei – sie beschreibt den Export, nicht die Tabelle.
+    """
     if not path.is_file():
         raise LoaderError(f"Datei existiert nicht: {path}")
 
@@ -159,15 +170,21 @@ def load_table(
         staged = Path(tmp) / f"{table_name}.csv"
         staged.write_text(text, encoding="utf-8", newline="")
         try:
+            # parallel=False: die Zeilennummer muss die der Datei sein, nicht die eines
+            # Scans, der die Blöcke in beliebiger Reihenfolge zusammenführt (Regel 9).
             relation = con.read_csv(
                 str(staged),
                 delimiter=delimiter,
                 header=True,
                 all_varchar=True,
                 quotechar='"',
+                parallel=False,
             )
             columns = list(relation.columns)
-            con.execute(f'CREATE OR REPLACE TABLE "{target}" AS SELECT * FROM relation')
+            con.execute(
+                f'CREATE OR REPLACE TABLE "{target}" AS '
+                f'SELECT row_number() OVER () AS "{ROW_NO_COLUMN}", * FROM relation'
+            )
         except duckdb.Error as exc:
             raise LoaderError(f"{path.name}: CSV nicht lesbar ({type(exc).__name__}).") from exc
 

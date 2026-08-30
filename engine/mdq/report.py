@@ -18,6 +18,7 @@ from rich.table import Table
 
 from mdq.loader import LoadResult
 from mdq.rules import Rule
+from mdq.staging import StageResult
 
 #: Reihenfolge der Pipeline-Stufen im Report
 STAGES = ("raw", "staged", "canonical")
@@ -104,11 +105,15 @@ class RunReport:
     house_currency: str | None = None
     note: str | None = None
     loads: list[LoadResult] = field(default_factory=list)
+    stages: list[StageResult] = field(default_factory=list)
     rules: list[RuleOutcome] = field(default_factory=list)
     rejects: list[RejectSummary] = field(default_factory=list)
 
     def add_load(self, result: LoadResult) -> None:
         self.loads.append(result)
+
+    def add_stage(self, result: StageResult) -> None:
+        self.stages.append(result)
 
     def add_rule(self, outcome: RuleOutcome) -> None:
         self.rules.append(outcome)
@@ -121,6 +126,14 @@ class RunReport:
     @property
     def sorted_loads(self) -> list[LoadResult]:
         return sorted(self.loads, key=lambda result: (result.table, result.path.name))
+
+    @property
+    def sorted_stages(self) -> list[StageResult]:
+        return sorted(self.stages, key=lambda result: result.table)
+
+    @property
+    def rows_staged(self) -> int:
+        return sum(result.rows_staged for result in self.stages)
 
     @property
     def findings_total(self) -> int:
@@ -140,7 +153,12 @@ class RunReport:
 
     @property
     def warnings(self) -> list[str]:
-        return [warning for result in self.sorted_loads for warning in result.warnings]
+        return [
+            warning
+            for results in (self.sorted_loads, self.sorted_stages)
+            for result in results
+            for warning in result.warnings
+        ]
 
     @property
     def has_problems(self) -> bool:
@@ -175,11 +193,13 @@ class RunReport:
                 }
                 for result in self.sorted_loads
             ],
+            "stages": [result.to_dict() for result in self.sorted_stages],
             "rejects": [summary.to_dict() for summary in self.rejects],
             "rules": [outcome.to_dict() for outcome in self.sorted_rules],
             "totals": {
                 "files": len(self.loads),
                 "rows": sum(result.rows for result in self.loads),
+                "rows_staged": self.rows_staged,
                 "rejects": self.rejects_total,
                 "findings": self.findings_total,
                 "rules_executed": len([o for o in self.rules if o.status == STATUS_EXECUTED]),
@@ -261,6 +281,50 @@ def _render_files(console: Console, report: RunReport) -> None:
         console.print(f"  [yellow]HINWEIS[/] {warning}")
 
 
+def _render_stages(console: Console, report: RunReport) -> None:
+    """Kontrollsummen der Stufe `staged`: Zeilen raw gegen staged, Summen je Buchungskreis.
+
+    Die Summe steht immer neben ihrer Währung (Regel 2): ohne sie wäre die Zahl eines
+    Mandanten mit zwei Hauswährungen falsch etikettiert.
+    """
+    if not report.stages:
+        return
+
+    console.print("\n[bold]Staging (raw -> staged)[/]")
+    table = Table(box=box.SIMPLE)
+    table.add_column("Tabelle", no_wrap=True, min_width=7)
+    for column in ("Zeilen raw", "Zeilen staged", "Rejects"):
+        table.add_column(column, no_wrap=True, justify="right")
+    table.add_column("Notation", no_wrap=True)
+    for result in report.sorted_stages:
+        rejected = str(result.rejected) if result.rejected else "–"
+        notation = f"{result.notation} ({result.notation_source})" if result.notation else "–"
+        table.add_row(
+            result.table,
+            str(result.rows_raw),
+            str(result.rows_staged),
+            rejected,
+            notation,
+        )
+    console.print(table)
+
+    totals = [(result.table, total) for result in report.sorted_stages for total in result.totals]
+    if totals:
+        console.print("  [bold]Summe amount_signed_local[/]")
+        sums = Table(box=box.SIMPLE)
+        for column in ("Tabelle", "Buchungskreis", "Währung"):
+            sums.add_column(column, no_wrap=True)
+        sums.add_column("Summe", no_wrap=True, justify="right")
+        for table_name, total in totals:
+            sums.add_row(
+                table_name,
+                total.company_code or "–",
+                total.currency or "–",
+                total.amount,
+            )
+        console.print(sums)
+
+
 def _render_rejects(console: Console, report: RunReport) -> None:
     console.print("\n[bold]Rejects[/]")
     if not report.rejects:
@@ -311,6 +375,7 @@ def render(report: RunReport, console: Console | None = None) -> None:
     out = console or Console(soft_wrap=True)
     _render_header(out, report)
     _render_files(out, report)
+    _render_stages(out, report)
     _render_rejects(out, report)
     _render_rules(out, report)
     if report.has_problems:

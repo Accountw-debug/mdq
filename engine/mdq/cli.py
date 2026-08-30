@@ -27,9 +27,12 @@ from mdq.findings import (
     load_finding_file,
     validate_finding,
 )
+from mdq.formats import NOTATIONS
 from mdq.loader import LoaderError, load_table
+from mdq.mapping import MappingError, load_mapping
 from mdq.report import RunReport, collect_rejects, render
 from mdq.rules import RuleError, load_rules
+from mdq.staging import StagingError, stage_all
 
 #: Mindestens ein Finding ist ungueltig
 EXIT_INVALID = 1
@@ -177,11 +180,32 @@ def load(
         Path,
         typer.Option("--input", help="Verzeichnis mit SE16N-Exporten (.txt/.csv)."),
     ],
+    decimal_notation: Annotated[
+        str | None,
+        typer.Option(
+            "--decimal-notation",
+            help=(
+                "Dezimalnotation der Exporte (de|iso). Greift nur, wo eine Datei selbst "
+                "keinen eindeutigen Betrag enthaelt."
+            ),
+        ),
+    ] = None,
 ) -> None:
-    """Liest Exporte ein und zeigt den Run-Report. Zwischenstand: noch kein Mapping."""
+    """Liest Exporte ein, typisiert sie (raw -> staged) und zeigt den Run-Report.
+
+    Zwischenstand: Mapping auf das kanonische Schema und Regelausfuehrung folgen in den
+    naechsten Aufgaben von Sprint 3.
+    """
     if not input_dir.is_dir():
         err_console.print(f"[bold red]Fehler:[/] Verzeichnis existiert nicht: {input_dir}")
         raise typer.Exit(code=EXIT_NO_INPUT)
+
+    if decimal_notation is not None and decimal_notation not in NOTATIONS:
+        err_console.print(
+            f"[bold red]Fehler:[/] --decimal-notation {decimal_notation!r} ist unbekannt; "
+            f"erlaubt sind {list(NOTATIONS)}."
+        )
+        raise typer.Exit(code=EXIT_INVALID)
 
     files = sorted(
         path for path in input_dir.iterdir() if path.is_file() and path.suffix in EXPORT_SUFFIXES
@@ -197,14 +221,19 @@ def load(
         run_id=LOAD_RUN_ID,
         engine_version=__version__,
         note=(
-            "Zwischenstand aus Sprint 1: Dateien werden nur eingelesen. "
+            "Zwischenstand: Dateien werden eingelesen und typisiert. "
             "Mapping SAP -> kanonisch und Regelausführung folgen in Sprint 3."
         ),
     )
     try:
         for path in files:
             report.add_load(load_table(con, path))
-    except LoaderError as exc:
+        mapping = load_mapping()
+        for result in stage_all(
+            con, mapping, [load.table for load in report.loads], LOAD_RUN_ID, decimal_notation
+        ):
+            report.add_stage(result)
+    except (LoaderError, MappingError, StagingError) as exc:
         err_console.print(f"[bold red]Fehler:[/] {exc}")
         raise typer.Exit(code=EXIT_INVALID) from exc
 

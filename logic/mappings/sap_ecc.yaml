@@ -341,3 +341,27 @@ derivations:
   iban_norm: "upper(replace(IBAN, ' ', ''))"
   iban_valid: "schwifty.IBAN.validate – NULL wenn keine IBAN"
   item_key: "BUKRS || '|' || GJAHR || '|' || BELNR || '|' || BUZEI"
+
+# Typklasse je SAP-Feld für das Staging (raw -> staged, Sprint 3 Aufgabe 1).
+# Jedes unter `fields` gemappte Feld steht hier genau einmal; ein Feld ohne Eintrag ist ein
+# Fehler und wird nicht stillschweigend TEXT (Regel 4). Ein Test prüft die Klassen gegen
+# logic/schema/canonical.sql: wo ein Feld eine kanonische Spalte hat, muss die Klasse zu
+# deren Typ passen – zwei Orte, aber keine zwei Wahrheiten.
+#   amount  -> DECIMAL(15,2), Notation je Datei (D-035)
+#   percent -> DECIMAL(5,3),  Notation aus dem Feld, nicht aus der Datei (D-048)
+#   date    -> DATE,          SAP-Initialwerte werden NULL (D-035)
+#   integer -> INTEGER
+#   flag    -> BOOLEAN, "X" = wahr, leer = NULL (das kanonische DEFAULT FALSE setzt Aufgabe 2)
+#   text    -> TEXT, unverändert; führende Nullen bleiben erhalten (Regel 2, D-009)
+field_types:
+  amount: [DMBTR, SKFBT, SKNTO, WRBTR]
+  percent: [ZBD1P, ZPRZ1, ZPRZ2]
+  date: [AUGDT, BLDAT, BUDAT, CPUDT, ERDAT, MADAT, VALID_FROM, ZFBDT]
+  integer: [MAHNS, ZBD1T, ZTAG1, ZTAG2, ZTAG3, ZTAGG]
+  flag: [LOEVM, REPRF, SPERR, XCPDK, XEZER]
+  text: [ADDRNUMBER, ADRNR, AKONT, AUGBL, BANKL, BANKN, BANKS, BELNR, BKONT, BLART, BSCHL, BUKRS,
+    BUZEI, BVTYP, EBELN, ERNAM, GJAHR, HKONT, IBAN, KNRMA, KNRZA, KNRZB, KOINH, KONZS,
+    KTOKD, KTOKK, KUNN2, KUNNR, LAND1, LIFNR, LNRZA, LNRZB, MABER, MAHNA, MANSP, NAME1,
+    NAME2, NAME3, NAME4, ORT01, PARVW, PARZA, PFACH, PSTL2, PSTLZ, REBZG, REGIO, SGTXT,
+    SHKZG, SMTP_ADDR, SORTL, SPART, SPRAS, STCD1, STCD2, STCEG, STRAS, TELF1, TEXT1, TOGRU,
+    UMSKZ, VKORG, VTWEG, WAERS, XBLNR, ZAHLS, ZLSCH, ZLSPR, ZTERM, ZUAWA, ZUONR, ZWELS]
