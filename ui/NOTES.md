@@ -167,10 +167,76 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   erscheinen (Regel 4); die Meldungen nennen nur Feldnamen, Regel-IDs und `finding_id`,
   nie Geschäftspartnerdaten (Regel 8).
 
+- **2026-08-30 · Der Dubletten-Vergleich ersetzt Ist | Soll, statt ihn zu ergänzen.**
+  Freigabe Victor. Bei `category: duplicate` steht in `current.value` kein Ist-Wert, sondern
+  eine Liste von Konten; „Ist" und „Soll" nebeneinander beantworten die Frage nicht, die hier
+  ansteht („wo unterscheiden sie sich"). `proposed.display` und `source_summary` bleiben als
+  Kasten „Soll" unter der Tabelle stehen – sie gingen sonst verloren.
+- **2026-08-30 · Aus Prosa werden keine Vergleichszeilen gelesen.** Freigabe Victor. Die
+  Spec verlangt neun Felder je Konto; strukturiert vorhanden sind drei (aus `current.display`).
+  Land, USt-ID, IBAN, Zahlungsbedingung, offene Posten und letzte Zahlung stecken als Fließtext
+  in `proposed.display` und in Evidenz-Notizen – und dort jeweils nur für **ein** Konto.
+  „45.210 € OP" in eine Zeile „Offene Posten" zu übernehmen hieße, dem einen Konto einen Betrag
+  zuzuschreiben und dem anderen keinen: geraten, nicht gelesen. Die sechs Felder werden unter
+  der Tabelle als Platzhalter benannt (Regel 4: nichts stumm verwerfen), nicht als leere Zeilen
+  gezeigt – sechs Zeilen mit „–" sähen nach einer Lücke im Mandanten aus, es ist eine im Schema.
+- **2026-08-30 · Konten werden über den normalisierten Schlüssel zugeordnet, nicht über die
+  Position.** `entity.bp_key` trägt das Rollenpräfix (`C:0000100234`), `current.value` und
+  `proposed.value` tragen es nicht. `normalizeAccount` streift Präfix und führende Nullen ab
+  (nur zum Vergleich – angezeigt wird der Schlüssel unverändert, Regel 2). Dass das erste
+  Segment zum ersten Konto gehört, steht nirgends; lässt sich die Zuordnung nicht belegen,
+  gibt `buildDuplicateComparison` `null` zurück und die Karte zeigt den gewohnten
+  Ist|Soll-Abschnitt. Eine halbe Tabelle wäre schlechter als gar keine.
+- **2026-08-30 · Match-Chips kommen aus `evidence.value`, nicht aus der `note`.** Die Evidenz
+  mit `source_type: model` trägt in `value` die Gründe in Listenform
+  („name_norm gleich, street_norm gleich, postal_code gleich" → drei Chips, so die Abnahme);
+  die `note` ist ein Satz über die Normalisierung und steht darunter.
+- **2026-08-30 · Die Adresszeile wird nur zerlegt, wenn sie sich bei *allen* Konten in genau
+  drei Teile teilt.** Sonst steht der Text als eine Zeile „Angabe" wörtlich da. Gemischt wird
+  nicht – sonst stünde in einer Spalte ein Name, wo in der anderen die ganze Anschrift steht.
+  `missingFields` folgt daraus, statt fest zu stehen: alles aus der Feldliste der Spec, wozu
+  keine Zeile entstanden ist.
+
 ## Offene Fragen an die Engine-Session (`main`)
 
-- **Schema-Rückmeldung `entity.records` für Dubletten** folgt in Aufgabe 4, sobald der
-  Vergleich gebaut ist.
+- **`entity.records` fehlt – der Dubletten-Vergleich hat nur ein Drittel seiner Zeilen.**
+  *(2026-08-30, aus Aufgabe 4. Von der Spec als Pflicht-Rückmeldung genannt.)* Die Spec
+  verlangt je Konto Name, Straße, PLZ/Ort, Land, USt-ID, IBAN, Zahlungsbedingung, offene
+  Posten und letzte Zahlung. Das Finding liefert davon drei, und die nur als Fließtext:
+  `current.value` = `"0000100234 | 0000100987"`, `current.display` = zwei an ` | ` gereihte
+  Anschriften. Alles Weitere steht in Prosa (`proposed.display`: „45.210 € OP, letzte Zahlung
+  12.08.2026") und dort jeweils nur für ein Konto – nicht vergleichbar. Vorschlag:
+
+  ```yaml
+  entity:
+    records:                      # ein Eintrag je Konto des Clusters
+      - bp_key: "<C:KUNNR>"
+        fields:
+          name1: <string|null>
+          street: <string|null>
+          postal_code: <string|null>
+          city: <string|null>
+          country: <string|null>          # ISO-2, wie LAND1
+          vat_id: <string|null>
+          iban_masked: <string|null>      # nur maskiert (Regel 8)
+          payment_terms: <string|null>    # Schlüssel wie ZTERM
+          open_items_eur: <string|null>   # zwei Dezimalen als String (Regel 2)
+          last_activity_on: <YYYY-MM-DD|null>
+  ```
+
+  Alle Felder optional und nullbar, Beträge als String mit zwei Dezimalen (Regel 2), IBAN
+  nur maskiert (Regel 8). Das UI zeigt heute die drei ableitbaren Zeilen und benennt die
+  sechs fehlenden ausdrücklich als Platzhalter; mit `entity.records` fällt die Textzerlegung
+  ersatzlos weg. Kein Blocker, aber die Abnahme der Aufgabe 4 („Feld-für-Feld-Vergleich",
+  `docs/CONCEPT.md` Abschnitt 9) ist ohne das Feld nicht vollständig erreichbar.
+- **Bei Dubletten fehlt der Golden Record je Feld.** *(2026-08-30, aus Aufgabe 4.)*
+  `proposed.value` nennt das führende Konto (`0000100234`) – das reicht für die Krone über der
+  Spalte. Das Glossar beschreibt den Golden Record aber als „führendes Konto **und je Feld den
+  besten Wert**"; welcher Wert je Feld gewinnt, steht nur im Fließtext der `remediation.steps`
+  („USt-ID von 0000100987 … auf 0000100234 übernehmen"). Vorschlag: in `entity.records` oder
+  neben `proposed.value` je Feld die Herkunft des Zielwerts angeben (z. B.
+  `golden_record: {vat_id: "C:0000100987", name1: "C:0000100234"}`). Dann kann die
+  Vergleichstabelle den Zielwert markieren, statt ihn dem Leser zu überlassen. Kein Blocker.
 - **`title` ist im Schema optional, die Liste braucht es aber.** *(2026-08-30 an die
   Engine-Session übergeben, Antwort offen.)* Die Findings-Tabelle hat
   eine Spalte Titel; fehlt er, steht dort „—". Vorschlag: `title` zur Pflicht machen
@@ -259,3 +325,13 @@ Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
   einer Zeile. 158 Tests grün (vier neue in `ReviewCard.render`), `npm run lint` und
   `npm run build` ohne Befund. Neue Schema-Rückmeldung: `evidence.reference_kind`.
   Nächster Schritt: Aufgabe 4 – Dubletten-Vergleich für F-7b2e8c1d9a3f.
+- **2026-08-30 · Aufgabe 4 (Dubletten-Vergleich).** `src/lib/duplicate.ts` (reine Logik:
+  Kontenzuordnung über normalisierte Schlüssel, Zeilen aus `current.display`, Match-Chips,
+  führendes Konto, Diff je Zeile) und `src/components/review/DuplicateCompare.tsx`; die
+  Review-Karte schaltet bei `category: duplicate` darauf um und fällt auf Ist|Soll zurück,
+  wenn die Daten den Vergleich nicht tragen. F-7b2e8c1d9a3f zeigt zwei Spalten, hervorgehobene
+  Unterschiede (Müller/Mueller, Str./Straße), gleiche PLZ/Ort zurückgenommen, drei Match-Chips
+  und die Krone auf `C:0000100234`. 182 Tests grün (neu: `duplicate`, fünf neue in
+  `ReviewCard.render`), `npm run lint` und `npm run build` ohne Befund. Zwei neue
+  Schema-Rückmeldungen: `entity.records`, Golden Record je Feld.
+  Nächster Schritt: Aufgabe 5 – Belegpaar-Ansicht für F-003 (Doppelzahlung).

@@ -74,7 +74,10 @@ describe('Review-Karte für alle sechs Beispiele', () => {
       expect(html).toContain(finding.entity.bp_key)
       expect(html).toContain(finding.rule_id)
       if (finding.title) expect(html).toContain(finding.title)
-      expect(html).toContain('Ist und Soll')
+      // Bei Dubletten tritt der Vergleich an die Stelle von Ist|Soll (Aufgabe 4).
+      expect(html).toContain(
+        finding.category === 'duplicate' ? 'Dubletten-Vergleich' : 'Ist und Soll',
+      )
       expect(html).toContain('Warum')
       expect(html).toContain('Wenn falsch')
       expect(html).toContain('Wie beheben')
@@ -181,6 +184,52 @@ describe('Review-Karte für alle sechs Beispiele', () => {
     const sourceType = html.indexOf('Regelprüfung')
     expect(reference).toBeGreaterThan(-1)
     expect(sourceType).toBeGreaterThan(reference)
+  })
+
+  it('zeigt bei der Dublette beide Konten statt Ist und Soll', () => {
+    const html = render(byId('F-7b2e8c1d9a3f'))
+    expect(html).toContain('Dubletten-Vergleich')
+    expect(html).not.toContain('Ist und Soll')
+    expect(html).toContain('C:0000100234')
+    expect(html).toContain('C:0000100987')
+  })
+
+  it('zerlegt die Adresszeile und hebt nur die abweichenden Zeilen hervor', () => {
+    const html = render(byId('F-7b2e8c1d9a3f'))
+    for (const label of ['Name', 'Straße', 'PLZ/Ort']) expect(html).toContain(label)
+    expect(html).toContain('Müller Maschinenbau GmbH')
+    expect(html).toContain('Mueller Maschinenbau GmbH')
+    // Die gleiche PLZ/Ort-Zeile tritt zurück, die abweichenden stehen vorn.
+    expect(html).toMatch(/bg-muted\/50[^>]*>Müller Maschinenbau GmbH/)
+    expect(html).toMatch(/text-muted-foreground[^>]*>86159 Augsburg/)
+  })
+
+  it('nennt die drei Match-Gründe als Chips und markiert das führende Konto', () => {
+    const html = render(byId('F-7b2e8c1d9a3f'))
+    for (const chip of ['name_norm gleich', 'street_norm gleich', 'postal_code gleich']) {
+      expect(html).toContain(chip)
+    }
+    // Die Notiz der Modell-Evidenz steht als Satz unter den Chips.
+    expect(html).toContain('Transliteration')
+    expect(html).toContain('Führendes Konto')
+    // Die Krone hängt am ersten Konto, nicht am zweiten.
+    expect(html.indexOf('Führendes Konto')).toBeLessThan(html.indexOf('C:0000100987'))
+  })
+
+  it('benennt die Felder, die das Finding für den Vergleich nicht hergibt', () => {
+    const html = render(byId('F-7b2e8c1d9a3f'))
+    expect(html).toContain('Platzhalter:')
+    expect(html).toContain('entity.records')
+    for (const field of ['Land', 'USt-ID', 'IBAN', 'Zahlungsbedingung']) {
+      expect(html).toContain(field)
+    }
+  })
+
+  it('behält bei der Dublette Soll und Quellenlage unter der Tabelle', () => {
+    const html = render(byId('F-7b2e8c1d9a3f'))
+    expect(html).toContain('Führendes Konto 0000100234')
+    expect(html).toContain('Quellenlage: ')
+    expect(html.indexOf('Dubletten-Vergleich')).toBeLessThan(html.indexOf('Quellenlage: '))
   })
 
   it('sperrt nach einer Entscheidung alles außer Zurücknehmen und Später', () => {

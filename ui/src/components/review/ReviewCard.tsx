@@ -4,12 +4,14 @@ import { Key } from '@/components/Key'
 import { ActionBar } from '@/components/review/ActionBar'
 import { AssignDialog } from '@/components/review/AssignDialog'
 import { CurrentProposed } from '@/components/review/CurrentProposed'
+import { DuplicateCompare } from '@/components/review/DuplicateCompare'
 import { EvidencePanel } from '@/components/review/EvidencePanel'
 import { Explanation } from '@/components/review/Explanation'
 import { ImpactSection } from '@/components/review/ImpactSection'
 import { RejectDialog } from '@/components/review/RejectDialog'
 import { Relevance } from '@/components/review/Relevance'
 import { Remediation } from '@/components/review/Remediation'
+import { buildDuplicateComparison } from '@/lib/duplicate'
 import { formatMoney } from '@/lib/format'
 import { acceptBlockedReason, createDecision } from '@/lib/review'
 import type { DecisionRecord, ReasonCode } from '@/types/decision'
@@ -140,6 +142,11 @@ export function ReviewCard({
   })
 
   const impact = finding.impact_eur
+  // Bei Dubletten tritt der Vergleich an die Stelle von Ist|Soll (Spec, Aufgabe 4).
+  // Tragen die Daten ihn nicht, bleibt es beim gewohnten Abschnitt – eine halbe
+  // Tabelle wäre schlechter als gar keine.
+  const comparison =
+    finding.category === 'duplicate' ? buildDuplicateComparison(finding) : null
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -192,11 +199,15 @@ export function ReviewCard({
         nicht an der des Browserfensters. Die Abschnitte messen deshalb diesen Kasten.
       */}
       <div className="@container min-h-0 flex-1 overflow-y-auto">
-        <CurrentProposed
-          finding={finding}
-          chosenOption={chosenOption}
-          onChooseOption={setChosenOption}
-        />
+        {comparison ? (
+          <DuplicateCompare finding={finding} comparison={comparison} />
+        ) : (
+          <CurrentProposed
+            finding={finding}
+            chosenOption={chosenOption}
+            onChooseOption={setChosenOption}
+          />
+        )}
         <EvidencePanel finding={finding} />
         <ImpactSection finding={finding} />
         <Explanation finding={finding} />
