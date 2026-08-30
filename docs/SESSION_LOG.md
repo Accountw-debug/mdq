@@ -6,3 +6,6 @@ Format je Session: Datum · Ziel · Ergebnis · Offen/Nächster Schritt (max. 3 
 - **2026-08-30 · Sprint 1, Aufgabe 1: Projekt-Bootstrap.** Paket `engine/mdq/` (Pfad-Konstanten, Typer-CLI mit `version` und Stubs für `validate`, `rules list`, `run`), hatchling-Build und Entry Point in `pyproject.toml`, `engine/tests/conftest.py` mit DuckDB-In-Memory-Fixture für `logic/schema/canonical.sql`, 3 Bootstrap-Tests.
   Ergebnis: `uv run pytest` 3 passed, `uv run ruff check .` sauber, `uv run mdq version` läuft. Entscheidungen D-011 bis D-014 ergänzt, `uv.lock` eingecheckt.
   Nächster Schritt: Sprint 1, Aufgabe 2 – Schema-Validierung (`mdq/findings.py`, `mdq validate`).
+- **2026-08-30 · Sprint 1, Aufgabe 2: Schema-Validierung.** `mdq/findings.py` (Draft-2020-12-Validierung, eigener `date-time`-Checker, YAML-Loader ohne Timestamp-Resolver, YAML+JSON, Duplikatprüfung) und `mdq validate` umgesetzt; die drei Schema-Invarianten werden mit ihrem Klartext gemeldet.
+  Ergebnis: `uv run pytest` 33 passed, `uv run ruff check .` sauber, `mdq validate logic/examples/findings/` grün (6/6). Entscheidungen D-015 bis D-020 ergänzt.
+  Nächster Schritt: Sprint 1, Aufgabe 3 – Regel-Loader (`mdq/rules.py`, `mdq rules list`).

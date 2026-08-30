@@ -20,6 +20,11 @@ def test_version_command_succeeds() -> None:
     assert __version__ in result.stdout
 
 
-def test_validate_is_not_implemented_yet(tmp_path) -> None:
-    result = runner.invoke(app, ["validate", str(tmp_path)])
+def test_stub_command_exits_non_zero() -> None:
+    """Ein noch nicht umgesetzter Befehl meldet nie einen leeren Erfolg (D-013).
+
+    Geprueft an `rules list` – `validate` ist seit Aufgabe 2 umgesetzt und wird in
+    engine/tests/test_findings.py geprueft.
+    """
+    result = runner.invoke(app, ["rules", "list"])
     assert result.exit_code == EXIT_NOT_IMPLEMENTED
