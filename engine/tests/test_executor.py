@@ -54,6 +54,28 @@ VALUES
   'KR','H','EUR',500.00,500.00,-500.00,'RE 1','RE1',FALSE);
 """
 
+#: Die beiden Zahlungen zu den Rechnungen oben: Belegart KZ, beim Kreditor Soll.
+#: Genau daran scheiterte die Regel bis D-082 - sie hielt die Zahlung fuer die Gutschrift.
+INSERT_AP_LEA_001_PAYMENTS = """
+INSERT INTO fi_item (item_key,bp_key,company_code,fiscal_year,document_no,line_item,
+                     posting_date,document_date,doc_type,debit_credit,currency,
+                     amount_doc,amount_local,amount_signed_local,is_open)
+VALUES
+ ('1000|2026|20|1','V:0000000003','1000','2026','20','1',DATE '2026-03-05',DATE '2026-03-05',
+  'KZ','S','EUR',500.00,500.00,500.00,FALSE),
+ ('1000|2026|21|1','V:0000000003','1000','2026','21','1',DATE '2026-03-12',DATE '2026-03-12',
+  'KZ','S','EUR',500.00,500.00,500.00,FALSE);
+"""
+
+#: Eine echte Gutschrift in gleicher Hoehe innerhalb von 180 Tagen - sie nettet das Paar.
+INSERT_AP_LEA_001_CREDIT_MEMO = """
+INSERT INTO fi_item (item_key,bp_key,company_code,fiscal_year,document_no,line_item,
+                     posting_date,document_date,doc_type,debit_credit,currency,
+                     amount_doc,amount_local,amount_signed_local,is_open)
+VALUES ('1000|2026|30|1','V:0000000003','1000','2026','30','1',DATE '2026-04-01',
+        DATE '2026-04-01','KG','S','EUR',500.00,500.00,500.00,TRUE);
+"""
+
 CASES = [
     ("AR-VAL-001", INSERT_AR_VAL_001),
     ("AR-CON-002", INSERT_AR_CON_002),
@@ -90,6 +112,32 @@ def test_execution_is_deterministic(db, run_context, rule_id, inserts) -> None:
     second = execute_rule(db, RULES[rule_id], run_context)
     assert [f["finding_id"] for f in first] == [f["finding_id"] for f in second]
     assert first == second
+
+
+def test_payment_does_not_net_a_double_payment(db, run_context) -> None:
+    """Eine bezahlte Doppelzahlung ohne Gutschrift bleibt ein Treffer (D-082).
+
+    Der Stolperdraht zum Bug: beim Kreditor ist die Zahlung ebenso Soll wie die
+    Gutschrift. Ohne die Einschraenkung auf `doc_type = 'KG'` nettete jede Zahlung ihr
+    eigenes Rechnungspaar weg, und AP-LEA-001 fand auf echten Daten nie etwas - im
+    Demo-Mandanten waren es 0 statt 8 Findings.
+    """
+    findings = _run(
+        db, "AP-LEA-001", INSERT_AP_LEA_001 + INSERT_AP_LEA_001_PAYMENTS, run_context
+    )
+    assert len(findings) == 1
+    assert validate_finding(findings[0]) == []
+
+
+def test_credit_memo_nets_a_double_payment(db, run_context) -> None:
+    """Die echte Gutschrift nettet weiterhin – die Gegenprobe zum Test darueber."""
+    findings = _run(
+        db,
+        "AP-LEA-001",
+        INSERT_AP_LEA_001 + INSERT_AP_LEA_001_PAYMENTS + INSERT_AP_LEA_001_CREDIT_MEMO,
+        run_context,
+    )
+    assert findings == []
 
 
 def test_defaults_come_from_the_rule_head(db, run_context) -> None:

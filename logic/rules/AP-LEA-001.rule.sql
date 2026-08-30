@@ -1,5 +1,10 @@
 /* ---
 id: AP-LEA-001
+# Korrektur 2026-08-30 (D-082, Version bleibt 1.0 - der Klartext war immer richtig):
+# Die netted-CTE erkannte ein Netting an `debit_credit = 'S'` allein. Beim Kreditor ist
+# aber auch die Zahlung Soll, und jede bezahlte Rechnung hat eine Zahlung in gleicher
+# Hoehe - die Regel nettete damit jedes Paar weg und fand nie etwas. Das SQL prueft
+# zusaetzlich `doc_type = 'KG'` und folgt damit dem Klartext (Regel 10).
 version: "1.0"
 title: "Mögliche Doppelzahlung: {amount} {currency} an Kreditor, Referenz {ref_a} / {ref_b}"
 side: AP
@@ -85,6 +90,7 @@ netted AS (
     JOIN fi_item g
       ON g.bp_key = p.bp_key
      AND g.debit_credit = 'S'                  -- Gutschrift/Storno = Soll beim Kreditor
+     AND g.doc_type = 'KG'                     -- ... aber die Zahlung ist es auch (D-082)
      AND g.currency = p.currency
      AND g.amount_doc = p.amount_doc
      AND g.document_date BETWEEN greatest(p.date_a, p.date_b)
