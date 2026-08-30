@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { AlertTriangleIcon, UploadIcon } from 'lucide-react'
 import { Key } from '@/components/Key'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { formatDate } from '@/lib/format'
 import type { LoadedRun } from '@/lib/load-run'
 
@@ -12,17 +13,25 @@ import type { LoadedRun } from '@/lib/load-run'
  * Rechts „Findings-Datei laden": damit lässt sich `runs/<run_id>/findings.json`
  * der Engine ohne Rebuild ansehen. Die Datei wird nur im Speicher gehalten –
  * kein localStorage, nichts bleibt unbemerkt im Browser liegen (Spec Sprint 5).
+ *
+ * Daneben steht der Bearbeiter: `decision.by` ist im Schema Pflicht, also wird der
+ * Name einmal je Sitzung eingetragen und gilt für jede Entscheidung. Auch er bleibt
+ * im Speicher und verschwindet mit dem Tab.
  */
 export function DataBanner({
   run,
   source,
   onSelectFile,
   loadError,
+  reviewer,
+  onReviewerChange,
 }: {
   run: LoadedRun['run']
   source: LoadedRun['source']
   onSelectFile: (file: File) => void
   loadError: string | null
+  reviewer: string
+  onReviewerChange: (reviewer: string) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -64,6 +73,17 @@ export function DataBanner({
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          <label className="flex items-center gap-1.5">
+            Bearbeiter
+            <Input
+              value={reviewer}
+              onChange={(event) => onReviewerChange(event.target.value)}
+              placeholder="Ihr Name"
+              aria-label="Bearbeiter für Entscheidungen"
+              className="h-6 w-36 text-xs"
+            />
+          </label>
+          <span aria-hidden>·</span>
           <span className="hidden sm:inline">
             Quelle: {source.kind === 'file' ? <Key>{source.label}</Key> : source.label}
           </span>

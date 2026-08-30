@@ -11,6 +11,7 @@
 
 /** Betrag als String mit zwei Dezimalen, optional negativ. */
 const AMOUNT_PATTERN = /^(-?)([0-9]+)\.([0-9]{2})$/
+const CURRENCY_PATTERN = /^[A-Z]{3}$/
 const ISO_DATE_PATTERN = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/
 const ISO_DATETIME_UTC_PATTERN =
   /^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.[0-9]+)?Z$/
@@ -50,6 +51,21 @@ export function formatDecimal(amount: string): string {
 /** "32000.00" -> "32.000,00 €". */
 export function formatEur(amount: string): string {
   return `${formatDecimal(amount)} €`
+}
+
+/** Währungen, für die ein Zeichen statt des Codes gezeigt wird. */
+const CURRENCY_SYMBOLS: Record<string, string> = { EUR: '€' }
+
+/**
+ * Betrag mit der Währung, die im Finding steht: "32000.00", "EUR" -> "32.000,00 €".
+ * Unbekannte Währungen behalten ihren Code ("1000.00", "CHF" -> "1.000,00 CHF") –
+ * die Währung steht immer neben dem Betrag (CLAUDE.md, Regel 2).
+ */
+export function formatMoney(amount: string, currency: string): string {
+  if (!CURRENCY_PATTERN.test(currency)) {
+    throw new FormatError(`Kein ISO-4217-Währungscode: ${JSON.stringify(currency)}`)
+  }
+  return `${formatDecimal(amount)} ${CURRENCY_SYMBOLS[currency] ?? currency}`
 }
 
 /**

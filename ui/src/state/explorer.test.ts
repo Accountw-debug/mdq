@@ -2,7 +2,12 @@
 import { describe, expect, it } from 'vitest'
 import { ALL, DEFAULT_SORT, EMPTY_FILTERS, NO_COMPANY_CODE } from '@/lib/select-findings'
 import type { ExplorerAction, ExplorerState } from '@/state/explorer'
-import { INITIAL_EXPLORER_STATE, explorerReducer, hasActiveFilters } from '@/state/explorer'
+import {
+  INITIAL_EXPLORER_STATE,
+  explorerReducer,
+  hasActiveFilters,
+  nextOpenId,
+} from '@/state/explorer'
 
 const IDS = ['F-000000000001', 'F-000000000002', 'F-000000000003']
 
@@ -215,5 +220,45 @@ describe('Drawer', () => {
     )
     expect(state.drawerOpen).toBe(false)
     expect(state.selectedId).toBe(IDS[1])
+  })
+})
+
+describe('Weiter zum nächsten offenen Finding', () => {
+  it('springt hinter der Auswahl auf das nächste offene', () => {
+    expect(nextOpenId(IDS[0], IDS, [IDS[1], IDS[2]])).toBe(IDS[1])
+    expect(nextOpenId(IDS[0], IDS, [IDS[2]])).toBe(IDS[2])
+  })
+
+  it('beginnt ohne Auswahl vorn', () => {
+    expect(nextOpenId(null, IDS, IDS)).toBe(IDS[0])
+  })
+
+  it('beginnt wieder oben, wenn hinter der Auswahl nichts offen ist', () => {
+    expect(nextOpenId(IDS[2], IDS, [IDS[0]])).toBe(IDS[0])
+  })
+
+  it('gibt null zurück, wenn nichts mehr offen ist', () => {
+    expect(nextOpenId(IDS[1], IDS, [])).toBeNull()
+  })
+
+  it('hält die Karte offen und rückt weiter', () => {
+    const state = reduce(
+      INITIAL_EXPLORER_STATE,
+      { type: 'open_drawer', findingId: IDS[0] },
+      // Über IDS[0] wurde gerade entschieden, es zählt nicht mehr als offen.
+      { type: 'advance', visibleIds: IDS, openIds: [IDS[1], IDS[2]] },
+    )
+    expect(state.selectedId).toBe(IDS[1])
+    expect(state.drawerOpen).toBe(true)
+  })
+
+  it('schließt die Karte, wenn in dieser Ansicht nichts mehr offen ist', () => {
+    const state = reduce(
+      INITIAL_EXPLORER_STATE,
+      { type: 'open_drawer', findingId: IDS[2] },
+      { type: 'advance', visibleIds: IDS, openIds: [] },
+    )
+    expect(state.drawerOpen).toBe(false)
+    expect(state.selectedId).toBe(IDS[2])
   })
 })

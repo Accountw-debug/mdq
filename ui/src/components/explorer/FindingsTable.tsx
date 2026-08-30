@@ -17,9 +17,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { formatEur } from '@/lib/format'
+import { formatMoney } from '@/lib/format'
+import { decisionStatusLabel } from '@/lib/review'
 import type { Sort, SortColumn } from '@/lib/select-findings'
 import { cn } from '@/lib/utils'
+import type { DecisionsState } from '@/state/decisions'
 import type { Finding } from '@/types/finding'
 
 /**
@@ -48,69 +50,80 @@ const LAYOUT: Record<string, { sortColumn: SortColumn; align?: 'right'; classNam
   status: { sortColumn: 'status' },
 }
 
-const columns = helper.columns([
-  helper.display({
-    id: 'tier',
-    header: 'Stufe',
-    cell: ({ row }) => <TierBadge tier={row.original.tier} />,
-  }),
-  helper.display({
-    id: 'severity',
-    header: 'Schwere',
-    cell: ({ row }) => <SeverityBadge severity={row.original.severity} />,
-  }),
-  helper.display({
-    id: 'damage_class',
-    header: 'SK',
-    cell: ({ row }) => <DamageClassBadge damageClass={row.original.damage_class} />,
-  }),
-  helper.display({
-    id: 'side',
-    header: 'Seite',
-    cell: ({ row }) => <SideBadge side={row.original.side} />,
-  }),
-  helper.display({
-    id: 'rule_id',
-    header: 'Regel',
-    cell: ({ row }) => <Key className="text-muted-foreground">{row.original.rule_id}</Key>,
-  }),
-  helper.display({
-    id: 'bp_key',
-    header: 'Geschäftspartner',
-    cell: ({ row }) => (
-      <div className="leading-tight">
-        <Key>{row.original.entity.bp_key}</Key>
-        {row.original.entity.display_name && (
-          <div className="truncate text-xs text-muted-foreground">
-            {row.original.entity.display_name}
-          </div>
-        )}
-      </div>
-    ),
-  }),
-  helper.display({
-    id: 'title',
-    header: 'Titel',
-    cell: ({ row }) => <span className="line-clamp-2">{row.original.title ?? '—'}</span>,
-  }),
-  helper.display({
-    id: 'impact',
-    header: 'Euro-Wirkung',
-    cell: ({ row }) => {
-      const impact = row.original.impact_eur
-      if (!impact) return <span className="text-muted-foreground">—</span>
-      return <Key className="tabular-nums">{formatEur(impact.amount)}</Key>
-    },
-  }),
-  helper.display({
-    id: 'status',
-    header: 'Status',
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
-  }),
-])
+function buildColumns(decisions: DecisionsState) {
+  return helper.columns([
+    helper.display({
+      id: 'tier',
+      header: 'Stufe',
+      cell: ({ row }) => <TierBadge tier={row.original.tier} />,
+    }),
+    helper.display({
+      id: 'severity',
+      header: 'Schwere',
+      cell: ({ row }) => <SeverityBadge severity={row.original.severity} />,
+    }),
+    helper.display({
+      id: 'damage_class',
+      header: 'SK',
+      cell: ({ row }) => <DamageClassBadge damageClass={row.original.damage_class} />,
+    }),
+    helper.display({
+      id: 'side',
+      header: 'Seite',
+      cell: ({ row }) => <SideBadge side={row.original.side} />,
+    }),
+    helper.display({
+      id: 'rule_id',
+      header: 'Regel',
+      cell: ({ row }) => <Key className="text-muted-foreground">{row.original.rule_id}</Key>,
+    }),
+    helper.display({
+      id: 'bp_key',
+      header: 'Geschäftspartner',
+      cell: ({ row }) => (
+        <div className="leading-tight">
+          <Key>{row.original.entity.bp_key}</Key>
+          {row.original.entity.display_name && (
+            <div className="truncate text-xs text-muted-foreground">
+              {row.original.entity.display_name}
+            </div>
+          )}
+        </div>
+      ),
+    }),
+    helper.display({
+      id: 'title',
+      header: 'Titel',
+      cell: ({ row }) => <span className="line-clamp-2">{row.original.title ?? '—'}</span>,
+    }),
+    helper.display({
+      id: 'impact',
+      header: 'Euro-Wirkung',
+      cell: ({ row }) => {
+        const impact = row.original.impact_eur
+        if (!impact) return <span className="text-muted-foreground">—</span>
+        return <Key className="tabular-nums">{formatMoney(impact.amount, impact.currency)}</Key>
+      },
+    }),
+    helper.display({
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const decision = decisions[row.original.finding_id]
+        return (
+          <StatusBadge
+            status={row.original.status}
+            label={decision && decisionStatusLabel(decision)}
+          />
+        )
+      },
+    }),
+  ])
+}
 
 export function FindingsTable({
   findings,
+  decisions,
   sort,
   selectedId,
   onSelect,
@@ -118,6 +131,7 @@ export function FindingsTable({
   onToggleSort,
 }: {
   findings: Finding[]
+  decisions: DecisionsState
   sort: Sort
   selectedId: string | null
   onSelect: (findingId: string) => void
@@ -126,6 +140,7 @@ export function FindingsTable({
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const data = useMemo(() => findings, [findings])
+  const columns = useMemo(() => buildColumns(decisions), [decisions])
   const table = useTable({
     features,
     columns,

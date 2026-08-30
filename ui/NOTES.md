@@ -81,8 +81,9 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
 - **2026-08-30 · Deutsche Beschriftungen der Enum-Werte in `src/lib/labels.ts`.** Das
   Glossar nennt die Feldnamen, aber keine deutschen Wörter für die Werte. Die Kategorien
   folgen `docs/CONCEPT.md` Abschnitt 3 (Vollständigkeit/Validität/Konsistenz/Hygiene/
-  Risiko); `duplicate` → „Dublette". **Offen: `leakage` → „Geldabfluss"** ist hier gesetzt
-  und steht in keinem Dokument – bitte gegenlesen. `labels.test.ts` erzwingt, dass jede
+  Risiko); `duplicate` → „Dublette". `leakage` → „Geldabfluss" ist hier gesetzt und steht in
+  keinem Dokument; **am 2026-08-30 als Glossar-Rückmeldung an die Engine-Session (`main`)
+  übergeben**, bis zu einer Antwort bleibt es bei „Geldabfluss". `labels.test.ts` erzwingt, dass jede
   Enum-Konstante genau eine Beschriftung hat.
 - **2026-08-30 · Explorer-Zustand liegt in `App.tsx`**, nicht im Explorer. Grund: Filter,
   Suche und Auswahl überleben so einen Wechsel auf Dashboard und zurück.
@@ -93,6 +94,45 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   Tooltip) rendert `renderToStaticMarkup` nicht – die Review-Karte prüft Aufgabe 3.
   Ergänzt die Entscheidung „Vitest ohne DOM-Umgebung", widerspricht ihr nicht: es bleibt
   bei `environment: 'node'` und ohne neue Abhängigkeit.
+- **2026-08-30 · Aktion → Status: Übernehmen und Zuweisen setzen `in_progress`.**
+  Freigabe Victor. „Übernehmen" heißt „freigegeben – Umsetzung offen", „Zuweisen" heißt
+  „zugewiesen"; beide sind `in_progress`, nur der Text unterscheidet sie
+  (`DECISION_STATUS_LABELS`, `StatusBadge` mit `label`). Ablehnen setzt `rejected`, mit
+  Grund „Risiko akzeptiert" dagegen `accepted_risk`. **`done` vergibt das UI nie** – das
+  entscheidet der nächste Lauf, in dem das Finding nicht mehr auftaucht. Verworfen:
+  Übernehmen → `done` (behauptet eine Umsetzung, die im SAP noch aussteht).
+- **2026-08-30 · Entscheidungen liegen als Überlagerung über den Findings.**
+  `src/state/decisions.ts` hält `finding_id → Entscheidungssatz`; `applyDecisions` legt
+  Status und `decision` über eine Kopie, die geladenen Findings bleiben unverändert
+  (Analogie zu Regel 3). Das Ergebnis bleibt schemakonform: `decision` bekommt nur
+  `by`, `at`, `reason`, `reason_code`. Aufgabe 7 exportiert die Map direkt.
+- **2026-08-30 · `decision.at` kommt aus einer injizierbaren Uhr.** `createDecision(input, now)`
+  – der Zeitstempel ist der einzige Wert im UI, der nicht aus den Daten folgt; im Test
+  steht er fest (Regel 9). Verworfen: `new Date()` mitten im Rendering.
+- **2026-08-30 · Bearbeiter steht im Datenstand-Banner, nicht in einem Dialog.**
+  `decision.by` ist im Schema Pflicht, also wird der Name einmal je Sitzung eingetragen;
+  ohne ihn sind Übernehmen, Ablehnen und Zuweisen gesperrt (mit Hinweis, „Später" bleibt
+  frei). Nur im Speicher, kein `localStorage`. Verworfen: Namensabfrage beim ersten Klick
+  (ein dritter Dialog für eine Angabe, die einmal gilt).
+- **2026-08-30 · Die Review-Karte hängt in keinem Portal.** `ReviewCard` trägt Kopf,
+  Abschnitte, Aktionen und die Tastatur; `ReviewDrawer` ist nur noch Sheet-Hülle mit
+  zugänglichem Namen. Damit prüft `ReviewCard.render.test.tsx` alle sechs Beispiele mit
+  `renderToStaticMarkup` – die in Aufgabe 2 notierte Grenze ist damit aufgehoben, ohne
+  jsdom und ohne neue Abhängigkeit.
+- **2026-08-30 · Optionen einer Entscheidung sind wählbar, und die Wahl wird festgehalten.**
+  Ohne gewählte Option ist „Übernehmen" gesperrt (Tooltip „Erst eine der Optionen wählen"),
+  mit Wahl steht sie als Grund im Entscheidungssatz („Option gewählt: …"). Die Spec nennt
+  die Optionen „wählbar"; ohne Wirkung wäre die Wahl Dekoration.
+- **2026-08-30 · „Später" schreibt nichts, und Entscheidungen sind zurücknehmbar.**
+  „Später" springt nur zum nächsten offenen Finding. Zu jeder getroffenen Entscheidung
+  steht „Zurücknehmen" auf der Karte – ohne Persistenz wäre ein Fehlgriff sonst endgültig.
+- **2026-08-30 · Sprung nach der Entscheidung: `nextOpenId`.** Nächstes offenes Finding
+  hinter der Marke, sonst das erste offene von oben, sonst schließt die Karte. Reine
+  Funktion im Reducer, damit die Reihenfolge im Test steht und nicht im Klickverhalten.
+- **2026-08-30 · `formatMoney(amount, currency)` statt `formatEur` überall dort, wo ein
+  `impact_eur` gezeigt wird.** Die Währung steht im Finding und gehört neben den Betrag
+  (Regel 2); unbekannte Währungen behalten ihren Code. Nur `formatEur` bliebe stumm falsch,
+  sobald ein Lauf CHF liefert.
 - **2026-08-30 · „Findings-Datei laden" liegt im Datenstand-Banner.** Freigabe Victor.
   Die Datei wird nur im Speicher gehalten (kein `localStorage`), der Lauf-Kopf wird wie
   im Build-Skript abgeleitet. Unbrauchbare Dateien brechen mit Grund ab statt halb zu
@@ -103,9 +143,20 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
 
 - **Schema-Rückmeldung `entity.records` für Dubletten** folgt in Aufgabe 4, sobald der
   Vergleich gebaut ist.
-- **`title` ist im Schema optional, die Liste braucht es aber.** Die Findings-Tabelle hat
+- **`title` ist im Schema optional, die Liste braucht es aber.** *(2026-08-30 an die
+  Engine-Session übergeben, Antwort offen.)* Die Findings-Tabelle hat
   eine Spalte Titel; fehlt er, steht dort „—". Vorschlag: `title` zur Pflicht machen
   (max. 120 Zeichen wie bisher beschrieben). Kein Blocker.
+- **Für „Zuweisen" gibt es im Schema kein Feld.** `decision` kennt nur `by`, `at`,
+  `reason`, `reason_code`; `by` ist der Entscheider, nicht der Empfänger. Das UI führt
+  den Empfänger als `assigned_to` im eigenen Entscheidungssatz und exportiert ihn in
+  Aufgabe 7 als zusätzliches Feld. Vorschlag: `decision.assigned_to` (optional, String)
+  ins Schema aufnehmen. Kein Blocker.
+- **F-e2f7b19c4d83 doppelt den Satz „Kein Soll ermittelbar".** Die Spec verlangt rechts
+  den festen Hinweis „Kein Soll ermittelbar – Entscheidung/Prüfung"; `proposed.display`
+  dieses Beispiels beginnt mit demselben Satz. Auf der Karte steht es dadurch zweimal.
+  Beobachtung fürs Erste – Vorschlag: in `proposed.display` mit der Handlung beginnen
+  („Anfrage an Lieferant über bekannte Telefonnummer …"). Für den Buchhalter-Test notiert.
 - **`entity.company_code` ist optional** – F-7b2e8c1d9a3f (Dublette) hat keinen. Das UI
   führt dafür den Filterwert „ohne Buchungskreis". Falls Dubletten-Findings künftig einen
   Buchungskreis bekommen sollen, sag Bescheid; erfunden wird hier keiner.
@@ -142,3 +193,10 @@ Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
   Euro-Wirkung absteigend, Tastatur `J`/`K`/`Enter`/`Esc`/`/` und Review-Drawer als
   Rumpf. 99 Tests grün, `npm run lint` und `npm run build` ohne Befund.
   Nächster Schritt: Aufgabe 3 – die Review-Karte füllen.
+- **2026-08-30 · Aufgabe 3 (Review-Karte).** Karte in acht Abschnitten in Spec-Reihenfolge
+  (`src/components/review/`), leere Abschnitte erscheinen gar nicht. Entscheidungen mit
+  Pflichtgrund beim Ablehnen, Empfänger beim Zuweisen, Sprung zum nächsten offenen Finding,
+  Tastatur `A`/`R`/`Z` und `J`/`K` in der offenen Karte. Schadensklasse 1 sperrt
+  „Übernehmen". 154 Tests grün (neu: `review`, `decisions`, `ReviewCard.render`),
+  `npm run lint` und `npm run build` ohne Befund.
+  Nächster Schritt: Aufgabe 4 – Dubletten-Vergleich für F-7b2e8c1d9a3f.

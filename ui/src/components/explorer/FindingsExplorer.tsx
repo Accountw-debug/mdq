@@ -1,4 +1,4 @@
-import { type Dispatch, useEffect, useMemo, useRef } from 'react'
+import { type Dispatch, useCallback, useEffect, useMemo, useRef } from 'react'
 import { FilterBar } from '@/components/explorer/FilterBar'
 import { FindingsTable } from '@/components/explorer/FindingsTable'
 import { ReviewDrawer } from '@/components/review/ReviewDrawer'
@@ -9,9 +9,12 @@ import {
   countByActionType,
   selectVisibleFindings,
 } from '@/lib/select-findings'
+import { isOpen } from '@/lib/review'
 import type { Filters } from '@/lib/select-findings'
+import type { DecisionsState } from '@/state/decisions'
 import type { ExplorerAction, ExplorerState } from '@/state/explorer'
 import { hasActiveFilters } from '@/state/explorer'
+import type { DecisionRecord } from '@/types/decision'
 import type { ActionType, Finding } from '@/types/finding'
 import { ACTION_TYPES } from '@/types/finding'
 
@@ -19,17 +22,25 @@ import { ACTION_TYPES } from '@/types/finding'
  * Findings-Explorer: Tabs nach Aktionstyp, Filter, Suche, Tabelle, Review-Drawer.
  *
  * Tastatur (Spec Sprint 5): `/` Suche, `J`/`K` nächstes/voriges Finding,
- * `Enter` öffnet die Karte, `Esc` schließt sie. `A`/`R`/`Z` kommen mit den
- * Aktionen in Aufgabe 3.
+ * `Enter` öffnet die Karte, `Esc` schließt sie. `A`/`R`/`Z` gehören der offenen
+ * Karte und liegen deshalb in `ReviewCard`.
  */
 export function FindingsExplorer({
   findings,
+  decisions,
+  reviewer,
   state,
   dispatch,
+  onDecide,
+  onClearDecision,
 }: {
   findings: Finding[]
+  decisions: DecisionsState
+  reviewer: string
   state: ExplorerState
   dispatch: Dispatch<ExplorerAction>
+  onDecide: (record: DecisionRecord) => void
+  onClearDecision: (findingId: string) => void
 }) {
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -56,6 +67,28 @@ export function FindingsExplorer({
   const totalInTab = useMemo(
     () => findings.filter((finding) => finding.action_type === state.tab).length,
     [findings, state.tab],
+  )
+  /** Offen heißt: noch keine Entscheidung. Grundlage für den Sprung nach einer Aktion. */
+  const openIds = useMemo(
+    () => visible.filter(isOpen).map((finding) => finding.finding_id),
+    [visible],
+  )
+
+  /**
+   * Nach jeder Entscheidung geht es zum nächsten offenen Finding (Spec Aufgabe 3).
+   * Das gerade entschiedene ist hier noch als offen gelistet – die neuen Findings
+   * kommen erst mit dem nächsten Rendern – deshalb wird es ausdrücklich entfernt.
+   */
+  const decide = useCallback(
+    (record: DecisionRecord) => {
+      onDecide(record)
+      dispatch({
+        type: 'advance',
+        visibleIds,
+        openIds: openIds.filter((id) => id !== record.finding_id),
+      })
+    },
+    [dispatch, onDecide, openIds, visibleIds],
   )
 
   useEffect(() => {
@@ -141,6 +174,7 @@ export function FindingsExplorer({
       ) : (
         <FindingsTable
           findings={visible}
+          decisions={decisions}
           sort={state.sort}
           selectedId={state.selectedId}
           onSelect={(findingId) => dispatch({ type: 'select', findingId })}
@@ -152,12 +186,19 @@ export function FindingsExplorer({
       <p className="text-xs text-muted-foreground">
         Tastatur: <Kbd>J</Kbd> / <Kbd>K</Kbd> nächstes bzw. voriges Finding,{' '}
         <Kbd>Enter</Kbd> öffnet die Karte, <Kbd>Esc</Kbd> schließt sie, <Kbd>/</Kbd> Suche.
+        In der Karte: <Kbd>A</Kbd> übernehmen, <Kbd>R</Kbd> ablehnen, <Kbd>Z</Kbd> zuweisen.
       </p>
 
       <ReviewDrawer
         finding={selected}
+        decision={selected == null ? undefined : decisions[selected.finding_id]}
+        reviewer={reviewer}
         open={state.drawerOpen}
         onOpenChange={(open) => !open && dispatch({ type: 'close_drawer' })}
+        onDecide={decide}
+        onClearDecision={onClearDecision}
+        onLater={() => dispatch({ type: 'advance', visibleIds, openIds })}
+        onMove={(delta) => dispatch({ type: 'move', delta, visibleIds })}
       />
     </div>
   )

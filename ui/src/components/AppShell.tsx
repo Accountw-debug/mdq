@@ -27,6 +27,8 @@ export function AppShell({
   loadError,
   view,
   onViewChange,
+  reviewer,
+  onReviewerChange,
   children,
 }: {
   run: LoadedRun['run']
@@ -35,6 +37,8 @@ export function AppShell({
   loadError: string | null
   view: View
   onViewChange: (view: View) => void
+  reviewer: string
+  onReviewerChange: (reviewer: string) => void
   children: ReactNode
 }) {
   return (
@@ -77,6 +81,8 @@ export function AppShell({
             source={source}
             onSelectFile={onSelectFile}
             loadError={loadError}
+            reviewer={reviewer}
+            onReviewerChange={onReviewerChange}
           />
           <main className="min-w-0 flex-1 p-6">{children}</main>
         </div>

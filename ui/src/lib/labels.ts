@@ -11,6 +11,7 @@
  * eine Beschriftung hat – sonst fällt beim Erweitern des Schemas eine Lücke auf.
  */
 
+import type { DecisionAction, ReasonCode } from '@/types/decision'
 import type {
   ActionType,
   Category,
@@ -109,4 +110,30 @@ export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
   external_register: 'Externes Register',
   postal_code_list: 'Postleitzahlenverzeichnis',
   policy: 'Policy',
+}
+
+/** Beschriftungen der Aktionen auf der Review-Karte. */
+export const DECISION_ACTION_LABELS: Record<DecisionAction, string> = {
+  accept: 'Übernehmen',
+  reject: 'Ablehnen',
+  assign: 'Zuweisen',
+}
+
+/** Pflichtgründe beim Ablehnen. */
+export const REASON_CODE_LABELS: Record<ReasonCode, string> = {
+  intentionally_separate: 'bewusst getrennt geführt',
+  data_correct: 'Daten sind korrekt',
+  not_relevant: 'nicht relevant',
+  accepted_risk: 'Risiko akzeptiert',
+}
+
+/**
+ * Statustext nach einer Entscheidung. „Übernehmen" und „Zuweisen" führen beide auf
+ * `in_progress`, sagen aber Verschiedenes – `done` bleibt dem nächsten Lauf
+ * vorbehalten, der das Finding nicht mehr meldet (Freigabe Victor, 2026-08-30).
+ */
+export const DECISION_STATUS_LABELS: Record<DecisionAction, string> = {
+  accept: 'freigegeben – Umsetzung offen',
+  assign: 'zugewiesen',
+  reject: STATUS_LABELS.rejected,
 }

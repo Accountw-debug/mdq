@@ -8,6 +8,7 @@ import {
   formatDecimal,
   formatEur,
   formatEurOrNull,
+  formatMoney,
   parseCents,
   sumEur,
 } from './format'
@@ -109,6 +110,19 @@ describe('formatDate', () => {
     expect(formatDateOrNull(null)).toBeNull()
     expect(formatDateOrNull(undefined)).toBeNull()
     expect(formatDateOrNull('2026-08-12')).toBe('12.08.2026')
+  })
+})
+
+describe('formatMoney', () => {
+  it('zeigt Euro mit Zeichen und andere Währungen mit Code', () => {
+    expect(formatMoney('32000.00', 'EUR')).toBe('32.000,00 €')
+    expect(formatMoney('1000.00', 'CHF')).toBe('1.000,00 CHF')
+  })
+
+  it('wirft bei einem Code, der kein ISO-4217 ist', () => {
+    for (const bad of ['eur', 'EURO', '€', '']) {
+      expect(() => formatMoney('1.00', bad)).toThrow(FormatError)
+    }
   })
 })
 

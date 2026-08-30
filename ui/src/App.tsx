@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useReducer, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import { AppShell, Placeholder, type View } from '@/components/AppShell'
 import { FindingsExplorer } from '@/components/explorer/FindingsExplorer'
 import { type LoadedRun, loadRunFromBuild, loadRunFromFile } from '@/lib/load-run'
+import { NO_DECISIONS, applyDecisions, decisionsReducer } from '@/state/decisions'
 import { INITIAL_EXPLORER_STATE, explorerReducer } from '@/state/explorer'
+import type { DecisionRecord } from '@/types/decision'
 
 /**
  * Hält die geladenen Findings und den Zustand der beiden Ansichten.
  *
  * Der Explorer-Zustand liegt hier und nicht im Explorer, damit Filter und Auswahl
- * einen Wechsel auf Dashboard und zurück überleben.
+ * einen Wechsel auf Dashboard und zurück überleben. Ebenso die Entscheidungen: sie
+ * gehören zur Sitzung, nicht zu einer Ansicht, und werden in Aufgabe 7 exportiert.
  */
 function App() {
   const [loaded, setLoaded] = useState<LoadedRun | null>(null)
@@ -16,6 +19,24 @@ function App() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [view, setView] = useState<View>('findings')
   const [explorer, dispatch] = useReducer(explorerReducer, INITIAL_EXPLORER_STATE)
+  const [decisions, dispatchDecisions] = useReducer(decisionsReducer, NO_DECISIONS)
+  /** `decision.by` ist im Schema Pflicht – ohne Namen keine Entscheidung. */
+  const [reviewer, setReviewer] = useState('')
+
+  // Die Liste zeigt die Findings des Laufs mit den Entscheidungen dieser Sitzung
+  // darüber; die geladenen Daten selbst bleiben unverändert (CLAUDE.md, Regel 3).
+  const findings = useMemo(
+    () => (loaded == null ? [] : applyDecisions(loaded.findings, decisions)),
+    [loaded, decisions],
+  )
+
+  const onDecide = useCallback((record: DecisionRecord) => {
+    dispatchDecisions({ type: 'record', record })
+  }, [])
+
+  const onClearDecision = useCallback((findingId: string) => {
+    dispatchDecisions({ type: 'clear', findingId })
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -33,6 +54,8 @@ function App() {
         setLoaded(run)
         setLoadError(null)
         dispatch({ type: 'reset_filters' })
+        // Entscheidungen gehören zu einem Lauf; ein neuer Lauf beginnt ohne sie.
+        dispatchDecisions({ type: 'reset' })
       })
       .catch((cause: unknown) => setLoadError((cause as Error).message))
   }, [])
@@ -61,9 +84,19 @@ function App() {
       loadError={loadError}
       view={view}
       onViewChange={setView}
+      reviewer={reviewer}
+      onReviewerChange={setReviewer}
     >
       {view === 'findings' && (
-        <FindingsExplorer findings={loaded.findings} state={explorer} dispatch={dispatch} />
+        <FindingsExplorer
+          findings={findings}
+          decisions={decisions}
+          reviewer={reviewer}
+          state={explorer}
+          dispatch={dispatch}
+          onDecide={onDecide}
+          onClearDecision={onClearDecision}
+        />
       )}
       {view === 'dashboard' && (
         <Placeholder

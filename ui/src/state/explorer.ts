@@ -40,6 +40,8 @@ export type ExplorerAction =
   | { type: 'move'; delta: number; visibleIds: readonly string[] }
   | { type: 'open_drawer'; findingId?: string }
   | { type: 'close_drawer' }
+  /** Nach einer Entscheidung: weiter zum nächsten offenen Finding. */
+  | { type: 'advance'; visibleIds: readonly string[]; openIds: readonly string[] }
 
 /** Spalten, bei denen „viel zuerst" die nützlichere erste Sortierung ist. */
 const DESCENDING_FIRST: readonly SortColumn[] = ['impact', 'severity', 'damage_class']
@@ -62,6 +64,27 @@ function moveSelection(
   if (current === -1) return delta >= 0 ? visibleIds[0] : visibleIds[visibleIds.length - 1]
   const next = Math.min(Math.max(current + delta, 0), visibleIds.length - 1)
   return visibleIds[next]
+}
+
+/**
+ * Nächstes offenes Finding nach der Auswahl. Ist hinter der Marke keins mehr offen,
+ * beginnt die Suche wieder oben – so bleibt nichts liegen, was übersprungen wurde.
+ * `null` heißt: in dieser Ansicht ist nichts mehr offen.
+ */
+export function nextOpenId(
+  selectedId: string | null,
+  visibleIds: readonly string[],
+  openIds: readonly string[],
+): string | null {
+  const open = new Set(openIds)
+  const current = selectedId == null ? -1 : visibleIds.indexOf(selectedId)
+  for (let i = current + 1; i < visibleIds.length; i++) {
+    if (open.has(visibleIds[i])) return visibleIds[i]
+  }
+  for (let i = 0; i <= current && i < visibleIds.length; i++) {
+    if (open.has(visibleIds[i])) return visibleIds[i]
+  }
+  return null
 }
 
 /**
@@ -117,6 +140,13 @@ export function explorerReducer(state: ExplorerState, action: ExplorerAction): E
       const findingId = action.findingId ?? state.selectedId
       if (findingId == null) return state
       return { ...state, selectedId: findingId, drawerOpen: true }
+    }
+
+    case 'advance': {
+      const next = nextOpenId(state.selectedId, action.visibleIds, action.openIds)
+      // Nichts mehr offen: die Karte schließt, die Marke bleibt auf dem letzten Finding.
+      if (next == null) return state.drawerOpen ? { ...state, drawerOpen: false } : state
+      return { ...state, selectedId: next, drawerOpen: true }
     }
 
     case 'close_drawer':

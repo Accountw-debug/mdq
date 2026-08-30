@@ -3,6 +3,9 @@ import {
   ACTION_TYPE_LABELS,
   CATEGORY_LABELS,
   DAMAGE_CLASS_LABELS,
+  DECISION_ACTION_LABELS,
+  DECISION_STATUS_LABELS,
+  REASON_CODE_LABELS,
   ROLE_LABELS,
   SEVERITY_LABELS,
   SIDE_LABELS,
@@ -12,6 +15,7 @@ import {
   TIER_LABELS,
   TIER_SHORT_LABELS,
 } from '@/lib/labels'
+import { DECISION_ACTIONS, REASON_CODES } from '@/types/decision'
 import {
   ACTION_TYPES,
   CATEGORIES,
@@ -40,6 +44,9 @@ const MAPS: [string, readonly (string | number)[], Record<string | number, strin
   ['Status', STATUSES, STATUS_LABELS],
   ['Rolle', ROLES, ROLE_LABELS],
   ['Quellentyp', SOURCE_TYPES, SOURCE_TYPE_LABELS],
+  ['Aktion', DECISION_ACTIONS, DECISION_ACTION_LABELS],
+  ['Aktion (Status)', DECISION_ACTIONS, DECISION_STATUS_LABELS],
+  ['Ablehnungsgrund', REASON_CODES, REASON_CODE_LABELS],
 ]
 
 describe('Beschriftungen', () => {

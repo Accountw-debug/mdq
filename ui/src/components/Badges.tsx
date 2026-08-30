@@ -92,10 +92,14 @@ const STATUS_CLASSES: Record<FindingStatus, string> = {
   rejected: 'border-border text-muted-foreground line-through',
 }
 
-export function StatusBadge({ status }: { status: FindingStatus }) {
+/**
+ * Status als Badge. `label` überschreibt den Text: „Übernehmen" und „Zuweisen"
+ * führen beide auf `in_progress`, sagen aber Verschiedenes (siehe `decisionStatusLabel`).
+ */
+export function StatusBadge({ status, label }: { status: FindingStatus; label?: string }) {
   return (
     <Badge variant="outline" className={cn('font-normal', STATUS_CLASSES[status])}>
-      {STATUS_LABELS[status]}
+      {label ?? STATUS_LABELS[status]}
     </Badge>
   )
 }
