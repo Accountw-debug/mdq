@@ -8,8 +8,11 @@ Positionierung: kein MDM, sondern *Finance Master Data & Leakage Check* – Diag
 konkreten Bereinigungslisten, Türöffner für Cash App (AR) und AP-Automatisierung.
 
 Grundprinzip: **Logik und Code strikt trennen.** Regeln, Mappings, Wörterbücher und
-Report-Templates sind Konfiguration (YAML + SQL auf kanonischem Schema). Die Engine ist
-austauschbar; die Logik bleibt.
+Report-Templates sind Konfiguration (YAML + SQL auf kanonischem Schema). Engine und UI sind
+finaler Produktcode (D-063); die Logik bleibt auch bei einem Technologiewechsel unverändert.
+MDQ ist ein eigenständiges Produkt – die Cash App wird über Export-Artefakte angebunden
+(Zahler-Mapping, bereinigte IBAN-Liste, Zahlverhaltensprofile als JSON/CSV), nicht über
+gemeinsamen Code (D-064).
 
 ## 2. Das zentrale Objekt: Finding
 
@@ -100,7 +103,7 @@ Sonderfälle: CpD-Konten (XCPDK) aus Dubletten ausschließen; T077D/T077K nutzen
 S/4: KNA1/KNB1/KNVV bleiben (CVI), BSID/BSAD sind Views auf ACDOCA, dazu BUT000/BUT0ID/
 BUT0BK. ~90 % Wiederverwendung. Verkaufsargument: BP-Konvertierung scheitert an Dubletten.
 
-## 9. UI-Leitlinien (Prototyp)
+## 9. UI-Leitlinien
 
 Review-Karte als Kern: Kopf (BP, Typ, Stufe, Schadensklasse, €, Aktionstyp) → Ist | Soll
 nebeneinander mit Tabelle.Feld und Rohwert → Evidenz-Panel (jede Quelle eine Karte,

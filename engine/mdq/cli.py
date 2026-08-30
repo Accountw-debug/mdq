@@ -1,4 +1,4 @@
-"""Kommandozeile der Prototyp-Engine.
+"""Kommandozeile der Engine.
 
 Die Befehle sind in Sprint 1 als Geruest angelegt; Inhalt folgt Aufgabe fuer Aufgabe
 laut ``docs/specs/SPRINT-1.md``. Noch nicht implementierte Befehle brechen mit einem
@@ -44,7 +44,7 @@ err_console = Console(stderr=True, soft_wrap=True)
 
 app = typer.Typer(
     name="mdq",
-    help="MDQ – Finance Master Data & Leakage Check (Prototyp-Engine).",
+    help="MDQ – Finance Master Data & Leakage Check.",
     no_args_is_help=True,
     add_completion=False,
 )

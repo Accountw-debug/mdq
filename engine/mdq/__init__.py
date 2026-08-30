@@ -1,6 +1,6 @@
-"""MDQ – Finance Master Data & Leakage Check (Prototyp-Engine).
+"""MDQ – Finance Master Data & Leakage Check.
 
-Die Engine ist austauschbar. Alles, was fachlich zaehlt, liegt in ``logic/``.
+Alles, was fachlich zaehlt, liegt in ``logic/``; die Engine fuehrt es aus.
 Die Pfad-Konstanten hier zeigen dorthin, damit Regeln, kanonisches Schema und
 Beispiel-Findings unabhaengig vom Arbeitsverzeichnis gefunden werden.
 """

@@ -1,6 +1,11 @@
 # engine/
 
-Prototyp-Engine (Python 3.12, DuckDB). Wird von Claude Code ab Sprint 1 gebaut – siehe
-`docs/specs/SPRINT-1.md`. Paketlayout: `engine/mdq/` (Code), `engine/tests/` (pytest).
+Engine von MDQ (Python 3.12, DuckDB): lädt SE16N-Exporte, mappt sie auf das kanonische
+Schema, führt die Regeln aus `logic/rules/` aus und schreibt Findings.
+Paketlayout: `engine/mdq/` (Code), `engine/tests/` (pytest).
 
-Die Engine ist austauschbar. Alles, was fachlich zählt, liegt in `logic/`.
+Das ist finaler Produktcode, kein Prototyp (D-063) – dieselbe Sorgfalt wie in `logic/`:
+Tests je Änderung, keine stillen `except:`-Blöcke, keine floats für Beträge, deterministische
+Läufe. Die fachliche Wahrheit steht trotzdem in `logic/`; die Engine führt sie nur aus.
+
+Betrieb, Lizenz, Updates und Auth sind spätere Sprints, nicht gestrichen.

@@ -11,11 +11,16 @@ die aktuelle Spec unter `docs/specs/` und den letzten Eintrag in `docs/SESSION_L
 
 | Ordner | Rolle | Sorgfalt |
 |---|---|---|
-| `logic/` | Technologieunabhängiger Asset: Schema, Regeln, Mappings, Wörterbücher, Beispiel-Findings | Höchste – bleibt auch bei Neubau der Engine |
-| `engine/` | Prototyp-Engine (Python + DuckDB). Kann später neu gebaut werden | Sauber, aber pragmatisch |
-| `ui/` | Prototyp-UI (Vite + React + TS + Tailwind + shadcn). Liest **nur** Findings-JSON | Design zählt, Code ist austauschbar |
+| `logic/` | Technologieunabhängiger Asset: Schema, Regeln, Mappings, Wörterbücher, Beispiel-Findings | Produktcode – höchste Sorgfalt |
+| `engine/` | Engine (Python + DuckDB): Laden, Mapping, Regelausführung, Findings | Produktcode – höchste Sorgfalt |
+| `ui/` | UI (Vite + React + TS + Tailwind + shadcn). Liest **nur** Findings-JSON | Produktcode – höchste Sorgfalt |
 | `testdata/` | Synthetischer Demo-Mandant, Encoding-Samples, erwartete Findings | **Niemals echte Daten** |
 | `docs/` | Konzept, Entscheidungen, Glossar, Specs, Session-Log | Immer aktuell halten |
+
+`engine/` und `ui/` sind finaler Produktcode, kein Prototyp und kein Wegwerf-Stand (D-063):
+Lux steigt später in genau diese Codebasis ein. Betrieb, Lizenz, Updates und Auth kommen in
+späteren Sprints. MDQ ist ein eigenständiges Produkt; die Cash App wird über Export-Artefakte
+angebunden, nicht über gemeinsamen Code (D-064).
 
 ## Stack (nur mit Eintrag in `docs/DECISIONS.md` erweitern)
 
