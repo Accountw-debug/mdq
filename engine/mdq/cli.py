@@ -15,6 +15,8 @@ from rich.console import Console
 from rich.table import Table
 
 from mdq import CANONICAL_SCHEMA, RULES_DIR, __version__
+from mdq.demo import DEFAULT_SEED
+from mdq.demo.generate import generate as generate_demo
 from mdq.findings import (
     FindingFileError,
     duplicate_finding_ids,
@@ -46,6 +48,9 @@ app = typer.Typer(
 
 rules_app = typer.Typer(help="Regeln aus logic/rules/ inspizieren.", no_args_is_help=True)
 app.add_typer(rules_app, name="rules")
+
+demo_app = typer.Typer(help="Demo-Mandanten erzeugen (Sprint 2).", no_args_is_help=True)
+app.add_typer(demo_app, name="demo")
 
 
 def _not_implemented(what: str, task: str) -> NoReturn:
@@ -205,6 +210,43 @@ def load(
 
     report.rejects = collect_rejects(con, LOAD_RUN_ID)
     render(report, console)
+
+
+def _thousands(value: int) -> str:
+    """Zahl mit Punkt als Tausendertrenner, wie im Run-Report."""
+    return f"{value:,}".replace(",", ".")
+
+
+@demo_app.command("generate")
+def demo_generate(
+    out: Annotated[
+        Path,
+        typer.Option("--out", help="Zielverzeichnis fuer die Exportdateien."),
+    ],
+    seed: Annotated[
+        int,
+        typer.Option("--seed", help="Zufalls-Seed; gleicher Seed gibt identische Dateien."),
+    ] = DEFAULT_SEED,
+) -> None:
+    """Erzeugt den synthetischen Demo-Mandanten (15 Dateien und manifest.json)."""
+    manifest = generate_demo(out, seed)
+
+    table = Table(box=box.SIMPLE)
+    for column in ("Tabelle", "Zeilen", "sha256"):
+        table.add_column(column, no_wrap=True)
+    for entry in manifest["tables"]:
+        table.add_row(entry["table"], _thousands(entry["rows"]), entry["sha256"][:8])
+    console.print(table)
+    console.print(
+        f"\n{len(manifest['tables'])} Dateien, {_thousands(manifest['total_rows'])} Zeilen, "
+        f"Seed {manifest['seed']}, Datenstand {manifest['data_as_of']} -> {out}"
+    )
+
+
+@demo_app.command("expected")
+def demo_expected() -> None:
+    """Leitet die erwarteten Findings aus defects.yaml ab."""
+    _not_implemented("demo expected", "Sprint 2, Aufgabe 2 (Defekt-Schicht)")
 
 
 @app.command()

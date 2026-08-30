@@ -308,6 +308,14 @@ tables:
     join:
       T052U: [ZTERM]                # TEXT1 -> description (SPRAS = DE bevorzugt)
     ignore: [MANDT, ZDART, ZFAEL, ZMONA, ZSTG1, ZSMN1, ZSTG2, ZSMN2, ZSTG3, ZSMN3, XSPLT, KOART, XSCRC]
+  T052U:
+    target: payment_terms.description
+    key: [ZTERM, SPRAS]
+    fields:
+      ZTERM: terms_key
+      SPRAS: language
+      TEXT1: description
+    ignore: [MANDT, ZTAGG, TEXT2]
   ADR6:
     target: business_partner.email
     key: [ADDRNUMBER]

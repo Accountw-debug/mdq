@@ -7,6 +7,8 @@ import duckdb
 import pytest
 
 from mdq import CANONICAL_SCHEMA, LOGIC_DIR, PROJECT_ROOT
+from mdq.demo import DEFAULT_SEED
+from mdq.demo.generate import generate as generate_demo
 from mdq.executor import RunContext
 
 
@@ -123,3 +125,18 @@ def canonical_db() -> Iterator[duckdb.DuckDBPyConnection]:
         yield con
     finally:
         con.close()
+
+
+@pytest.fixture(scope="session")
+def demo_client(tmp_path_factory):
+    """Ein erzeugter Demo-Mandant fuer alle Tests – das Erzeugen dauert einige Sekunden."""
+    out = tmp_path_factory.mktemp("demo_mandant")
+    manifest = generate_demo(out, DEFAULT_SEED)
+    return out, manifest
+
+
+def demo_rows(path, table: str) -> list[dict[str, str]]:
+    """Zeilen einer Exportdatei als Liste von Spalte -> Wert."""
+    lines = (path / f"{table}.txt").read_text(encoding="utf-8").splitlines()
+    header = lines[0].split("\t")
+    return [dict(zip(header, line.split("\t"), strict=True)) for line in lines[1:]]

@@ -26,8 +26,8 @@ die Policy hebt zur Laufzeit Stufe **und** Aktion gemeinsam an.
 | AR-CON-002 | Löschvormerkung/Sperre bei offenen Posten | consistency | high | 3 | decision | decision | business_partner, bp_company_code, fi_item | XD05/XD06 | impl |
 | AR-CON-003 | IBAN-Land ≠ Sitzland (Hinweis, kein Fehler) | consistency | low | 1 | C | review | business_partner, bp_bank_account | – | draft |
 | AR-CON-004 | Gleiche IBAN bei mehreren Debitoren ohne Regulierer-Bezug | consistency | high | 2 | B | review | bp_bank_account, bp_partner_function | XD02 | draft |
-| AR-HYG-001 | Kein Umsatz seit 24 Monaten und keine OP (Löschkandidat) | hygiene | low | 3 | decision (Policy kann zur Laufzeit auf A heben) | decision | bp_relevance | XD06 | draft |
-| AR-HYG-002 | Angelegt, nie bebucht (> 12 Monate) | hygiene | low | 3 | decision | decision | business_partner, bp_relevance | XD06 | draft |
+| AR-HYG-001 | Kein Posten im gesamten Postenfenster, Anlage vor Fensterbeginn, keine OP (Löschkandidat) | hygiene | low | 3 | decision (Policy kann zur Laufzeit auf A heben) | decision | business_partner, bp_relevance | XD06 | draft |
+| AR-HYG-002 | Angelegt im Postenfenster, älter als 12 Monate, nie bebucht | hygiene | low | 3 | decision | decision | business_partner, bp_relevance | XD06 | draft |
 | AR-DUP-001 | Dubletten-Cluster (Name+Adresse normalisiert, USt-ID, IBAN) | duplicate | high | 2 | B | review | business_partner, bp_tax_id, bp_bank_account, bp_partner_function | XD05/XD06/FB05 | draft |
 | AR-LEA-001 | Unapplied Cash: Zahlungseingänge ohne Rechnungsbezug (Akonto) älter 30 Tage | leakage | medium | 3 | B | review | fi_item | F-32 | draft |
 | AR-LEA-002 | Umbuchungen zwischen Debitoren (Hinweis auf Fehlzuordnung/Dublette) | leakage | medium | 3 | C | review | fi_item | – | draft |
@@ -46,7 +46,7 @@ die Policy hebt zur Laufzeit Stufe **und** Aktion gemeinsam an.
 | AP-CON-001 | Gleiche IBAN bei mehreren Kreditoren | consistency | critical | 1 | C | review | bp_bank_account | XK02 | draft |
 | AP-CON-002 | IBAN-Land ≠ Sitzland bei Kreditor | consistency | medium | 1 | C | review | business_partner, bp_bank_account | – | draft |
 | AP-CON-003 | Zahlung an gesperrten/zur Löschung vorgemerkten Kreditor (letzte 12 Monate) | consistency | high | 3 | C | review | business_partner, bp_company_code, fi_item | – | draft |
-| AP-HYG-001 | Kein Einkauf seit 24 Monaten (Löschkandidat) | hygiene | low | 3 | decision (Policy kann zur Laufzeit auf A heben) | decision | bp_relevance | XK06 | draft |
+| AP-HYG-001 | Kein Posten im gesamten Postenfenster, Anlage vor Fensterbeginn (Löschkandidat) | hygiene | low | 3 | decision (Policy kann zur Laufzeit auf A heben) | decision | business_partner, bp_relevance | XK06 | draft |
 | AP-RSK-001 | Bankdatenänderung kurz vor Zahlung (< 30 Tage) ohne Vier-Augen (V2: CDHDR) | risk | critical | 1 | C | process | change_document, fi_item | – | draft |
 | AP-DUP-001 | Kreditoren-Dubletten-Cluster | duplicate | high | 2 | B | review | business_partner, bp_tax_id, bp_bank_account | XK05/XK06 | draft |
 | AP-LEA-001 | Mögliche Doppelzahlung (Referenz fuzzy, gleicher Betrag, 60 Tage) | leakage | critical | 2 | B | review | business_partner, fi_item | FBL1N | impl |
@@ -64,5 +64,8 @@ die Policy hebt zur Laufzeit Stufe **und** Aktion gemeinsam an.
 
 - Definition "aktiver Debitor" für AR-COM-004: Umsatz in 12 Monaten oder OP > 0?
 - Schwelle für AR-CON-001 (70 % abweichend) – oder ab 5 Belegen absolut?
-- Policy-Defaults für HYG-Regeln (24 vs. 36 Monate) je Kunde konfigurierbar – Standardwert?
+- Policy-Defaults für HYG-Regeln je Kunde konfigurierbar – Standardwert? Abgegrenzt sind die Regeln über
+  das Postenfenster des Laufs: AR-HYG-001/AP-HYG-001 verlangen `ERDAT` vor Fensterbeginn **und** keinen
+  Posten im Fenster, AR-HYG-002 `ERDAT` im Fenster, älter als 12 Monate, ohne Posten. Damit überschneiden
+  sich die beiden Regeln nicht mehr (2026-08-30).
 - AP-LEA-001 Version 1.1: Kreditoren-Dubletten-Cluster einbeziehen (Doppelzahlung über zwei Konten).

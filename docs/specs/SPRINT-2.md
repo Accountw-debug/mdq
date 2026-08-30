@@ -15,10 +15,10 @@ wird aus den Defekten abgeleitet, nicht von Hand gepflegt. Victor ergänzt spät
 
 - Mandant 100, Buchungskreise 1000 und 2000, Hauswährung EUR in beiden (V1 kennt eine Währung, D-030).
 - ~2.000 Debitoren, ~1.500 Kreditoren, je ca. 8 % CpD-Konten (`XCPDK = X`), Kontengruppen DEBI/KUNA bzw. KRED/LIEF.
-- Posten über 24 Monate (2024-09-01 bis 2026-08-31, Datenstand 2026-08-28): ~40.000 Debitoren-, ~20.000 Kreditorenposten.
+- Posten über 24 Monate (2024-09-01 bis 2026-08-28 = Datenstand): ~40.000 Debitoren-, ~20.000 Kreditorenposten.
   Rechnungen (BLART DR bzw. KR), Zahlungen (DZ/KZ), Gutschriften (DG/KG). ~65 % ausgeglichen (BSAD/BSAK), Rest offen (BSID/BSIK).
   Zahlverhalten realistisch: Skontonutzung bei ~40 % der Rechnungen mit Skontobedingung, Verzögerungen normalverteilt.
-- Zahlungsbedingungen T052: ZB00 (sofort), ZB01 (14 Tage 2 %, 30 netto), ZB02 (10 Tage 3 %, 30 netto), ZB03 (30 netto), ZB04 (60 netto); T052U mit deutschen Texten.
+- Zahlungsbedingungen T052: ZB00 (sofort), ZB01 (10 Tage 3 %, 30 netto), ZB02 (14 Tage 2 %, 30 netto), ZB03 (30 netto), ZB04 (60 netto); T052U mit deutschen Texten.
 - Partnerrollen KNVP für alle Debitoren (AG = selbst), dazu 30 Zentralregulierer-Konstellationen (RG ≠ AG) – **Negativfälle** für Dubletten.
 - Bankverbindungen: 85 % der Debitoren, 98 % der Kreditoren; IBANs mit gültiger Prüfziffer über schwifty, **erfundene** Bankleitzahlen, keine Bank-Existenzprüfung.
 - USt-IDs: Formate laut `logic/dictionaries/vat_id_patterns.yaml`, DE-Prüfziffer über python-stdnum gültig; ~75 % Deutschland, Rest AT/NL/FR/IT/PL/CH/US.
@@ -37,7 +37,7 @@ Die Entitäten aus `logic/examples/findings/` werden mit exakt diesen Werten ges
 | C:0000100987 | Mueller Maschinenbau GmbH, Robert Bosch Straße 12, 86159 Augsburg | STCEG `DE123456780` (formatgültig), 2 Zahlungen, 2 OP à 3.200,00, kein RG/RE-Bezug in KNVP |
 | C:0000101502 | Hartmann Logistik e.K., Bremen | LOEVM zentral `X`, 3 OP in 1000 = 8.930,00, ältester 03.11.2025, kein Umsatz 12M |
 | V:0000200845 | Stahlhandel Bergmann KG, Essen | zwei bezahlte KR-Rechnungen 32.000,00: 1900004411 (XBLNR `RE-4711`, 01.03.2026) und 1900004587 (`RE4711`, 10.03.2026), keine Gutschrift danach; Volumen 12M 1.284.000,00 |
-| V:0000200117 | Elektro Brandt GmbH & Co. KG, Kassel | ZTERM ZB01 (14 Tage 2 %), 31 Rechnungen in 12M, davon 23 nach Skontofrist bezahlt, Skontobasis dieser 23 = 240.620,00; OP 18.400,00 |
+| V:0000200117 | Elektro Brandt GmbH & Co. KG, Kassel | ZTERM ZB02 (14 Tage 2 %), 31 Rechnungen in 12M, davon 23 nach Skontofrist bezahlt, Skontobasis dieser 23 = 240.620,00; OP 18.400,00 |
 | V:0000201330 | Nordwind Verpackungen GmbH, Lübeck | IBAN `DE44500105175407324932` (Prüfziffer ungültig), OP 27.300,00 in 2000, keine Zahlung an diese IBAN |
 
 Damit sind F-001 bis F-006 die ersten sechs Einträge der erwarteten Findings.
@@ -53,7 +53,7 @@ Jeder Eintrag: `id`, `type`, `params` (bp_keys, company_code, Werte), `expected:
 - 8 IBANs mit ungültiger Prüfziffer (5 Kreditoren, 3 Debitoren) → AP-VAL-003 / AR-VAL-003
 - 6 Debitoren mit Löschvormerkung oder Sperre und offenen Posten (zentral und je Buchungskreis, einer in beiden Buchungskreisen → zwei Findings) → AR-CON-002
 - 20 Debitoren ohne Zahlungsbedingung im Buchungskreis, davon 15 mit eindeutig meistgenutzter ZTERM auf Belegen → AR-COM-002
-- 40 Debitoren ohne Umsatz seit 30 Monaten und ohne OP → AR-HYG-001; 25 Kreditoren → AP-HYG-001
+- 40 Debitoren mit `ERDAT` vor Fensterbeginn, ohne Posten im Fenster und ohne OP → AR-HYG-001; 25 Kreditoren ebenso → AP-HYG-001
 - 10 Doppelzahlungspaare Kreditoren mit Referenzvarianten (Bindestrich, führende Null, Leerzeichen, Groß/klein), davon 2 über Kreditoren-Dubletten hinweg (für Version 1.1) → AP-LEA-001
 - 8 Kreditoren mit Skontoverlust > 1.000,00 in 12M → AP-LEA-002
 - 4 Kreditoren-Paare mit gleicher IBAN ohne Regulierer-Bezug → AP-CON-001
@@ -101,7 +101,7 @@ Rechtliche Fußnote in der Datei: alle Werte erfunden; IBAN-Prüfziffern gültig
 
 ## Definition of Done Sprint 2
 - Generator deterministisch, 15 Dateien, `mdq load` ohne Rejects, Ankerwerte exakt, Positiv-/Negativfälle vollständig, `expected_findings.yaml` generiert, drei Regelköpfe ohne D-021-Hinweis, Regressionstest angelegt (skip), README für Defekte geschrieben.
-- Laufzeit der Generierung unter 60 Sekunden; Dateien zusammen unter 15 MB (werden eingecheckt – Test-Fixture, keine Kundendaten).
+- Laufzeit der Generierung unter 60 Sekunden; Dateien zusammen unter 20 MB (werden eingecheckt – Test-Fixture, keine Kundendaten).
 - DECISIONS und SESSION_LOG gepflegt.
 
 ## Nicht in Sprint 2

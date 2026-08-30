@@ -1,22 +1,44 @@
 # Testdaten
 
-## Demo-Mandant (`demo_mandant/`, wird in Sprint 2 generiert)
+## Demo-Mandant (`demo_mandant/`)
 
-Synthetischer SAP-ECC-Datensatz im SE16N-Exportformat (Tab, UTF-8, technische Spaltennamen):
-KNA1 KNB1 KNBK TIBAN KNVP LFA1 LFB1 LFBK BSID BSAD BSIK BSAK T052 T052U.
+Synthetischer SAP-ECC-Datensatz im SE16N-Exportformat (Tab, UTF-8, technische Spaltennamen,
+Datum `YYYYMMDD`, Beträge deutsch mit Vorzeichen in `SHKZG`), erzeugt mit festem Seed:
 
-Größe: ~2.000 Debitoren, ~1.500 Kreditoren, ~60.000 Posten über 24 Monate, 2 Buchungskreise
-(1000, 2000). Erzeugt mit festem Seed (deterministisch).
+```
+uv run mdq demo generate --out testdata/demo_mandant          # Seed 20260830
+uv run mdq load --input testdata/demo_mandant                 # 15 Tabellen, 0 Rejects
+```
 
-**Eingebaute Fehler** (jeder erzeugt genau die Findings in `expected/`): Dubletten mit
-Schreibvarianten (Umlaute, Rechtsform, Straße/Str.), Zentralregulierer (darf NICHT als
-Dublette gelten), CpD-Konten (dürfen NICHT geprüft werden), USt-IDs mit falschem Präfix /
-falschem Format, IBANs mit falscher Prüfziffer, Löschvormerkung mit offenen Posten,
-Zahlungsbedingung leer, Debitoren ohne Umsatz seit 30 Monaten, Doppelzahlungen mit
-Referenzvarianten (davon eine genettet durch Gutschrift → KEIN Finding), Skontoverluste,
-Kunde = Lieferant mit gleicher USt-ID, gleiche IBAN bei zwei Kreditoren.
+15 Dateien: KNA1 KNB1 KNBK KNVP KNB5 LFA1 LFB1 LFBK TIBAN BSID BSAD BSIK BSAK T052 T052U,
+dazu `manifest.json` mit Seed, Generator-Version, Datenstand sowie Zeilen und sha256 je Datei.
 
-Keine echten Firmen, Personen, IBANs (nur Test-IBANs mit gültiger Prüfziffer) oder USt-IDs.
+| Kennzahl | Wert |
+|---|---|
+| Mandant / Buchungskreise | 100 / 1000 und 2000, Hauswährung EUR (V1 kennt eine Währung, D-030) |
+| Debitoren / Kreditoren | 2.000 / 1.500, davon je ~8 % CpD (`XCPDK = X`) |
+| Postenfenster | 2024-09-01 bis 2026-08-28; der Datenstand **ist** das Fensterende |
+| Debitoren- / Kreditorenposten | ~40.000 / ~20.000, rund zwei Drittel der Rechnungen ausgeglichen |
+| Zeilen gesamt | ~78.000, zusammen rund 11 MB |
+
+**Stand: Basis-Mandant ohne Defekte.** Aufgabe 1 aus `docs/specs/SPRINT-2.md` erzeugt einen
+bewusst *sauberen* Mandanten – auf ihm darf keine Regel aus `logic/rules/CATALOG.md` greifen.
+Das ist keine Nebensache, sondern die Voraussetzung der Regression: jedes Finding muss später
+genau einem Defekt zuzuordnen sein. `engine/tests/test_demo_base.py` prüft die Invarianten
+dafür (eindeutige Kernnamen, USt-IdNr. und IBAN, gesetzte Zahlungsbedingung, `REPRF`, keine
+Löschvormerkung, kein Belegpaar im Muster von AP-LEA-001, Skontoverlust unter der Meldegrenze).
+
+**Die eingebauten Fehler kommen in Aufgabe 2** aus `demo_mandant/defects.yaml` obendrauf –
+Dubletten mit Schreibvarianten, Zentralregulierer (darf NICHT als Dublette gelten), CpD-Konten
+(dürfen NICHT geprüft werden), USt-IdNr. mit falschem Präfix oder Format, IBAN mit falscher
+Prüfziffer, Löschvormerkung mit offenen Posten, fehlende Zahlungsbedingung, Löschkandidaten,
+Doppelzahlungen mit Referenzvarianten (eine davon genettet → KEIN Finding), Skontoverluste,
+Kunde = Lieferant, gleiche IBAN bei zwei Kreditoren.
+
+Keine echten Firmen, Personen, IBAN oder USt-IdNr.: Namen entstehen kombinatorisch, die
+Bankleitzahlen stammen aus einem in Deutschland nicht vergebenen Bereich, IBAN-Prüfziffern sind
+gültig (schwifty), die DE-USt-IdNr. tragen eine gültige Prüfziffer (python-stdnum). Die Zuordnung
+PLZ ↔ Ort ist plausibel, aber kein geprüftes Verzeichnis – V1 prüft nur das PLZ-Format.
 
 ## Encoding-Samples (`encoding_samples/`)
 

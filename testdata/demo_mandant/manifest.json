@@ -1,0 +1,99 @@
+{
+  "generator_version": "0.1",
+  "seed": 20260830,
+  "client": "100",
+  "data_as_of": "2026-08-28",
+  "tables": [
+    {
+      "table": "KNA1",
+      "file": "KNA1.txt",
+      "rows": 2000,
+      "sha256": "019561ccb41b6fa7b79775e9c01bf4b3a2646ed371b215a5410bc5f7902b01a9"
+    },
+    {
+      "table": "KNB1",
+      "file": "KNB1.txt",
+      "rows": 2206,
+      "sha256": "7f9ca58cb5373007a4725eae05bef69eecdf95f944af1679a13651ecb713bc03"
+    },
+    {
+      "table": "KNBK",
+      "file": "KNBK.txt",
+      "rows": 1673,
+      "sha256": "9a69ab4b9830c4cf1a07c15af31b344c5955122bfd3f806df5cf2df757751fe5"
+    },
+    {
+      "table": "KNVP",
+      "file": "KNVP.txt",
+      "rows": 2206,
+      "sha256": "0cdbb517d5161747254c1de39a0e7759de6534927ffd499aad350b36d7ccb3de"
+    },
+    {
+      "table": "KNB5",
+      "file": "KNB5.txt",
+      "rows": 1988,
+      "sha256": "c29627215d47594351b45c2fea5e91dc02d42c2e4d5cf1f8175d98868fe95090"
+    },
+    {
+      "table": "LFA1",
+      "file": "LFA1.txt",
+      "rows": 1500,
+      "sha256": "7cb88d77de22056bee0f68a5452f0c18bd6ad363e4fd777fe8380cca5b46da04"
+    },
+    {
+      "table": "LFB1",
+      "file": "LFB1.txt",
+      "rows": 1651,
+      "sha256": "bee49faab23c72fb5d4898139ae4a5322ccd6f16df0c5e230c9bc848fd1f32e5"
+    },
+    {
+      "table": "LFBK",
+      "file": "LFBK.txt",
+      "rows": 1443,
+      "sha256": "bca349967ce1680f310317794986e9e30aace4fa2b9398622283f453acb5f09d"
+    },
+    {
+      "table": "TIBAN",
+      "file": "TIBAN.txt",
+      "rows": 3116,
+      "sha256": "6752a0fcffb4ddd5c1bd41e71f196a3d82fd5577aed7a7239a243cb5ff65934d"
+    },
+    {
+      "table": "BSID",
+      "file": "BSID.txt",
+      "rows": 8772,
+      "sha256": "16768ddb20e87b60f5ec3777ce4240d773d339239b5a5b6d34db9fb05bd5399f"
+    },
+    {
+      "table": "BSAD",
+      "file": "BSAD.txt",
+      "rows": 31312,
+      "sha256": "138d59fd0fa420a5e861b0964331a1cd0fb1418f6c512a93cdab2e73be9a01e4"
+    },
+    {
+      "table": "BSIK",
+      "file": "BSIK.txt",
+      "rows": 4313,
+      "sha256": "e08413a5673bc5f8f8857a7b1e52bef023d096b6cbcf6b0c2bd2347c23545191"
+    },
+    {
+      "table": "BSAK",
+      "file": "BSAK.txt",
+      "rows": 15642,
+      "sha256": "27853f052864bb6df374f1f56b257b476254c293f80bcd79934f7e9ded47237d"
+    },
+    {
+      "table": "T052",
+      "file": "T052.txt",
+      "rows": 5,
+      "sha256": "7208dedc3d040bb1beadd287fc96ea3b630cda531cb76649f04b4a157c389573"
+    },
+    {
+      "table": "T052U",
+      "file": "T052U.txt",
+      "rows": 5,
+      "sha256": "a766d2a5b97bc26073162abe861061b5470245c215a402d5bf2cb9553fbf84b2"
+    }
+  ],
+  "total_rows": 77832
+}
