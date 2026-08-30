@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { AppShell, Placeholder, type View } from '@/components/AppShell'
 import { ImportDecisionsDialog } from '@/components/ImportDecisionsDialog'
+import { Dashboard } from '@/components/dashboard/Dashboard'
 import { FindingsExplorer } from '@/components/explorer/FindingsExplorer'
 import { DEFAULT_SOURCE, type FindingsSource, type LoadedRun, fileSource } from '@/sources'
 import {
@@ -14,6 +15,7 @@ import {
 import { NO_DECISIONS, applyDecisions, decisionsReducer, type DecisionsState } from '@/state/decisions'
 import { INITIAL_EXPLORER_STATE, explorerReducer } from '@/state/explorer'
 import type { DecisionRecord } from '@/types/decision'
+import type { Finding } from '@/types/finding'
 
 interface Loaded {
   source: FindingsSource
@@ -65,6 +67,23 @@ function App() {
 
   const onClearDecision = useCallback((findingId: string) => {
     dispatchDecisions({ type: 'clear', findingId })
+  }, [])
+
+  /**
+   * Klick auf ein Finding im Dashboard: hinüber in die Liste und die Karte öffnen.
+   *
+   * Der Reducer setzt dabei Tab, Filter und Suche in einem Schritt, damit die Zeile
+   * hinter der Karte wirklich in der Liste steht – sonst liefe `J` ins Leere und die
+   * Auswahl verschwände beim nächsten Filterwechsel. War eine Filterung eingestellt,
+   * sagt der Explorer das als Hinweis (Freigabe Victor, 2026-08-30).
+   */
+  const onOpenFinding = useCallback((finding: Finding) => {
+    setView('findings')
+    dispatch({
+      type: 'focus_finding',
+      findingId: finding.finding_id,
+      actionType: finding.action_type,
+    })
   }, [])
 
   /**
@@ -198,10 +217,7 @@ function App() {
         />
       )}
       {view === 'dashboard' && (
-        <Placeholder
-          title="Dashboard"
-          hint="Kacheln, Verteilung nach Stufe und Top 10 nach Euro-Wirkung folgen in Aufgabe 6."
-        />
+        <Dashboard findings={findings} onOpenFinding={onOpenFinding} />
       )}
       {view === 'rules' && (
         <Placeholder

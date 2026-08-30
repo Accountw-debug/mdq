@@ -319,6 +319,44 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   (Dashboard), bringt ihr eigenes `overflow-y-auto` mit. Das ist die einzige sichtbare
   Änderung der Aufgabe 5b; Freigabe Victor.
 
+- **2026-08-30 · Die Euro-Wirkung wird je Währung summiert, nie umgerechnet.** Freigabe
+  Victor. Aufgabe 6. `summarize` gibt `totals: MoneyTotal[]` zurück, nicht einen Betrag;
+  mit den sechs Beispielen ist das genau eine Zeile („73.042,40 €"). Ein Kurs stünde in
+  keinem Feld des Findings, und eine Summe ohne Währung ist keine Zahl (CLAUDE.md, Regel 2).
+  Verworfen: über `impact_eur.amount` hinwegsummieren und die Währung der ersten Zeile
+  drüberschreiben.
+- **2026-08-30 · Die Top-Liste enthält nur Findings mit `impact_eur`.** Freigabe Victor.
+  `impactCents` zählt ein fehlendes `impact_eur` als 0 – in einer Rangliste „nach
+  Euro-Wirkung" stünde damit ein Finding mit „0,00 €", dem keine Regel einen Betrag
+  zugeschrieben hat. Die übrigen werden unter der Liste gezählt („2 Findings ohne
+  Euro-Wirkung"), statt still zu verschwinden (Regel 4). Dieselbe Regel in der
+  Kategorie-Kachel: eine Kategorie ohne Betrag bekommt „keine Euro-Wirkung", keine Null.
+- **2026-08-30 · Der Sprung aus dem Dashboard ist ein Reducer-Schritt (`focus_finding`).**
+  Freigabe Victor. Tab, Filter, Suche, Auswahl und Drawer in einer Aktion: sonst gehörte die
+  offene Karte zu einer Zeile, die die Liste dahinter gerade wegfiltert – `J` liefe ins Leere
+  und die Auswahl verschwände beim nächsten Filterwechsel. War eine Filterung eingestellt,
+  trägt der Zustand `filtersResetNotice` und der Explorer zeigt eine dezente Zeile „Filter
+  zurückgesetzt" (Zusatz Victor); sie räumt sich nach 6 Sekunden selbst weg und bei jeder
+  Änderung an Tab, Filter oder Suche ohnehin. Verworfen: ein zweiter `ReviewDrawer` im
+  Dashboard – dort gäbe es keine Liste, durch die `J`/`K` laufen könnten.
+- **2026-08-30 · Das Dashboard rechnet über den ganzen Lauf, die Entscheidungen der Sitzung
+  zählen mit.** Freigabe Victor. Filter gehören zur Suche, nicht zur Lage – die Kacheln
+  beschreiben den Datenstand und ändern sich nicht, wenn im Explorer ein Filter steht. Die
+  Entscheidungen liegen dagegen schon als Überlagerung über den Findings (`applyDecisions`
+  in `App`), also fällt „davon offen" sofort, auch ohne Export.
+- **2026-08-30 · Die Score-Kachel nennt keine Zahl.** Sie steht mit gestricheltem Rand und
+  dem Text „ab Sprint 4" da (so die Spec); der Rauchtest prüft ausdrücklich, dass in ihrem
+  Abschnitt kein Zahlenknoten steht. Grund: der Score ist die eine Kennzahl auf diesem
+  Bildschirm, die niemand nachrechnen kann – ein Platzhalterwert würde geglaubt.
+- **2026-08-30 · Der Anteil je Stufe steht als Bruch („3 von 6"), nicht als Prozentzahl.**
+  Bei sechs Findings ist „50 %" eine gerundete Behauptung über drei Stück. Der Balken ist
+  nur das Bild dazu; seine Breite darf gerundet werden, weil sie kein Wert ist. Alle vier
+  Stufen stehen da, auch die leere: dass es keine Stufe A gibt, ist die Aussage.
+- **2026-08-30 · Kategorien werden Währung für Währung verglichen, in der Reihenfolge des
+  Laufs.** Bei einer Währung ist das schlicht „nach Betrag absteigend"; bei mehreren bleibt
+  es eine feste Reihenfolge, ohne einen Kurs zu erfinden. Gleichstand geht nach
+  Kategoriename, damit nichts der Einfügereihenfolge einer `Map` überlassen bleibt (Regel 9).
+
 ## Offene Fragen an die Engine-Session (`main`)
 
 - **`entity.documents` trägt nur den Schlüssel – die Belegkarte braucht Referenz, Datum und
@@ -438,6 +476,13 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   Punkt vermerkt, Freigabe Victor.)* Heute ersetzt der Import. Ein Zusammenführen bräuchte eine
   Konfliktregel (jüngeres `at` gewinnt? der lokale Stand gewinnt? Rückfrage je Finding?) und
   gehört erst entschieden, wenn zwei Bearbeiter wirklich an einem Lauf sitzen.
+- **Die Ranglisten vergleichen Beträge über Währungen hinweg.** *(2026-08-30, aus Aufgabe 6.)*
+  Die Kacheln summieren je Währung getrennt, die Top-Liste und die Tabellensortierung
+  ordnen dagegen über `impactCents`, also über den nackten Betrag ohne Währung – 1.000 CHF
+  stünde damit über 999 EUR. Mit den Beispielen (nur EUR) ist das unsichtbar. Eine Reihenfolge
+  über Währungen hinweg braucht entweder einen Kurs (den kein Feld liefert) oder eine
+  Gruppierung der Liste je Währung; beides erst entscheiden, wenn ein Lauf zwei Währungen
+  liefert.
 - **`sample_reviewed` schreibt Aufgabe 7.** Das Feld steht im Vertrag als reserviert; der
   Import nennt es heute als unbekanntes Feld, sobald es in einer Datei auftaucht. Mit
   Aufgabe 7 wird es gelesen – additiv, ohne Versionssprung.
@@ -523,3 +568,14 @@ Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
   Keine neue Abhängigkeit. 224 Tests grün (neu: `decisions-io` mit Rundlauf Export → Import,
   `indexOfId`, feste Zeilenhöhe im Rauchtest), `npm run lint` und `npm run build` ohne Befund.
   Nächster Schritt: Aufgabe 6 – Dashboard (bringt sein eigenes `overflow-y-auto` mit).
+- **2026-08-30 · Aufgabe 6 (Dashboard).** `src/lib/dashboard.ts` (reine Logik: Zähler,
+  Summen je Währung, Kategorien, Stufenverteilung, Top-Liste) und
+  `src/components/dashboard/` (Kachelrahmen, Euro-Wirkung je Kategorie, Verteilung nach
+  Stufe, Top-Liste, Ansicht mit eigenem Scrollbereich). Die Zahlen stimmen mit der Spec
+  überein: 73.042,40 € gesamt, Geldabfluss 36.812,40 €, Validität 27.300,00 €, Konsistenz
+  8.930,00 €, Dublette ohne Betrag; Stufen A 0 / B 3 / C 2 / Entscheidung 1. Ein Klick in
+  der Top-Liste springt über `focus_finding` in die Liste und öffnet die Karte; war eine
+  Filterung eingestellt, sagt der Explorer es kurz. Score bleibt Platzhalter. 246 Tests grün
+  (neu: `dashboard`, `Dashboard.render`, vier neue in `explorer`), `npm run lint` und
+  `npm run build` ohne Befund. Nächster Schritt: Aufgabe 7 – Stichproben-Freigabe und Export
+  (Bereinigungsliste CSV; `decisions.json` steht seit 5b, `sample_reviewed` kommt additiv dazu).

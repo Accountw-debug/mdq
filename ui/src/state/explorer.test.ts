@@ -262,3 +262,61 @@ describe('Weiter zum nächsten offenen Finding', () => {
     expect(state.selectedId).toBe(IDS[2])
   })
 })
+
+describe('Sprung aus dem Dashboard', () => {
+  it('setzt Tab, Auswahl und Karte in einem Schritt', () => {
+    const state = explorerReducer(INITIAL_EXPLORER_STATE, {
+      type: 'focus_finding',
+      findingId: IDS[1],
+      actionType: 'process',
+    })
+    expect(state.tab).toBe('process')
+    expect(state.selectedId).toBe(IDS[1])
+    expect(state.drawerOpen).toBe(true)
+  })
+
+  it('räumt Filter und Suche weg, damit die Zeile in der Liste steht', () => {
+    const state = reduce(
+      INITIAL_EXPLORER_STATE,
+      { type: 'set_filter', key: 'severity', value: 'low' },
+      { type: 'set_search', search: 'müller' },
+      { type: 'focus_finding', findingId: IDS[0], actionType: 'review' },
+    )
+    expect(state.filters).toEqual(EMPTY_FILTERS)
+    expect(state.search).toBe('')
+    expect(state.selectedId).toBe(IDS[0])
+  })
+
+  it('meldet nur eine Filterung, die es wirklich gab', () => {
+    const ohneFilter = explorerReducer(INITIAL_EXPLORER_STATE, {
+      type: 'focus_finding',
+      findingId: IDS[0],
+      actionType: 'review',
+    })
+    expect(ohneFilter.filtersResetNotice).toBe(false)
+
+    const mitFilter = reduce(
+      INITIAL_EXPLORER_STATE,
+      { type: 'set_filter', key: 'tier', value: 'B' },
+      { type: 'focus_finding', findingId: IDS[0], actionType: 'review' },
+    )
+    expect(mitFilter.filtersResetNotice).toBe(true)
+  })
+
+  it('nimmt den Hinweis bei der nächsten Handlung zurück', () => {
+    const withNotice = reduce(
+      INITIAL_EXPLORER_STATE,
+      { type: 'set_search', search: 'iban' },
+      { type: 'focus_finding', findingId: IDS[0], actionType: 'review' },
+    )
+    expect(withNotice.filtersResetNotice).toBe(true)
+    expect(explorerReducer(withNotice, { type: 'dismiss_notice' }).filtersResetNotice).toBe(false)
+    expect(
+      explorerReducer(withNotice, { type: 'set_filter', key: 'side', value: 'AP' })
+        .filtersResetNotice,
+    ).toBe(false)
+    expect(
+      explorerReducer(withNotice, { type: 'set_tab', tab: 'decision' }).filtersResetNotice,
+    ).toBe(false)
+  })
+})

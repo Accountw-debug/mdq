@@ -19,6 +19,12 @@ export interface ExplorerState {
   /** Zeile unter der Tastaturmarke; `null`, solange nichts gewählt ist. */
   selectedId: string | null
   drawerOpen: boolean
+  /**
+   * Ein Sprung aus dem Dashboard hat eine eingestellte Filterung verworfen.
+   * Der Explorer zeigt dafür einen dezenten Hinweis (Freigabe Victor, 2026-08-30);
+   * die nächste Handlung des Bearbeiters räumt ihn weg.
+   */
+  filtersResetNotice: boolean
 }
 
 export const INITIAL_EXPLORER_STATE: ExplorerState = {
@@ -28,6 +34,7 @@ export const INITIAL_EXPLORER_STATE: ExplorerState = {
   sort: DEFAULT_SORT,
   selectedId: null,
   drawerOpen: false,
+  filtersResetNotice: false,
 }
 
 export type ExplorerAction =
@@ -40,6 +47,13 @@ export type ExplorerAction =
   | { type: 'move'; delta: number; visibleIds: readonly string[] }
   | { type: 'open_drawer'; findingId?: string }
   | { type: 'close_drawer' }
+  /**
+   * Sprung aus dem Dashboard auf ein bestimmtes Finding: Tab, Filter, Suche und
+   * Auswahl in einem Schritt, damit die Karte nie zu einer Zeile gehört, die die
+   * Liste dahinter gerade wegfiltert.
+   */
+  | { type: 'focus_finding'; findingId: string; actionType: ActionType }
+  | { type: 'dismiss_notice' }
   /** Nach einer Entscheidung: weiter zum nächsten offenen Finding. */
   | { type: 'advance'; visibleIds: readonly string[]; openIds: readonly string[] }
 
@@ -91,9 +105,13 @@ export function nextOpenId(
  * Jede Änderung an Tab, Filter oder Suche setzt die Auswahl zurück: eine Marke auf
  * einer ausgeblendeten Zeile wäre unsichtbar, `J` beginnt dann wieder oben.
  */
-const CLEARED_SELECTION: Pick<ExplorerState, 'selectedId' | 'drawerOpen'> = {
+const CLEARED_SELECTION: Pick<
+  ExplorerState,
+  'selectedId' | 'drawerOpen' | 'filtersResetNotice'
+> = {
   selectedId: null,
   drawerOpen: false,
+  filtersResetNotice: false,
 }
 
 export function explorerReducer(state: ExplorerState, action: ExplorerAction): ExplorerState {
@@ -148,6 +166,22 @@ export function explorerReducer(state: ExplorerState, action: ExplorerAction): E
       if (next == null) return state.drawerOpen ? { ...state, drawerOpen: false } : state
       return { ...state, selectedId: next, drawerOpen: true }
     }
+
+    case 'focus_finding':
+      return {
+        ...state,
+        tab: action.actionType,
+        filters: EMPTY_FILTERS,
+        search: '',
+        selectedId: action.findingId,
+        drawerOpen: true,
+        // Nur melden, was tatsächlich verworfen wurde.
+        filtersResetNotice: hasActiveFilters(state),
+      }
+
+    case 'dismiss_notice':
+      if (!state.filtersResetNotice) return state
+      return { ...state, filtersResetNotice: false }
 
     case 'close_drawer':
       if (!state.drawerOpen) return state

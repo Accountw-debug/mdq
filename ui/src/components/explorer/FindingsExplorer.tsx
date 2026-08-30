@@ -25,6 +25,9 @@ import { ACTION_TYPES } from '@/types/finding'
  * `Enter` öffnet die Karte, `Esc` schließt sie. `A`/`R`/`Z` gehören der offenen
  * Karte und liegen deshalb in `ReviewCard`.
  */
+/** Standzeit des Hinweises „Filter zurückgesetzt". */
+const NOTICE_MS = 6000
+
 export function FindingsExplorer({
   findings,
   decisions,
@@ -90,6 +93,17 @@ export function FindingsExplorer({
     },
     [dispatch, onDecide, openIds, visibleIds],
   )
+
+  /**
+   * Der Hinweis „Filter zurückgesetzt" gehört zum Sprung, nicht zur Ansicht: er
+   * verschwindet nach kurzer Zeit von selbst (und bei jeder Änderung an Tab, Filter
+   * oder Suche ohnehin durch den Reducer).
+   */
+  useEffect(() => {
+    if (!state.filtersResetNotice) return
+    const timer = setTimeout(() => dispatch({ type: 'dismiss_notice' }), NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [dispatch, state.filtersResetNotice])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -168,6 +182,12 @@ export function FindingsExplorer({
         onSearchChange={(search) => dispatch({ type: 'set_search', search })}
         onReset={() => dispatch({ type: 'reset_filters' })}
       />
+
+      {state.filtersResetNotice && (
+        <p role="status" className="-mt-2 text-xs text-muted-foreground">
+          Filter zurückgesetzt, damit das Finding aus dem Dashboard in der Liste steht.
+        </p>
+      )}
 
       {visible.length === 0 ? (
         <EmptyState tab={state.tab} filtered={totalInTab > 0} />
