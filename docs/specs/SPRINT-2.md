@@ -95,7 +95,7 @@ Rechtliche Fußnote in der Datei: alle Werte erfunden; IBAN-Prüfziffern gültig
 - `testdata/README.md` aktualisieren: Zahlen, Tabellen, wie man einen Defekt ergänzt (Schritt-für-Schritt für Victor).
 
 ### 4. Regression vorbereiten (aktiv ab Sprint 3)
-- `engine/tests/test_regression.py`: lädt den Demo-Mandanten, führt alle Regeln aus, vergleicht mit `expected_findings.yaml` exakt (nicht mehr, nicht weniger, gleiche finding_keys). In Sprint 2 ist der Test mit `pytest.mark.skip(reason="Mapping ab Sprint 3, D-0xx")` markiert – **nicht** gelöscht, damit er sichtbar bleibt.
+- `engine/tests/test_regression.py`: lädt den Demo-Mandanten, führt alle Regeln aus, vergleicht mit `expected_findings.yaml` exakt (nicht mehr, nicht weniger, gleiche finding_keys). In Sprint 2 ist der Test mit `pytest.mark.skip(reason="Mapping SAP → kanonisch ab Sprint 3 (D-068)")` markiert – **nicht** gelöscht, damit er sichtbar bleibt.
 - Vergleich meldet Abweichungen als drei Listen: fehlend, unerwartet, abweichend – mit rule_id und bp_key, ohne Geschäftspartnerdaten.
 
 ## Victors Teil

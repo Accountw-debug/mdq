@@ -123,4 +123,13 @@ gehören in `demo_mandant/defects.yaml`. Jede Zeile nennt den Defekt, aus dem si
 dahin weist die Regression es als bekannt-offen aus (D-054). Betroffen sind die beiden
 Doppelzahlungen über zwei Kreditorenkonten, die AP-LEA-001 erst in Version 1.1 findet.
 
+Der Vergleich (`engine/mdq/regression.py`) sortiert Abweichungen in sechs Töpfe, drei davon
+lassen den Test scheitern: **fehlend** (erwartet, Regel gebaut, nicht geliefert),
+**unerwartet** (geliefert, nicht erwartet) und **abweichend** (gleiche Regel und gleicher BP,
+aber anderer Buchungskreis oder `finding_key`). Hinweise sind **bekannt offen**
+(`from_rule_version` über der gebauten Regelversion), **vorzeitig erfüllt** (die Regel findet
+den Fall schon darunter – dann `from_rule_version` in `defects.yaml` absenken) und
+**Regel fehlt** (erwartet für eine Regel, die es noch nicht gibt). Stand heute: 30 fehlend,
+2 bekannt offen, 198 Regel fehlt (D-068).
+
 **Erwartete Ergebnisse werden nie an den Code angepasst** (CLAUDE.md Regel 1).

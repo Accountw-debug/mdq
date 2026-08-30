@@ -321,10 +321,16 @@ def _build_finding(
     return finding
 
 
-def execute_rule(
+def execute_rule_rows(
     con: duckdb.DuckDBPyConnection, rule: Rule, ctx: RunContext
-) -> list[dict[str, Any]]:
-    """Fuehrt eine Regel aus und liefert die geprueften Findings in SQL-Reihenfolge."""
+) -> list[tuple[dict[str, Any], str | None]]:
+    """Wie ``execute_rule``, liefert je Finding zusaetzlich seinen ``finding_key``.
+
+    Der ``finding_key`` geht sonst nur in die ``finding_id`` ein und ist aus dem fertigen
+    Finding nicht mehr herauszulesen. Der Regressionsvergleich braucht ihn aber als Teil
+    seines Vergleichsschluessels (D-068) -- und er darf ihn nicht aus ``entity.documents``
+    zurueckrechnen, denn was in den Schluessel gehoert, entscheidet jede Regel selbst.
+    """
     absent = missing_tables(con, rule)
     if absent:
         raise ExecutionError(f"{rule.id}: benoetigte Tabellen fehlen: {absent}")
@@ -340,7 +346,7 @@ def execute_rule(
 
     relevance = _relevance_by_bp(con, [row["bp_key"] for row in rows], rule.id)
 
-    findings: list[dict[str, Any]] = []
+    findings: list[tuple[dict[str, Any], str | None]] = []
     seen: dict[str, int] = {}
     for position, row in enumerate(rows):
         finding = _build_finding(row, rule, ctx, relevance)
@@ -356,5 +362,12 @@ def execute_rule(
         if errors:
             joined = "\n    ".join(errors)
             raise ExecutionError(f"{rule.id}: Finding ist nicht schema-valide:\n    {joined}")
-        findings.append(finding)
+        findings.append((finding, row.get("finding_key")))
     return findings
+
+
+def execute_rule(
+    con: duckdb.DuckDBPyConnection, rule: Rule, ctx: RunContext
+) -> list[dict[str, Any]]:
+    """Fuehrt eine Regel aus und liefert die geprueften Findings in SQL-Reihenfolge."""
+    return [finding for finding, _ in execute_rule_rows(con, rule, ctx)]
