@@ -26,6 +26,7 @@ function finding(overrides: Partial<Finding> = {}): Finding {
     damage_class: 2,
     tier: 'B',
     action_type: 'review',
+    title: 'Mögliche Dublette im Debitorenstamm',
     entity: {
       bp_key: 'C:0000100234',
       role: 'CUSTOMER',

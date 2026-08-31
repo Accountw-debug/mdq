@@ -116,13 +116,18 @@ export function sortEvidence(evidence: readonly Evidence[]): Evidence[] {
     .map(({ entry }) => entry)
 }
 
-/** Hat das Finding überhaupt Relevanzangaben? Leere Abschnitte werden ausgeblendet. */
+/**
+ * Hat das Finding überhaupt Relevanzangaben? Leere Abschnitte werden ausgeblendet.
+ *
+ * `currency` allein zählt nicht: die Währung ist im Schema Pflicht, sobald der Block
+ * dasteht, und trägt für sich genommen keine Aussage.
+ */
 export function hasRelevance(finding: Finding): boolean {
   const relevance = finding.relevance
   if (!relevance) return false
   return (
-    relevance.open_items_eur != null ||
-    relevance.volume_12m_eur != null ||
+    relevance.open_items != null ||
+    relevance.volume_12m != null ||
     relevance.last_activity_on != null
   )
 }

@@ -131,7 +131,7 @@ const COLUMNS = helper.columns([
   helper.display({
     id: 'title',
     header: 'Titel',
-    cell: ({ row }) => <span className="line-clamp-2">{row.original.finding.title ?? '—'}</span>,
+    cell: ({ row }) => <span className="line-clamp-2">{row.original.finding.title}</span>,
   }),
   helper.display({
     id: 'impact',

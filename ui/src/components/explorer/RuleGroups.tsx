@@ -97,7 +97,7 @@ function GroupRow({
               <Key>{group.rule_id}</Key>{' '}
               <span className="text-xs text-muted-foreground">v{group.rule_version}</span>
             </span>
-            {group.title && <span className="truncate">{group.title}</span>}
+            <span className="truncate">{group.title}</span>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             <span className="font-mono tabular-nums">{group.total}</span> Findings ·{' '}

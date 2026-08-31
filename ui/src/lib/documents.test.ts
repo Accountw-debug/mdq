@@ -25,6 +25,7 @@ function finding(overrides: Partial<Finding> = {}): Finding {
     damage_class: 2,
     tier: 'B',
     action_type: 'review',
+    title: 'Mögliche Doppelzahlung',
     entity: {
       bp_key: 'V:0000200845',
       role: 'VENDOR',

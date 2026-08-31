@@ -119,7 +119,7 @@ function compareByColumn(a: Finding, b: Finding, column: SortColumn): number {
     case 'bp_key':
       return compareText(a.entity.bp_key, b.entity.bp_key)
     case 'title':
-      return compareText(a.title ?? '', b.title ?? '')
+      return compareText(a.title, b.title)
     case 'impact':
       return compareBigint(impactCents(a), impactCents(b))
     case 'status':
@@ -161,7 +161,7 @@ export function matchesSearch(finding: Finding, search: string): boolean {
   const haystack = [
     finding.entity.bp_key,
     finding.entity.display_name ?? '',
-    finding.title ?? '',
+    finding.title,
     finding.rule_id,
   ]
   return haystack.some((field) => field.toLowerCase().includes(needle))

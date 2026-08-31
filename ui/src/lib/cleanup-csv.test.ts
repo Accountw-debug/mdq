@@ -39,6 +39,7 @@ function finding(id: string, overrides: Partial<Finding> = {}): Finding {
     damage_class: 3,
     tier: 'A',
     action_type: 'mass_change',
+    title: 'USt-IdNr. fehlt',
     entity: { bp_key: `C:${id}`, role: 'CUSTOMER', company_code: '1000' },
     current: { source_table: 'KNA1', source_field: 'STCEG', value: null },
     proposed: { value: 'DE123456789', source_summary: 'VIES bestätigt.' },

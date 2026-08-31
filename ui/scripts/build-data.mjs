@@ -1,9 +1,15 @@
 /**
  * Wandelt die Beispiel-Findings aus `logic/examples/findings/*.yaml` in die beiden
- * JSON-Dateien um, die der Prototyp lädt:
+ * JSON-Dateien um, die die Anwendung ohne gewählte Datei lädt:
  *
  *   ui/public/data/findings.json  – Array von Findings
- *   ui/public/data/run.json       – Kopf des Laufs, aus den Findings abgeleitet
+ *   ui/public/data/run.json       – Ersatz-Lauf-Kopf, aus den Findings abgeleitet
+ *
+ * **Dieses Skript ist der Ersatz für die sechs Beispiel-Findings, kein Lauf.**
+ * Seit Sprint 3 schreibt `mdq run` ein Lauf-Verzeichnis `runs/<run_id>/` mit
+ * `findings.json` und `run.json`; das gehört über „Findings-Datei laden" ins
+ * Banner. Hier geht es nur darum, dass die Anwendung auch ohne Engine-Lauf etwas
+ * anzuzeigen hat – für die Gestaltung und für die Tests.
  *
  * Läuft vor `npm run dev` und `npm run build`. Die erzeugten Dateien sind
  * Build-Artefakte und liegen unter `data/`, das die `.gitignore` ausschließt.
@@ -27,10 +33,10 @@ const SOURCE_DIR = process.env.MDQ_FINDINGS_DIR
   : join(UI_DIR, '..', 'logic', 'examples', 'findings')
 const OUT_DIR = join(UI_DIR, 'public', 'data')
 
-/** Pflichtfelder laut `logic/finding.schema.json`. */
+/** Pflichtfelder laut `logic/finding.schema.json` (Version 1.1). */
 const REQUIRED_TOP_LEVEL = [
   'finding_id', 'run_id', 'rule_id', 'rule_version', 'engine_version', 'pack_version',
-  'side', 'category', 'severity', 'damage_class', 'tier', 'action_type',
+  'side', 'category', 'severity', 'damage_class', 'tier', 'action_type', 'title',
   'entity', 'current', 'why', 'if_wrong', 'remediation', 'status', 'data_as_of', 'created_at',
 ]
 const REQUIRED_NESTED = {
@@ -118,8 +124,13 @@ function main() {
     data_as_of: singleValue(entries, 'data_as_of'),
     engine_version: singleValue(entries, 'engine_version'),
     pack_version: singleValue(entries, 'pack_version'),
-    // Das UI kennt die Ladeschicht nicht; die echte Zahl liefert später run.json der Engine.
+    // Ausdrücklich 0: hier lief keine Engine, es wurde keine Tabelle geladen.
+    // Das Banner blendet die Angabe bei 0 aus, statt eine Zahl zu erfinden. Die
+    // echte Zahl steht in `runs/<run_id>/run.json` und kommt nur von dort.
     tables_loaded: 0,
+    // Ebenso eine Ableitung, kein Laufumfang: die Buchungskreise stammen aus den
+    // sechs Beispielen. `run.json` der Engine nennt stattdessen die des Laufs –
+    // einschließlich der Buchungskreise ohne Befund.
     company_codes: companyCodes,
   }
 

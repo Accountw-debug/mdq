@@ -87,7 +87,7 @@ Aufbau von oben nach unten, exakt in dieser Reihenfolge:
 - Akzeptanz: Zahlen stimmen mit den sechs Beispielen überein (Euro-Wirkung Summe = 32.000 + 8.930 + 4.812,40 + 27.300 = 73.042,40 €).
 
 ### 7. Stichproben-Freigabe + Export
-- Im Tab Massenänderung: Gruppierung nach Regel; Button „Stichprobe prüfen" zeigt bis zu 10 zufällige Findings der Gruppe nacheinander (fester Seed, damit reproduzierbar); nach Bestätigung aller werden alle Findings der Gruppe auf `done` gesetzt, die Stichprobe wird in der Export-Datei als `sample_reviewed: [ids]` festgehalten.
+- Im Tab Massenänderung: Gruppierung nach Regel; Button „Stichprobe prüfen" zeigt bis zu 10 zufällige Findings der Gruppe nacheinander (fester Seed, damit reproduzierbar); nach Bestätigung aller werden alle Findings der Gruppe auf `in_progress` gesetzt, die Stichprobe wird in der Export-Datei als `sample_reviewed: [ids]` festgehalten. (Korrektur 2026-08-31: hier stand `done`. Die Freigabe ist eine Entscheidung, keine Umsetzung – `done` gehört an die Rückmeldung aus SAP, nicht an den Klick im UI. Die Einzelentscheidung „Übernehmen" setzt aus demselben Grund `in_progress`.)
 - Export `decisions.json` und Bereinigungsliste CSV (`bp_key;company_code;source_table;source_field;current;proposed;tier;rule_id`) für die Massenänderung.
 - Akzeptanz: mit den Beispielen gibt es keine Stufe-A-Gruppe → Leerzustand mit Erklärung; Export funktioniert für Review-Entscheidungen.
 

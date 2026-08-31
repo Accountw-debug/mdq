@@ -31,6 +31,7 @@ function finding(overrides: Partial<Finding> = {}): Finding {
     damage_class: 2,
     tier: 'B',
     action_type: 'review',
+    title: 'Beispielbefund für den Test',
     entity: { bp_key: 'C:0000100001', role: 'CUSTOMER' },
     current: { source_table: 'KNA1', source_field: 'STCEG', value: null },
     why: 'Grund für den Test.',
@@ -219,9 +220,16 @@ describe('sortEvidence', () => {
 describe('hasRelevance und isOpen', () => {
   it('erkennt einen leeren Relevanzblock', () => {
     expect(hasRelevance(finding())).toBe(false)
-    expect(hasRelevance(finding({ relevance: {} }))).toBe(false)
-    expect(hasRelevance(finding({ relevance: { open_items_eur: '0.00' } }))).toBe(true)
-    expect(hasRelevance(finding({ relevance: { last_activity_on: '2026-08-01' } }))).toBe(true)
+    // Nur die Währung: im Schema Pflicht, sobald der Block dasteht – für sich
+    // genommen aber keine Aussage, also kein Abschnitt auf der Karte.
+    expect(hasRelevance(finding({ relevance: { currency: 'EUR' } }))).toBe(false)
+    expect(hasRelevance(finding({ relevance: { currency: 'EUR', open_items: '0.00' } }))).toBe(true)
+    expect(hasRelevance(finding({ relevance: { currency: 'EUR', volume_12m: '8930.00' } }))).toBe(
+      true,
+    )
+    expect(
+      hasRelevance(finding({ relevance: { currency: 'EUR', last_activity_on: '2026-08-01' } })),
+    ).toBe(true)
   })
 
   it('nennt nur `open` offen', () => {

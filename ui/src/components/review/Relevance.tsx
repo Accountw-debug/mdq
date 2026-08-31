@@ -1,18 +1,25 @@
 import { Key } from '@/components/Key'
 import { LabelValue, Section } from '@/components/review/Section'
-import { formatDateOrNull, formatEurOrNull } from '@/lib/format'
+import { formatDateOrNull, formatMoney } from '@/lib/format'
 import { hasRelevance } from '@/lib/review'
 import type { Finding } from '@/types/finding'
 
 /**
  * Relevanz (Spec Sprint 5, Aufgabe 3, Punkt 7): offene Posten, 12-Monats-Volumen,
  * letzte Aktivität. Fehlt der ganze Block, erscheint er nicht.
+ *
+ * Die Beträge stehen in der Hauswährung des Buchungskreises und sind nicht
+ * umgerechnet; gezeigt werden sie deshalb mit `relevance.currency` statt mit einem
+ * festen Eurozeichen (CLAUDE.md, Regel 2).
  */
 export function Relevance({ finding }: { finding: Finding }) {
   if (!hasRelevance(finding)) return null
-  const relevance = finding.relevance ?? {}
-  const openItems = formatEurOrNull(relevance.open_items_eur)
-  const volume = formatEurOrNull(relevance.volume_12m_eur)
+  const relevance = finding.relevance
+  if (!relevance) return null
+  const money = (amount: string | null | undefined) =>
+    amount == null ? null : formatMoney(amount, relevance.currency)
+  const openItems = money(relevance.open_items)
+  const volume = money(relevance.volume_12m)
   const lastActivity = formatDateOrNull(relevance.last_activity_on)
 
   return (

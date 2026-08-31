@@ -139,8 +139,10 @@ function App() {
     return () => controller.abort()
   }, [source])
 
-  const onSelectFile = useCallback((file: File) => {
-    setSource(fileSource(file))
+  const onSelectFiles = useCallback((files: File[]) => {
+    // `findings.json` allein genügt; mit `run.json` daneben stimmen zusätzlich
+    // Tabellenzahl und Buchungskreise des Laufs.
+    if (files.length > 0) setSource(fileSource(files))
   }, [])
 
   /**
@@ -231,7 +233,7 @@ function App() {
     <AppShell
       run={loaded.run.run}
       source={loaded.source}
-      onSelectFile={onSelectFile}
+      onSelectFiles={onSelectFiles}
       loadError={loadError}
       view={view}
       onViewChange={setView}

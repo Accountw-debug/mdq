@@ -395,85 +395,67 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   ließe sich aus den Entscheidungen gar nicht ablesen, weil sie keine erzeugt. Verworfen:
   beides in einen zusammengesetzten Zustand zu ziehen; das hätte jede Stelle angefasst,
   die heute mit `Record<finding_id, DecisionRecord>` arbeitet.
+- **2026-08-31 · `src/types/finding.ts` steht auf Schema 1.1; Quelle ist die Schemadatei.**
+  Nachgezogen wurden alle Felder aus D-069: `evidence[].reference_kind` (Enum aus acht
+  Werten, jetzt als `REFERENCE_KINDS` mit im Driftschutz), die Beleg-Erweiterungen
+  `reference`/`document_date`/`cleared_on`/`amount`/`currency`, `entity.records[]`
+  (`{bp_key, fields}`), `proposed.golden_record` und `decision.assigned_to` – alle
+  optional wie im Schema. `GoldenRecord` ist als `{ [F in keyof RecordFields]?:
+  GoldenRecordEntry }` geschrieben statt als zweite Feldliste: die beiden Listen dürfen
+  nicht auseinanderlaufen (D-069, Punkt 6), und ein Mapped Type macht daraus eine
+  Zusage des Compilers statt eine Absprache. Verworfen: die elf Felder ein zweites Mal
+  aufzuzählen.
+- **2026-08-31 · `relevance` heißt `open_items`/`volume_12m` + `currency`, und die Karte
+  zeigt die Währung aus dem Finding.** Die alten Namen `open_items_eur`/`volume_12m_eur`
+  sind weg (D-069, Punkt 5: der Währungsname steckt seit D-030 nicht mehr im Feldnamen).
+  `Relevance.tsx` formatiert deshalb über `formatMoney(betrag, relevance.currency)` statt
+  über `formatEur` – die Beträge stehen in der Hauswährung des Buchungskreises und sind
+  nicht umgerechnet; ein festes Eurozeichen hätte bei einem Mandanten mit CHF-Buchungskreis
+  einen falschen Betrag behauptet (Regel 2). `currency` allein lässt den Abschnitt weiter
+  verschwinden: die Währung ist Pflicht, sobald der Block dasteht, und trägt für sich
+  genommen keine Aussage.
+- **2026-08-31 · `title` ist Pflicht – auch an der Ladegrenze, nicht nur im Typ.**
+  Das Schema führt `title` unter `required` (D-069, Punkt 5); `finding.ts` sagt jetzt
+  `title: string` statt `title?: string`. Damit der Typ nicht über die Daten lügt, prüft
+  `checkFinding` in `@/sources/parse` das Feld mit, und die drei Notbehelfe im UI
+  (`title ?? '—'`, `title ?? rule_id`, `title ?? ''`) sind ersatzlos weg. Grund: eine
+  Datei ohne `title` ist gegen Schema 1.1 ungültig, und eine leere Zelle wäre genau das
+  stille Verschlucken, das Regel 4 verbietet. Verworfen: den Typ optional zu lassen und
+  die Fallbacks stehenzulassen – dann bleibt offen, ob eine leere Titelspalte ein Datenoder
+  ein Anzeigefehler ist.
+- **2026-08-31 · Der Lauf-Kopf kommt aus `run.json`, nicht aus den Findings.** Bis Sprint 3
+  gab es nur `findings.json`, und `deriveRun` hat den Kopf daraus abgeleitet. Seit
+  `mdq run` liegt `runs/<run_id>/run.json` daneben und ist die Quelle: `tables_loaded` ist
+  dort echt, und `company_codes` nennt die Buchungskreise **des Laufs** – einschließlich
+  derer ohne Befund, die aus den Findings gar nicht ableitbar sind. „Findings-Datei laden"
+  nimmt deshalb jetzt mehrere Dateien entgegen; unterschieden werden sie am Inhalt
+  (Liste bzw. `{findings: […]}` gegen Objekt mit `run_id`), nicht am Dateinamen, damit
+  ein umbenannter Export trotzdem richtig landet. `deriveRun` bleibt als Notbehelf für
+  „nur `findings.json` zur Hand", dann weiterhin mit `tables_loaded: 0`. Passt die `run_id`
+  der beiden Dateien nicht zusammen, ist das ein Fehler mit Meldung, keine Mischung
+  (Regel 4). Verworfen: die Dateien am Namen zu erkennen; verworfen auch, `run.json` zur
+  Pflicht zu machen – eine einzelne Findings-Datei bleibt ansehbar.
+- **2026-08-31 · `scripts/build-data.mjs` ist ausdrücklich der Ersatz für die sechs
+  Beispiel-Findings, kein Lauf.** `tables_loaded: 0` steht dort jetzt kommentiert für
+  „hier lief keine Engine, es wurde keine Tabelle geladen"; das Banner blendet die Angabe
+  bei 0 aus, statt eine Zahl zu erfinden. Ebenso sind die `company_codes` dort eine
+  Ableitung aus sechs Beispielen und kein Laufumfang. Das Skript bleibt, weil die
+  Gestaltung und die Tests auch ohne Engine-Lauf etwas zum Anzeigen brauchen.
+- **2026-08-31 · Der Driftschutz löst `$ref` auf.** Schema 1.1 hat die Wiederholungen
+  nach `$defs` gezogen (D-069, Punkt 7); der Enum-Test lief danach in „Pfad im Schema
+  nicht gefunden" – ein Schema-Umbau, gemeldet als fehlendes Feld. `at()` folgt jetzt
+  `{"$ref": "#/$defs/…"}` (mit Kreis-Erkennung), und dazugekommen sind drei Proben:
+  `version` ist `"1.1"`, `title` steht unter `required`, und `entity.records[].fields`
+  und `proposed.golden_record` führen dieselben Feldnamen. Verworfen: die Enum-Liste im
+  Test wörtlich zu wiederholen – dann prüft der Test sich selbst.
+- **2026-08-31 · Spec-Korrektur: die Gruppenfreigabe setzt `in_progress`, nicht `done`.**
+  `docs/specs/SPRINT-5-UI.md`, Aufgabe 7 stand auf `done`; der Code setzt seit Aufgabe 7
+  `in_progress`. Korrigiert wurde die Spec, nicht der Code: die Freigabe ist eine
+  Entscheidung, keine Umsetzung – `done` gehört an die Rückmeldung aus SAP, nicht an den
+  Klick im UI. Dieselbe Begründung trägt schon die Einzelentscheidung „Übernehmen".
 
 ## Offene Fragen an die Engine-Session (`main`)
 
-- **`entity.documents` trägt nur den Schlüssel – die Belegkarte braucht Referenz, Datum und
-  Betrag.** *(2026-08-30, aus Aufgabe 5. Freigabe Victor als Rückmeldung.)* Die Spec verlangt je
-  Beleg Belegnummer, Datum, Referenz und Betrag. Strukturiert vorhanden ist davon die
-  Belegnummer; Referenz und Datum liest das UI heute aus dem Freitext der zugehörigen Evidenz
-  („RE-4711, Belegdatum 01.03.2026, bezahlt 28.03.2026"), der Betrag je Beleg steht nirgends.
-  Vorschlag:
-
-  ```yaml
-  entity:
-    documents:
-      - company_code: "1000"
-        fiscal_year: "2026"
-        document_no: "1900004411"
-        line_item: "001"
-        reference: <string|null>          # XBLNR
-        document_date: <YYYY-MM-DD|null>  # BLDAT
-        cleared_on: <YYYY-MM-DD|null>     # AUGDT, „bezahlt am"
-        amount: <string|null>             # zwei Dezimalen als String (Regel 2)
-        currency: <string|null>           # immer neben dem Betrag (Regel 2)
-  ```
-
-  Alle neuen Felder optional und nullbar. Mit ihnen fällt die Textzerlegung ersatzlos weg und
-  der Betrag je Beleg muss nicht länger als Platzhalter benannt werden. Kein Blocker.
-- **Der Netting-Nachweis wird am Wort „Netting" in der `note` erkannt.** *(2026-08-30, aus
-  Aufgabe 5. Als Übergang abgestimmt.)* Ob eine Evidenz die Gutschrift-/Storno-Suche ist, hängt
-  heute an einer Formulierung in einem Freitextfeld; eine andere Wortwahl lässt den Nachweis
-  still in die allgemeine Evidenzliste rutschen. Vorschlag: `netting` in die Enum-Liste des schon
-  vorgeschlagenen `evidence.reference_kind` aufnehmen (neben `document | master_field | cluster |
-  external_query | statement`). Kein Blocker.
-- **`entity.records` fehlt – der Dubletten-Vergleich hat nur ein Drittel seiner Zeilen.**
-  *(2026-08-30, aus Aufgabe 4. Von der Spec als Pflicht-Rückmeldung genannt.)* Die Spec
-  verlangt je Konto Name, Straße, PLZ/Ort, Land, USt-ID, IBAN, Zahlungsbedingung, offene
-  Posten und letzte Zahlung. Das Finding liefert davon drei, und die nur als Fließtext:
-  `current.value` = `"0000100234 | 0000100987"`, `current.display` = zwei an ` | ` gereihte
-  Anschriften. Alles Weitere steht in Prosa (`proposed.display`: „45.210 € OP, letzte Zahlung
-  12.08.2026") und dort jeweils nur für ein Konto – nicht vergleichbar. Vorschlag:
-
-  ```yaml
-  entity:
-    records:                      # ein Eintrag je Konto des Clusters
-      - bp_key: "<C:KUNNR>"
-        fields:
-          name1: <string|null>
-          street: <string|null>
-          postal_code: <string|null>
-          city: <string|null>
-          country: <string|null>          # ISO-2, wie LAND1
-          vat_id: <string|null>
-          iban_masked: <string|null>      # nur maskiert (Regel 8)
-          payment_terms: <string|null>    # Schlüssel wie ZTERM
-          open_items_eur: <string|null>   # zwei Dezimalen als String (Regel 2)
-          last_activity_on: <YYYY-MM-DD|null>
-  ```
-
-  Alle Felder optional und nullbar, Beträge als String mit zwei Dezimalen (Regel 2), IBAN
-  nur maskiert (Regel 8). Das UI zeigt heute die drei ableitbaren Zeilen und benennt die
-  sechs fehlenden ausdrücklich als Platzhalter; mit `entity.records` fällt die Textzerlegung
-  ersatzlos weg. Kein Blocker, aber die Abnahme der Aufgabe 4 („Feld-für-Feld-Vergleich",
-  `docs/CONCEPT.md` Abschnitt 9) ist ohne das Feld nicht vollständig erreichbar.
-- **Bei Dubletten fehlt der Golden Record je Feld.** *(2026-08-30, aus Aufgabe 4.)*
-  `proposed.value` nennt das führende Konto (`0000100234`) – das reicht für die Krone über der
-  Spalte. Das Glossar beschreibt den Golden Record aber als „führendes Konto **und je Feld den
-  besten Wert**"; welcher Wert je Feld gewinnt, steht nur im Fließtext der `remediation.steps`
-  („USt-ID von 0000100987 … auf 0000100234 übernehmen"). Vorschlag: in `entity.records` oder
-  neben `proposed.value` je Feld die Herkunft des Zielwerts angeben (z. B.
-  `golden_record: {vat_id: "C:0000100987", name1: "C:0000100234"}`). Dann kann die
-  Vergleichstabelle den Zielwert markieren, statt ihn dem Leser zu überlassen. Kein Blocker.
-- **`title` ist im Schema optional, die Liste braucht es aber.** *(2026-08-30 an die
-  Engine-Session übergeben, Antwort offen.)* Die Findings-Tabelle hat
-  eine Spalte Titel; fehlt er, steht dort „—". Vorschlag: `title` zur Pflicht machen
-  (max. 120 Zeichen wie bisher beschrieben). Kein Blocker.
-- **Für „Zuweisen" gibt es im Schema kein Feld.** `decision` kennt nur `by`, `at`,
-  `reason`, `reason_code`; `by` ist der Entscheider, nicht der Empfänger. Das UI führt
-  den Empfänger als `assigned_to` im eigenen Entscheidungssatz und exportiert ihn in
-  Aufgabe 7 als zusätzliches Feld. Vorschlag: `decision.assigned_to` (optional, String)
-  ins Schema aufnehmen. Kein Blocker.
 - **`proposed.display` von F-e2f7b19c4d83 beginnt mit „Kein Soll ermittelbar".** Die
   Dopplung auf der Karte ist mit Aufgabe 3b weg (der feste Hinweis erscheint dort nicht
   mehr), der Vorschlag ans Schema bleibt: Über der Spalte steht jetzt „Empfehlung", darunter
@@ -481,17 +463,24 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   Widerspruch. Vorschlag: `proposed.display` mit der Handlung beginnen („Anfrage an
   Lieferant über bekannte Telefonnummer …"); die fehlende zweite Quelle steht schon in
   `source_summary`. Kein Blocker.
-- **`evidence.reference_kind` fehlt.** *(Vorschlag Victor, 2026-08-30.)* Die Evidenzkarte
-  trägt seit 3b die Referenz als Überschrift. Was die Referenz ist, steht aber nirgends:
-  `1000/2026/1900004411` ist ein Beleg, `KNA1.LAND1` ein Stammfeld, `cluster-000412` ein
-  Cluster – `source_type` unterscheidet das nicht (alle drei Beispiele stehen unter
-  `deterministic` bzw. `model`). Vorschlag: `evidence.reference_kind` (optional, Enum)
-  mit `document | master_field | cluster | external_query | statement`; das UI stellt der
-  Referenz dann das passende Wort voran („Beleg 1000/2026/1900004411"). Bis dahin steht
-  die Referenz wörtlich da, ohne erfundenes Substantiv. Kein Blocker.
 - **`entity.company_code` ist optional** – F-7b2e8c1d9a3f (Dublette) hat keinen. Das UI
   führt dafür den Filterwert „ohne Buchungskreis". Falls Dubletten-Findings künftig einen
   Buchungskreis bekommen sollen, sag Bescheid; erfunden wird hier keiner.
+- **Der Titel aus dem Regelkopf trägt den Betrag unformatiert.** *(2026-08-31, aus der
+  Handprobe am Lauf `2026-08-28-702323b8`.)* In der Liste und in der Top-10 steht
+  „Mögliche Doppelzahlung: 42100.00 EUR an Kreditor …" bzw. „… mit offenen Posten
+  (92715.49 EUR)". Der Titel ist Freitext aus dem Regelkopf; das UI zeigt ihn wörtlich und
+  formatiert ihn bewusst nicht – ein Betrag mitten im Satz wäre nur durch Raten vom
+  übrigen Text zu trennen. In derselben Zeile steht die Euro-Wirkung daneben korrekt als
+  „42.100,00 €", was den Unterschied sichtbar macht. Vorschlag: den Betrag im Titel
+  weglassen (er steht strukturiert in `impact_eur` und `relevance`) oder ihn im Regelkopf
+  schon deutsch schreiben. Kein Blocker, aber es sieht auf jedem Screenshot nach zwei
+  verschiedenen Ständen aus.
+- **`entity.display_name` ist im ganzen Lauf leer.** *(2026-08-31, aus der Handprobe.)*
+  Alle 30 Findings lassen das Feld weg; Liste und Top-10 zeigen dort „—". Das ist mit
+  Regel 8 verträglich und deshalb kein Fehler – die Frage ist nur, ob das Feld für den
+  Betrieb gedacht ist (Name aus dem Mandanten, dann nie in Logs) oder ersatzlos entfallen
+  kann. Bis zur Antwort bleibt die Spalte mit „—" stehen.
 
 ### Beantwortet
 
@@ -503,9 +492,40 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   schon heute als eigene Datei (`RunInfo`), die echte Datei passt also ohne Codeänderung;
   `tables_loaded` ist dann echt statt `0`. `scripts/build-data.mjs` bleibt als Ersatz für
   den Prototyp, solange kein Lauf vorliegt.
+- **2026-08-31 · Die vier Lücken aus den Aufgaben 4 und 5 – erledigt durch D-069.** Alle
+  vier Rückmeldungen sind im Schema 1.1 angekommen, und in der vorgeschlagenen Form:
+  `entity.documents[]` trägt `reference`, `document_date`, `cleared_on`, `amount` und
+  `currency`; `evidence[].reference_kind` gibt es mit `netting` in der Enum-Liste, womit
+  der Netting-Nachweis nicht länger am Wort „Netting" in einer `note` hängt;
+  `entity.records[]` (`{bp_key, fields}`) macht den Feld-für-Feld-Vergleich möglich; und
+  `proposed.golden_record` nennt je Feld den besten Wert mit Herkunft. Abweichungen von
+  unserem Vorschlag, bewusst und in D-069 Punkt 5 begründet: `name` statt `name1`,
+  `open_items` + `currency` statt `open_items_eur`. `src/types/finding.ts` steht auf
+  diesen Namen. **Die Karte liest die Felder noch nicht** – das ist ein eigener
+  Durchgang, siehe „Offene Punkte im UI".
+- **2026-08-31 · `title` Pflicht und `decision.assigned_to` – erledigt durch D-069,
+  Punkt 5.** `title` steht mit `minLength: 1`/`maxLength: 120` unter `required`,
+  `decision.assigned_to` optional im Schema. Beides ist in `finding.ts` nachgezogen,
+  `title` zusätzlich in der Ladeprüfung (`@/sources/parse`).
+- **2026-08-31 · Der Lauf-Kopf liegt wirklich vor – über die Zusage hinaus eingelöst.**
+  `runs/<run_id>/run.json` ist mit Sprint 3, Aufgabe 4 da und im UI angebunden. Die
+  Handprobe am Lauf `2026-08-28-702323b8` zeigt „16 Tabellen" und die Buchungskreise des
+  Laufs im Banner; `tables_loaded` ist damit echt statt 0.
 
 ## Offene Punkte im UI (keine Schema-Frage)
 
+- **Die Karte rechnet die neuen Felder noch aus Fließtext zurück.** *(2026-08-31,
+  Freigabe Victor: eigener Durchgang.)* Schema 1.1 liefert seit D-069 `entity.records`,
+  `proposed.golden_record`, die Beleg-Erweiterungen und `evidence[].reference_kind`;
+  `src/types/finding.ts` kennt sie, aber `src/lib/duplicate.ts`, `src/lib/documents.ts`
+  und `EvidencePanel` lesen weiter `current.display`, `proposed.display` und die
+  Evidenz-`note`. Verabredet ist: **verdrahtet wird nach den Sprint-3-Regelpaketen,
+  sobald die Engine die Felder füllt**; bis dahin bleibt der Fließtext der Rückfall, und
+  die Vergleichstabelle benennt die sechs fehlenden Zeilen weiter als Platzhalter. Der
+  Lauf `2026-08-28-702323b8` bestätigt den Grund: keins der vier Felder ist dort gefüllt
+  (nur `relevance` steht auf den neuen Namen), geprüft werden könnte der Umbau heute also
+  ausschließlich gegen `logic/examples` F-002 und F-003. Beim Umbau bleibt der Fließtext
+  als Rückfall stehen – ein Lauf mit alten Findings muss lesbar bleiben.
 - **Lauf-Auswahl gehört in einen eigenen Vertrag, nicht in `FindingsSource`.** *(2026-08-30,
   aus Aufgabe 5b.)* Ein Backend kann mehrere Läufe anbieten; „welche Läufe gibt es" ist aber
   eine andere Frage als „lade diesen Lauf". Vorschlag für später: `FindingsCatalog` mit
@@ -641,3 +661,18 @@ Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
   Nächster Schritt: Testlauf mit zwei Buchhaltern (Zeit je Entscheidung, Rückfragen,
   Missverständnisse) und Merge-Vorbereitung – Schema-Rückmeldungen gehen als Aufgabe an
   die Engine-Session, nicht von hier aus ins Schema.
+- **2026-08-31 · Rebase auf Sprint 3 und Nachzug auf Schema 1.1.** `git rebase main`
+  (main auf `0bf3b63`, Sprint 3 Aufgabe 5); wie erwartet genau ein Konflikt, in
+  `ui/README.md`, beide Seiten übernommen. Danach war ein Test rot – der Driftschutz lief
+  in „Pfad im Schema nicht gefunden", weil Schema 1.1 die Enums nach `$defs` gezogen hat;
+  das ist genau der Umbau, den dieser Durchgang nachzieht. `src/types/finding.ts` steht
+  jetzt auf 1.1 (alle Felder aus D-069 optional, `relevance` auf `open_items`/`volume_12m`
+  + `currency`, `title` Pflicht), `run.json` ist als Lauf-Kopf angebunden („Findings-Datei
+  laden" nimmt beide Dateien), `build-data.mjs` ist als Ersatz für die sechs Beispiele
+  kenntlich gemacht, und die Spec-Zeile zur Gruppenfreigabe steht auf `in_progress`.
+  312 Tests grün (vorher 291; neu: `file-source` mit 10 und `parse`/`finding.enums` mit 7),
+  `npm run lint` und `npm run build` ohne Befund. Handprobe am echten Lauf
+  `2026-08-28-702323b8`: Banner „16 Tabellen", Buchungskreise 1000 und 2000, 30 Findings
+  (AR-VAL-001 15, AR-CON-002 7, AP-LEA-001 8), C:0000101502 mit Volumen 12 Monate
+  8.930,00 €, keine Konsolenfehler. Nächster Schritt: die Karte auf die Felder aus D-069
+  verdrahten, sobald die Engine sie füllt – bis dahin bleibt der Fließtext der Rückfall.

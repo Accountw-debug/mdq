@@ -18,6 +18,7 @@ function finding(id: string, overrides: Partial<Finding> = {}): Finding {
     damage_class: 2,
     tier: 'B',
     action_type: 'review',
+    title: 'Beispielbefund für den Test',
     entity: { bp_key: 'C:0000100001', role: 'CUSTOMER' },
     current: { source_table: 'KNA1', source_field: 'STCEG', value: null },
     why: 'Grund für den Test.',

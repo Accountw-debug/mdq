@@ -4,7 +4,7 @@
  * (CLAUDE.md, Regel 4).
  */
 import { describe, expect, it } from 'vitest'
-import { deriveRun, parseFindings } from '@/sources/parse'
+import { checkRun, deriveRun, parseFindings, parseRun } from '@/sources/parse'
 import { LoadError } from '@/sources/findings-source'
 import type { Finding } from '@/types/finding'
 
@@ -22,6 +22,7 @@ function findingJson(overrides: Record<string, unknown> = {}): Record<string, un
     damage_class: 3,
     tier: 'B',
     action_type: 'review',
+    title: 'USt-IdNr. fehlt',
     entity: { bp_key: 'C:0000100001', role: 'CUSTOMER', company_code: '1000' },
     current: { source_table: 'KNA1', source_field: 'STCEG', value: null },
     why: 'warum',
@@ -115,5 +116,73 @@ describe('deriveRun', () => {
       findingJson({ finding_id: 'F-000000000002', run_id: 'demo-2026-08-31' }),
     ] as unknown as Finding[]
     expect(() => deriveRun(findings)).toThrow(/run_id/)
+  })
+})
+
+/** `run.json`, wie `mdq run` sie schreibt – hier auf das Nötige gekürzt. */
+function runJson(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    run_id: 'demo-2026-08-30',
+    engine_version: '0.1.0',
+    pack_version: '0.1',
+    data_as_of: '2026-08-28',
+    tables_loaded: 16,
+    company_codes: ['1000', '2000'],
+    ...overrides,
+  }
+}
+
+describe('checkRun', () => {
+  const findings = parseFindings(JSON.stringify([findingJson()]))
+
+  it('liest den Lauf-Kopf aus run.json statt ihn abzuleiten', () => {
+    expect(checkRun(runJson(), findings)).toEqual({
+      run_id: 'demo-2026-08-30',
+      data_as_of: '2026-08-28',
+      engine_version: '0.1.0',
+      pack_version: '0.1',
+      tables_loaded: 16,
+      company_codes: ['1000', '2000'],
+    })
+  })
+
+  it('übernimmt einen Buchungskreis ohne Befund', () => {
+    // Die Findings kennen nur 1000; der Lauf umfasst auch 2000. Der Datenstand
+    // beschreibt den Lauf, nicht die Findings.
+    expect(checkRun(runJson(), findings).company_codes).toEqual(['1000', '2000'])
+  })
+
+  it('lässt alles Weitere in der Datei unberührt', () => {
+    const run = checkRun(runJson({ files: [{ table: 'KNA1' }], rejects: [], hints: ['x'] }), findings)
+    expect(Object.keys(run).sort()).toEqual([
+      'company_codes',
+      'data_as_of',
+      'engine_version',
+      'pack_version',
+      'run_id',
+      'tables_loaded',
+    ])
+  })
+
+  it('meldet einen Lauf-Kopf aus einem anderen Lauf', () => {
+    expect(() => checkRun(runJson({ run_id: 'demo-2026-08-31' }), findings)).toThrow(
+      /anderen Lauf/,
+    )
+  })
+
+  it('meldet ein fehlendes Pflichtfeld mit Namen', () => {
+    const { data_as_of: _unused, ...ohneDatum } = runJson()
+    expect(() => checkRun(ohneDatum, findings)).toThrow(/data_as_of/)
+  })
+
+  it('meldet einen falschen Typ statt ihn zu verschlucken', () => {
+    expect(() => checkRun(runJson({ tables_loaded: 'sechzehn' }), findings)).toThrow(
+      /tables_loaded/,
+    )
+    expect(() => checkRun(runJson({ company_codes: '1000' }), findings)).toThrow(/company_codes/)
+  })
+
+  it('lehnt kaputtes JSON als LoadError ab', () => {
+    expect(() => parseRun('{', findings)).toThrow(LoadError)
   })
 })

@@ -26,7 +26,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function checkFinding(index: number, value: unknown): Finding {
   const at = `Finding ${index + 1}`
   if (!isRecord(value)) throw new LoadError(`${at}: kein Objekt`)
-  for (const field of ['finding_id', 'run_id', 'rule_id', 'action_type', 'status', 'data_as_of']) {
+  // `title` steht seit dem Schema-Stand von D-069 unter `required`; die Findings-Liste
+  // hat eine Spalte dafür. Fehlt er, ist das eine ungültige Datei und keine leere Zelle.
+  for (const field of [
+    'finding_id',
+    'run_id',
+    'rule_id',
+    'action_type',
+    'status',
+    'data_as_of',
+    'title',
+  ]) {
     if (value[field] == null) throw new LoadError(`${at}: Pflichtfeld fehlt: ${field}`)
   }
   const findingId = String(value.finding_id)
@@ -91,8 +101,62 @@ function singleValue<K extends 'run_id' | 'data_as_of' | 'engine_version' | 'pac
 }
 
 /**
- * Lauf-Kopf aus den Findings, gleiche Ableitung wie in `scripts/build-data.mjs`.
- * `tables_loaded` bleibt 0 – die echte Zahl steht in `runs/<run_id>/run.json` der Engine.
+ * Lauf-Kopf aus einer `run.json` der Engine. Gelesen werden nur die Felder von
+ * `RunInfo`; alles Weitere in der Datei (Dateiliste, Regelbilanz, Rejects, Scope)
+ * bleibt unberührt – der Lauf-Bericht ist reicher als das Banner.
+ *
+ * Die Findings sind der Gegenschlüssel: passt `run_id` nicht, gehören die beiden
+ * Dateien zu verschiedenen Läufen, und das wird gemeldet statt stumm gemischt
+ * (CLAUDE.md, Regel 4).
+ */
+export function checkRun(parsed: unknown, findings: readonly Finding[]): RunInfo {
+  if (!isRecord(parsed)) throw new LoadError('run.json: kein Objekt')
+  for (const field of ['run_id', 'data_as_of', 'engine_version', 'pack_version']) {
+    if (parsed[field] == null) throw new LoadError(`run.json: Pflichtfeld fehlt: ${field}`)
+  }
+  const runId = String(parsed.run_id)
+  const findingsRunId = singleValue(findings, 'run_id')
+  if (runId !== findingsRunId) {
+    throw new LoadError(
+      `run.json gehört zu einem anderen Lauf: ${runId} statt ${findingsRunId}`,
+    )
+  }
+  const tablesLoaded = parsed.tables_loaded
+  if (tablesLoaded != null && typeof tablesLoaded !== 'number') {
+    throw new LoadError('run.json: tables_loaded ist keine Zahl')
+  }
+  const companyCodes = parsed.company_codes
+  if (companyCodes != null && !Array.isArray(companyCodes)) {
+    throw new LoadError('run.json: company_codes ist keine Liste')
+  }
+  return {
+    run_id: runId,
+    data_as_of: String(parsed.data_as_of),
+    engine_version: String(parsed.engine_version),
+    pack_version: String(parsed.pack_version),
+    tables_loaded: tablesLoaded ?? 0,
+    // Die Buchungskreise des Laufs, nicht die der Findings: ein Buchungskreis ohne
+    // Befund gehört trotzdem in den Datenstand.
+    company_codes: (companyCodes ?? []).map(String),
+  }
+}
+
+/** Liest eine `run.json` aus Text. */
+export function parseRun(text: string, findings: readonly Finding[]): RunInfo {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch (error) {
+    throw new LoadError(`run.json ist kein gültiges JSON: ${(error as Error).message}`)
+  }
+  return checkRun(parsed, findings)
+}
+
+/**
+ * Notbehelf, solange nur `findings.json` vorliegt: der Lauf-Kopf wird aus den
+ * Findings abgeleitet, gleiche Ableitung wie in `scripts/build-data.mjs`.
+ * `tables_loaded` bleibt 0 – die echte Zahl steht in `runs/<run_id>/run.json`,
+ * und die Buchungskreise sind hier nur die der Findings, nicht die des Laufs.
  */
 export function deriveRun(findings: readonly Finding[]): RunInfo {
   const companyCodes = [

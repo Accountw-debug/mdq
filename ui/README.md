@@ -25,23 +25,34 @@ npm run data               # nur public/data/{findings,run}.json neu erzeugen
 
 ## Daten
 
-`scripts/build-data.mjs` liest `../logic/examples/findings/*.yaml` und schreibt
-`public/data/findings.json` und `public/data/run.json`. Beide sind Build-Artefakte
-und nicht eingecheckt. Fehlt ein Pflichtfeld, ist eine `finding_id` doppelt oder
-gehören die Findings zu verschiedenen Läufen, bricht das Skript ab – nichts wird
-stumm übersprungen.
+Der Normalfall ist ein Lauf der Engine: `uv run mdq run --input <dir> --out runs/`
+schreibt `runs/<run_id>/findings.json` und `runs/<run_id>/run.json`. Beide Dateien
+werden im Datenstand-Banner über „Findings-Datei laden" **zusammen** gewählt. Erst
+mit `run.json` stimmen Tabellenzahl und Buchungskreise: sie beschreiben den Lauf,
+nicht die Findings – ein Buchungskreis ohne Befund gehört trotzdem in den Datenstand.
+Ohne `run.json` wird der Kopf aus den Findings abgeleitet und `tables_loaded` bleibt 0.
+Die Dateien bleiben im Speicher; nichts wird im Browser abgelegt.
 
-Eine andere Quelle (z. B. ein echter Lauf der Engine) über die Umgebungsvariable:
+`scripts/build-data.mjs` ist der **Ersatz für die sechs Beispiel-Findings**, kein
+Lauf: es liest `../logic/examples/findings/*.yaml` und schreibt
+`public/data/findings.json` und `public/data/run.json`, damit die Anwendung auch
+ohne Engine-Lauf etwas anzuzeigen hat. Dort steht `tables_loaded: 0` ausdrücklich
+für „kein Engine-Lauf". Beide Dateien sind Build-Artefakte und nicht eingecheckt.
+Fehlt ein Pflichtfeld, ist eine `finding_id` doppelt oder gehören die Findings zu
+verschiedenen Läufen, bricht das Skript ab – nichts wird stumm übersprungen.
+
+Ein anderes Verzeichnis mit Beispiel-YAML über die Umgebungsvariable:
 
 ```
-MDQ_FINDINGS_DIR=../runs/demo-2026-08-30 npm run data
+MDQ_FINDINGS_DIR=../logic/examples/findings npm run data
 ```
 
 ## Aufbau
 
 ```
-scripts/build-data.mjs     YAML -> JSON, Pflichtfeldprüfung, Lauf-Kopf
-src/types/finding.ts       Typen zu logic/finding.schema.json (Enums als Union-Types)
+scripts/build-data.mjs     YAML -> JSON, Pflichtfeldprüfung, Ersatz-Lauf-Kopf
+src/sources/               FindingsSource: Beispiel-Daten oder gewählte Lauf-Dateien
+src/types/finding.ts       Typen zu logic/finding.schema.json 1.1 (Enums als Union-Types)
 src/lib/format.ts          deutsche Beträge/Daten, Cent-Arithmetik über bigint
 src/components/Key.tsx     Monospace für Schlüssel, Belegnummern, Feldnamen
 src/components/ui/         shadcn/ui, generiert – nicht von Hand umbauen

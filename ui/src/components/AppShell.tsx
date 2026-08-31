@@ -30,7 +30,7 @@ const NAV: { view: View; label: string; icon: typeof LayoutDashboardIcon }[] = [
 export function AppShell({
   run,
   source,
-  onSelectFile,
+  onSelectFiles,
   loadError,
   view,
   onViewChange,
@@ -41,7 +41,7 @@ export function AppShell({
 }: {
   run: RunInfo
   source: FindingsSource
-  onSelectFile: (file: File) => void
+  onSelectFiles: (files: File[]) => void
   loadError: string | null
   view: View
   onViewChange: (view: View) => void
@@ -88,7 +88,7 @@ export function AppShell({
           <DataBanner
             run={run}
             source={source}
-            onSelectFile={onSelectFile}
+            onSelectFiles={onSelectFiles}
             loadError={loadError}
             reviewer={reviewer}
             onReviewerChange={onReviewerChange}

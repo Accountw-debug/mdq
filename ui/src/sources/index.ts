@@ -14,7 +14,7 @@ import type { FindingsSource } from '@/sources/findings-source'
 
 export { LoadError } from '@/sources/findings-source'
 export type { FindingsSource, LoadedRun, SourceKind } from '@/sources/findings-source'
-export { checkFindings, deriveRun, parseFindings } from '@/sources/parse'
+export { checkFindings, checkRun, deriveRun, parseFindings, parseRun } from '@/sources/parse'
 export { buildSource } from '@/sources/build-source'
 export { fileSource } from '@/sources/file-source'
 

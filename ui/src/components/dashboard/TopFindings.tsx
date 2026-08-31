@@ -86,7 +86,7 @@ function TopRow({
             <span className="truncate text-sm">{finding.entity.display_name ?? '—'}</span>
           </span>
           <span className="truncate text-xs text-muted-foreground">
-            {finding.title ?? finding.rule_id}
+            {finding.title}
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-1.5">

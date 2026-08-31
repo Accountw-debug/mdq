@@ -30,7 +30,7 @@ export interface RuleGroup {
   rule_id: string
   rule_version: string
   /** Titel des ersten Findings – innerhalb einer Regel ist er derselbe Satz. */
-  title: string | null
+  title: string
   /** Stufe der Gruppe; bei gemischten Stufen die des ersten Findings. */
   tier: Tier
   mixedTier: boolean
@@ -89,7 +89,7 @@ export function groupByRule(findings: readonly Finding[]): RuleGroup[] {
       return {
         rule_id: ruleId,
         rule_version: first.rule_version,
-        title: first.title ?? null,
+        title: first.title,
         tier: first.tier,
         mixedTier: group.some((finding) => finding.tier !== first.tier),
         findings: group,

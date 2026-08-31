@@ -24,9 +24,11 @@ export interface DecisionsFileControls {
  * Datenstand-Banner, auf jedem Screen oben (docs/CONCEPT.md, Abschnitt 9):
  * „Stand 28.08.2026 · Lauf demo-2026-08-30 · Engine 0.1.0 · Regelpaket 0.1".
  *
- * Rechts „Findings-Datei laden": damit lässt sich `runs/<run_id>/findings.json`
- * der Engine ohne Rebuild ansehen. Die Datei wird nur im Speicher gehalten –
- * kein localStorage, nichts bleibt unbemerkt im Browser liegen (Spec Sprint 5).
+ * Rechts „Lauf laden": damit lässt sich `runs/<run_id>/` der Engine ohne Rebuild
+ * ansehen. Gewählt werden `findings.json` und `run.json` zusammen – erst mit dem
+ * Lauf-Kopf stimmen Tabellenzahl und Buchungskreise. Die Dateien werden nur im
+ * Speicher gehalten – kein localStorage, nichts bleibt unbemerkt im Browser
+ * liegen (Spec Sprint 5).
  *
  * Daneben steht der Bearbeiter: `decision.by` ist im Schema Pflicht, also wird der
  * Name einmal je Sitzung eingetragen und gilt für jede Entscheidung. Auch er bleibt
@@ -44,7 +46,7 @@ export interface DecisionsFileControls {
 export function DataBanner({
   run,
   source,
-  onSelectFile,
+  onSelectFiles,
   loadError,
   reviewer,
   onReviewerChange,
@@ -52,7 +54,7 @@ export function DataBanner({
 }: {
   run: RunInfo
   source: FindingsSource
-  onSelectFile: (file: File) => void
+  onSelectFiles: (files: File[]) => void
   loadError: string | null
   reviewer: string
   onReviewerChange: (reviewer: string) => void
@@ -116,16 +118,22 @@ export function DataBanner({
           <input
             ref={inputRef}
             type="file"
+            multiple
             accept="application/json,.json"
             className="hidden"
             onChange={(event) => {
-              const file = event.target.files?.[0]
+              const files = [...(event.target.files ?? [])]
               // Zurücksetzen, damit dieselbe Datei erneut gewählt werden kann.
               event.target.value = ''
-              if (file) onSelectFile(file)
+              if (files.length > 0) onSelectFiles(files)
             }}
           />
-          <Button variant="outline" size="xs" onClick={() => inputRef.current?.click()}>
+          <Button
+            variant="outline"
+            size="xs"
+            title="findings.json und run.json des Laufs zusammen wählen"
+            onClick={() => inputRef.current?.click()}
+          >
             <UploadIcon data-icon="inline-start" />
             Findings-Datei laden
           </Button>
