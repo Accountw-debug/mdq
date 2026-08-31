@@ -62,7 +62,7 @@ die Policy hebt zur Laufzeit Stufe **und** Aktion gemeinsam an.
 
 | ID | Titel | Kategorie | Schwere | SK | Stufe | Aktion | Tabellen | SAP | Status | Testdaten |
 |---|---|---|---|---|---|---|---|---|---|---|
-| CROSS-DUP-001 | Kunde = Lieferant (gleiche USt-ID oder IBAN) | duplicate | medium | 2 | B | review | business_partner, bp_tax_id, bp_bank_account | XD02/XK02 Verrechnung | draft | Defekt |
+| CROSS-DUP-001 | Kunde = Lieferant (gleiche USt-ID oder IBAN) | duplicate | medium | 2 | B | review | business_partner, bp_tax_id, bp_bank_account, bp_relevance | XD02/XK02 Verrechnung | impl | Defekt |
 | CROSS-LEA-001 | Aufrechnungspotenzial: offene Forderung und Verbindlichkeit beim selben Partner | leakage | medium | 3 | C | process | fi_item | F-32/F-44 | draft | ohne Testfall |
 
 ## Offene fachliche Fragen (Victor)

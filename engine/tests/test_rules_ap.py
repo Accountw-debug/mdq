@@ -231,7 +231,9 @@ def test_die_val_003_zwillinge_formulieren_rollengerecht(regression_run) -> None
 #: ("NL130921080B80"), und ein Formmuster kann beide nicht trennen. Waechst die Liste um
 #: eine Regel, die Bankdaten traegt, gehoert sie hier hinein - `test_bankdatenregeln_sind_
 #: vollstaendig` haelt fest, dass keine vergessen wird.
-BANKDATENREGELN = ("AR-VAL-003", "AP-VAL-003", "AP-CON-001")
+#: CROSS-DUP-001 laeuft mit, obwohl es im Demo-Mandanten keinen Bank-Treffer gibt:
+#: die Regel *kann* eine IBAN ins Finding schreiben, und genau das entscheidet.
+BANKDATENREGELN = ("AR-VAL-003", "AP-VAL-003", "AP-CON-001", "CROSS-DUP-001")
 
 
 def test_bankdatenregeln_zeigen_nirgends_eine_vollstaendige_iban(regression_run) -> None:
