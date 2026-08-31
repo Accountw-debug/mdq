@@ -46,7 +46,7 @@ die Policy hebt zur Laufzeit Stufe **und** Aktion gemeinsam an.
 | AP-COM-002 | Bankverbindung fehlt bei Zahlweg Überweisung | completeness | high | 1 | C | review | bp_company_code, bp_bank_account | XK02 | draft | ohne Testfall |
 | AP-COM-003 | Prüfung doppelte Rechnung (REPRF) nicht gesetzt | completeness | high | 3 | A | mass_change | bp_company_code | XK02 Zahlungsverkehr | draft | Defekt |
 | AP-VAL-001 | USt-ID-Präfix passt nicht zum Sitzland | validity | high | 2 | B | review | business_partner, bp_tax_id | XK02 | impl | Defekt |
-| AP-VAL-002 | USt-ID entspricht nicht dem Länderformat | validity | high | 2 | C | review | bp_tax_id | XK02 | draft | Defekt |
+| AP-VAL-002 | USt-ID entspricht nicht dem Länderformat | validity | high | 2 | C | review | bp_tax_id (+ vat_id_patterns) | XK02 | impl | Defekt |
 | AP-VAL-003 | IBAN-Prüfziffer ungültig | validity | critical | 1 | C | review | bp_bank_account | XK02 | draft | Defekt |
 | AP-CON-001 | Gleiche IBAN bei mehreren Kreditoren | consistency | critical | 1 | C | review | bp_bank_account | XK02 | draft | Defekt |
 | AP-CON-002 | IBAN-Land ≠ Sitzland bei Kreditor | consistency | medium | 1 | C | review | business_partner, bp_bank_account | – | draft | ohne Testfall |

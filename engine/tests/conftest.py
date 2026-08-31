@@ -177,7 +177,6 @@ NOT_YET_BUILT = {
     "AP-DUP-001",
     "AP-HYG-001",
     "AP-LEA-002",
-    "AP-VAL-002",
     "AP-VAL-003",
     "AR-DUP-001",
     "AR-LEA-001",
