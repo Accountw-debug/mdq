@@ -619,3 +619,10 @@ def test_fensterbeginn_ohne_posten_ist_ein_fehler_mit_namen(run_context) -> None
         rule_sql(RULES["AR-HYG-001"], run_context)
     assert "item_window_from" in str(excinfo.value)
     assert "keinen Posten" in str(excinfo.value)
+
+
+def test_platzhalterbegriffe_werden_als_regex_eingesetzt(run_context) -> None:
+    """`${placeholder_terms.pattern}` wird zu einem fertigen Regex (D-102)."""
+    sql = rule_sql(RULES["AR-VAL-005"], dataclasses.replace(run_context))
+    assert "${placeholder_terms" not in sql
+    assert "xxx" in sql

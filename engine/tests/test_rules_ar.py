@@ -164,3 +164,31 @@ def test_ar_hyg_001_nennt_den_fensterbeginn_des_laufs(regression_run) -> None:
     for finding in findings_of(regression_run, "AR-HYG-001"):
         assert fenster in finding["title"]
         assert fenster in finding["proposed"]["source_summary"]
+
+
+# --- AR-VAL-005 – Platzhalter in Name und Ort ----------------------------------------
+
+
+def test_ar_val_005_liefert_die_zehn_platzhalterkonten(regression_run) -> None:
+    assert len(findings_of(regression_run, "AR-VAL-005")) == 10
+
+
+def test_ar_val_005_nennt_den_getroffenen_begriff(regression_run) -> None:
+    """Die Karte soll zeigen, *warum* der Wert ein Platzhalter ist, nicht nur dass."""
+    for finding in findings_of(regression_run, "AR-VAL-005"):
+        assert "Platzhalter" in finding["current"]["display"]
+        begriff = finding["evidence"][0]["value"]
+        assert begriff and begriff in finding["current"]["value"].lower()
+
+
+def test_ar_val_005_ein_finding_je_konto(regression_run) -> None:
+    """Name und Ort zugleich ergeben ein Finding, nicht zwei (kein finding_key noetig)."""
+    konten = [f["entity"]["bp_key"] for f in findings_of(regression_run, "AR-VAL-005")]
+    assert len(konten) == len(set(konten))
+
+
+def test_ar_val_005_schlaegt_keinen_namen_vor(regression_run) -> None:
+    """Der richtige Name steht nirgends in den Daten – ein erfundener waere schlimmer."""
+    for finding in findings_of(regression_run, "AR-VAL-005"):
+        assert finding["tier"] == "C"
+        assert finding["proposed"]["value"] is None

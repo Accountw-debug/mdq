@@ -26,7 +26,7 @@ die Policy hebt zur Laufzeit Stufe **und** Aktion gemeinsam an.
 | AR-VAL-002 | USt-ID entspricht nicht dem Länderformat | validity | high | 2 | C | review | bp_tax_id (+ vat_id_patterns) | XD02 | impl | Defekt |
 | AR-VAL-003 | IBAN-Prüfziffer ungültig | validity | critical | 1 | C | review | bp_bank_account | XD02 | impl | Defekt |
 | AR-VAL-004 | PLZ entspricht nicht dem Länderformat | validity | low | 3 | B | review | business_partner (+ postal_code_patterns) | XD02 Adresse | draft | ohne Testfall |
-| AR-VAL-005 | Name/Ort enthält Platzhalter ("Test", "unbekannt", "???", "xxx") | validity | medium | 3 | C | review | business_partner | XD02 Adresse | draft | Defekt |
+| AR-VAL-005 | Name/Ort enthält Platzhalter ("Test", "unbekannt", "???", "xxx") | validity | medium | 3 | C | review | business_partner (+ placeholder_terms) | XD02 Adresse | impl | Defekt |
 | AR-CON-001 | Zahlungsbedingung Stamm ≠ meistgenutzte auf Belegen (>70 % abweichend) | consistency | medium | 2 | B | review | bp_company_code, fi_item | XD02 | draft | ohne Testfall |
 | AR-CON-002 | Löschvormerkung/Sperre bei offenen Posten | consistency | high | 3 | decision | decision | business_partner, bp_company_code, fi_item | XD05/XD06 | impl | Defekt |
 | AR-CON-003 | IBAN-Land ≠ Sitzland (Hinweis, kein Fehler) | consistency | low | 1 | C | review | business_partner, bp_bank_account | – | draft | ohne Testfall |

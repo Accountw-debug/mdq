@@ -17,7 +17,7 @@ from pathlib import Path
 
 import yaml
 
-from mdq import DOCUMENT_TYPES, VAT_ID_PATTERNS
+from mdq import DOCUMENT_TYPES, PLACEHOLDER_TERMS, VAT_ID_PATTERNS
 
 #: Seiten, die das Woerterbuch kennt – dieselben Kuerzel wie im Finding (``side``)
 SIDES = ("AR", "AP")
@@ -41,6 +41,11 @@ PLACEHOLDER_RE = re.compile(r"\$\{doc_types\.([A-Za-z]+)\.([a-z_]+(?:\+[a-z_]+)*
 #: Platzhalter fuer die Formatmuster der USt-IdNr.: ``${vat_patterns.rows}`` wird zu
 #: ``('AT','^ATU\d{8}$'), ('BE',…)`` und im Regel-SQL zu einem VALUES-Join (D-101).
 VAT_PATTERN_PLACEHOLDER_RE = re.compile(r"\$\{vat_patterns\.rows\}")
+
+#: Platzhalter fuer die Platzhalterbegriffe: ``${placeholder_terms.pattern}`` wird zu
+#: einem fertigen Regex als SQL-Zeichenkette (D-102). Die Maskierung der Sonderzeichen
+#: passiert in Python, nicht im SQL – dort saehe sie niemand.
+PLACEHOLDER_TERMS_RE = re.compile(r"\$\{placeholder_terms\.pattern\}")
 
 #: Ein Platzhalter, den niemand kennt – die Meldung nennt ihn (Regel 4)
 _ANY_PLACEHOLDER_RE = re.compile(r"\$\{[^}]*\}")
@@ -286,3 +291,87 @@ def load_vat_patterns(path: Path = VAT_ID_PATTERNS) -> VatPatterns:
     except yaml.YAMLError as exc:
         raise DictionaryError(f"{path.name}: kein gueltiges YAML ({type(exc).__name__})") from exc
     return parse_vat_patterns(document, path)
+
+
+# --- Platzhalterbegriffe in Namens- und Ortsfeldern -----------------------------------
+
+#: Was ein Wort begrenzt: alles ausser Buchstaben und Ziffern. Bewusst nicht ``\\b``:
+#: RE2 kennt keine Lookarounds, und ``\\b`` haette bei Begriffen wie ``???`` oder ``n.a.``
+#: die falsche Bedeutung. Stattdessen wird der Text in Grenzzeichen eingefasst.
+WORD_BOUNDARY = "[^a-z0-9äöüß]"
+
+
+@dataclass(frozen=True)
+class PlaceholderTerms:
+    """Begriffe aus ``placeholder_terms.yaml`` – Einzelwoerter und Zusammensetzungen."""
+
+    terms: tuple[str, ...]
+    compounds: tuple[str, ...]
+    version: str
+    path: Path
+
+    @property
+    def all_terms(self) -> tuple[str, ...]:
+        """Beide Listen, sortiert – fachlich derselbe Fall, technisch dieselbe Pruefung."""
+        return tuple(sorted(set(self.terms) | set(self.compounds)))
+
+    def pattern(self) -> str:
+        """Ein Regex, der jeden Begriff als ganzes Wort trifft.
+
+        Erwartet einen kleingeschriebenen Text, der in Grenzzeichen eingefasst ist
+        (``'#' || lower(feld) || '#'``) – so kommt auch ein Begriff am Anfang oder Ende
+        des Feldes auf seine Grenze.
+        """
+        return "|".join(
+            WORD_BOUNDARY + re.escape(term) + WORD_BOUNDARY for term in self.all_terms
+        )
+
+
+def parse_placeholder_terms(document: object, path: Path) -> PlaceholderTerms:
+    """Prueft das Woerterbuch vollstaendig, bevor eine Regel darauf laeuft."""
+    if not isinstance(document, dict):
+        raise DictionaryError(f"{path.name}: erwartet ein Objekt")
+
+    version = document.get("version")
+    if not isinstance(version, str) or not version:
+        raise DictionaryError(f"{path.name}: 'version' fehlt oder ist kein Text")
+
+    listen: dict[str, tuple[str, ...]] = {}
+    for block, pflicht in (("terms", True), ("compounds", False)):
+        entries = document.get(block)
+        if entries is None and not pflicht:
+            listen[block] = ()
+            continue
+        if not isinstance(entries, list) or not entries:
+            raise DictionaryError(f"{path.name}: '{block}' fehlt oder ist keine Liste")
+        werte: list[str] = []
+        for entry in entries:
+            if not isinstance(entry, str) or not entry.strip():
+                raise DictionaryError(f"{path.name}: '{block}' enthaelt einen leeren Eintrag")
+            if entry != entry.lower():
+                raise DictionaryError(
+                    f"{path.name}: '{entry}' steht nicht in Kleinbuchstaben. Geprueft wird "
+                    "ohne Ruecksicht auf Gross- und Kleinschreibung; eine Grossschreibung "
+                    "hier wuerde eine Bedeutung vortaeuschen, die es nicht gibt."
+                )
+            werte.append(entry.strip())
+        listen[block] = tuple(werte)
+
+    return PlaceholderTerms(
+        terms=listen["terms"], compounds=listen["compounds"], version=version, path=path
+    )
+
+
+def load_placeholder_terms(path: Path = PLACEHOLDER_TERMS) -> PlaceholderTerms:
+    """Liest ``placeholder_terms.yaml``."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise DictionaryError(
+            f"{path.name}: nicht als UTF-8 lesbar ({type(exc).__name__})"
+        ) from exc
+    try:
+        document = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise DictionaryError(f"{path.name}: kein gueltiges YAML ({type(exc).__name__})") from exc
+    return parse_placeholder_terms(document, path)

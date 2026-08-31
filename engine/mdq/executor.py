@@ -19,11 +19,14 @@ import duckdb
 
 from mdq.decisions import DecisionMemory, apply_decision
 from mdq.dictionaries import (
+    PLACEHOLDER_TERMS_RE,
     VAT_PATTERN_PLACEHOLDER_RE,
     DictionaryError,
     DocumentTypes,
+    PlaceholderTerms,
     VatPatterns,
     load_document_types,
+    load_placeholder_terms,
     load_vat_patterns,
     substitute,
 )
@@ -108,6 +111,9 @@ class RunContext:
     #: Formatmuster der USt-IdNr. fuer ``${vat_patterns.rows}`` (D-101); ohne Angabe gilt
     #: ``logic/dictionaries/vat_id_patterns.yaml``.
     vat_patterns: VatPatterns | None = None
+    #: Platzhalterbegriffe fuer ``${placeholder_terms.pattern}`` (D-102); ohne Angabe gilt
+    #: ``logic/dictionaries/placeholder_terms.yaml``.
+    placeholder_terms: PlaceholderTerms | None = None
     #: Beginn des Postenfensters fuer ``${scope.item_window_from}`` (D-110). Aus dem Scope,
     #: sonst das fruehste Buchungsdatum der geladenen Posten; ``None``, wenn der Lauf keinen
     #: Posten enthaelt – dann kann eine Regel, die das Fenster braucht, nicht laufen.
@@ -136,6 +142,12 @@ def _default_doc_types() -> DocumentTypes:
 def _default_vat_patterns() -> VatPatterns:
     """Die Formatmuster aus ``logic/`` – einmal gelesen, nicht je Regel neu."""
     return load_vat_patterns()
+
+
+@cache
+def _default_placeholder_terms() -> PlaceholderTerms:
+    """Die Platzhalterbegriffe aus ``logic/`` – einmal gelesen, nicht je Regel neu."""
+    return load_placeholder_terms()
 
 
 #: Benannte Schwelle aus dem Regelkopf: ``${params.min_invoices}`` (D-107)
@@ -186,6 +198,10 @@ def rule_sql(rule: Rule, ctx: RunContext) -> str:
     if VAT_PATTERN_PLACEHOLDER_RE.search(sql):
         patterns = ctx.vat_patterns or _default_vat_patterns()
         sql = VAT_PATTERN_PLACEHOLDER_RE.sub(lambda _: patterns.rows(), sql)
+    if PLACEHOLDER_TERMS_RE.search(sql):
+        terms = ctx.placeholder_terms or _default_placeholder_terms()
+        literal = "'" + terms.pattern().replace("'", "''") + "'"
+        sql = PLACEHOLDER_TERMS_RE.sub(lambda _: literal, sql)
     if "${" not in sql:
         return sql
     types = ctx.doc_types or _default_doc_types()

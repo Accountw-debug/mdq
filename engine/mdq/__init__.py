@@ -36,6 +36,7 @@ PACK_FILE = LOGIC_DIR / "pack.yaml"
 #: Woerterbuch der Belegarten (BLART) nach fachlicher Klasse, je Seite
 DOCUMENT_TYPES = LOGIC_DIR / "dictionaries" / "document_types.yaml"
 VAT_ID_PATTERNS = LOGIC_DIR / "dictionaries" / "vat_id_patterns.yaml"
+PLACEHOLDER_TERMS = LOGIC_DIR / "dictionaries" / "placeholder_terms.yaml"
 
 #: Fachlicher Regelkatalog: jede Zeile wird spaeter eine Regeldatei
 CATALOG_MD = RULES_DIR / "CATALOG.md"
@@ -62,6 +63,7 @@ __all__ = [
     "FINDING_SCHEMA",
     "LOGIC_DIR",
     "PACK_FILE",
+    "PLACEHOLDER_TERMS",
     "PROJECT_ROOT",
     "RULES_DIR",
     "SAP_MAPPING",

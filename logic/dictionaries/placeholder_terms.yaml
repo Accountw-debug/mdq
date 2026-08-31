@@ -1,0 +1,40 @@
+# Platzhalterbegriffe in Namens- und Ortsfeldern – was ein Mensch eintippt, wenn der
+# richtige Wert gerade fehlt ("Test GmbH", "unbekannt", "xxx").
+#
+# Wozu: AR-VAL-005 und AP-VAL-005 fragen dasselbe auf beiden Seiten. Ohne diese Datei
+# stünde die Liste zweimal im Regel-SQL und liefe auseinander.
+#
+# Wie geprüft wird: **als ganzes Wort**, ohne Rücksicht auf Groß- und Kleinschreibung
+# (SAP-Namen kommen oft durchgehend in Großbuchstaben). "Testo SE" ist ein realer
+# deutscher Hersteller – eine Präfixregel `Test*` würde ihn treffen, deshalb gibt es
+# keine. Zusammensetzungen stehen stattdessen ausgeschrieben unter `compounds`.
+#
+# Beim Onboarding erweitern: jeder Kunde hat eigene Gewohnheiten ("ZZ_alt", "Dummy2").
+# Ergänzt wird hier, nicht in der Regel (D-102).
+version: "0.1"
+
+# Einzelbegriffe. Treffen als ganzes Wort, an jeder Stelle des Feldes.
+terms:
+  - test
+  - xxx
+  - dummy
+  - unbekannt
+  - neuanlage
+  - muster
+  - probe
+  - tbd
+  - "???"
+  - kein name
+  - n.a.
+
+# Ausgeschriebene Zusammensetzungen. Fachlich dasselbe wie `terms` und technisch gleich
+# geprüft; getrennt gelistet, weil hier jede Form einzeln entschieden wurde, statt sie
+# über eine Präfixregel zu erschlagen.
+compounds:
+  - testkunde
+  - testfirma
+  - testlieferant
+  - musterfirma
+  - musterkunde
+  - mustermann
+  - dummykunde
