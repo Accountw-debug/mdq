@@ -624,6 +624,30 @@ def test_fensterbeginn_ohne_posten_ist_ein_fehler_mit_namen(run_context) -> None
     assert "keinen Posten" in str(excinfo.value)
 
 
+def test_stichtag_wird_eingesetzt(run_context) -> None:
+    """`${scope.data_as_of}` kommt aus dem Lauf, nicht aus `current_date`.
+
+    Eine Regel, die "Frist verstrichen" oder "letzte zwoelf Monate" braucht, haette mit
+    `current_date` morgen andere Findings auf demselben Input (Regel 9, D-028).
+    """
+    sql = rule_sql(RULES["AP-LEA-002"], run_context)
+    assert "${" not in sql
+    assert "DATE '2026-08-28'" in sql
+    assert "current_date" not in sql.lower()
+
+
+def test_betragsschwelle_bleibt_exakt(run_context) -> None:
+    """Eine Schwelle, die ein Betrag ist, geht als Zeichenkette ins SQL (Regel 2).
+
+    Als YAML-Zahl waere aus `1000.00` ein float geworden und der Vergleich haette den
+    DECIMAL-Betrag auf die Fliesskommaseite gezogen.
+    """
+    rule = RULES["AP-LEA-002"]
+    assert rule.parameters["min_loss"] == "1000.00"
+    sql = rule_sql(rule, run_context)
+    assert "'1000.00'::DECIMAL(15,2)" in sql
+
+
 def test_platzhalterbegriffe_werden_als_regex_eingesetzt(run_context) -> None:
     """`${placeholder_terms.pattern}` wird zu einem fertigen Regex (D-102)."""
     sql = rule_sql(RULES["AR-VAL-005"], dataclasses.replace(run_context))

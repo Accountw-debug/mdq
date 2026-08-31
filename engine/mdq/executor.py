@@ -175,6 +175,12 @@ _PARAM_RE = re.compile(r"\$\{params\.([a-z][a-z0-9_]*)\}")
 #: Beginn des Postenfensters: ``${scope.item_window_from}`` (D-110)
 _WINDOW_RE = re.compile(r"\$\{scope\.item_window_from\}")
 
+#: Datenstand des Laufs: ``${scope.data_as_of}``. Eine Regel, die "Frist verstrichen" oder
+#: "letzte zwoelf Monate" braucht, darf dafuer **nicht** ``current_date`` nehmen: derselbe
+#: Input muesste sonst morgen andere Findings liefern (Regel 9, D-028). Der Stichtag kommt
+#: deshalb aus dem Lauf, wie der Fensterbeginn in D-110.
+_DATA_AS_OF_RE = re.compile(r"\$\{scope\.data_as_of\}")
+
 
 def _substitute_parameters(rule: Rule) -> str:
     """Setzt ``${params.<name>}`` aus dem Regelkopf ein (D-107).
@@ -214,6 +220,8 @@ def rule_sql(rule: Rule, ctx: RunContext) -> str:
                 "'angelegt vor Fensterbeginn' nicht entscheidbar."
             )
         sql = _WINDOW_RE.sub(f"DATE '{ctx.item_window_from.isoformat()}'", sql)
+    if _DATA_AS_OF_RE.search(sql):
+        sql = _DATA_AS_OF_RE.sub(f"DATE '{ctx.data_as_of}'", sql)
     if VAT_PATTERN_PLACEHOLDER_RE.search(sql):
         patterns = ctx.vat_patterns or _default_vat_patterns()
         sql = VAT_PATTERN_PLACEHOLDER_RE.sub(lambda _: patterns.rows(), sql)

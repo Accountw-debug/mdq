@@ -55,7 +55,7 @@ die Policy hebt zur Laufzeit Stufe **und** Aktion gemeinsam an.
 | AP-RSK-001 | Bankdatenänderung kurz vor Zahlung (< 30 Tage) ohne Vier-Augen (V2: CDHDR) | risk | critical | 1 | C | process | change_document, fi_item | – | draft | ohne Testfall |
 | AP-DUP-001 | Kreditoren-Dubletten-Cluster | duplicate | high | 2 | B | review | business_partner, bp_tax_id, bp_bank_account | XK05/XK06 | draft | Defekt |
 | AP-LEA-001 | Mögliche Doppelzahlung (Referenz fuzzy, gleicher Betrag, 60 Tage) | leakage | critical | 2 | B | review | business_partner, fi_item | FBL1N | impl | Defekt |
-| AP-LEA-002 | Skontoverlust je Kreditor (12 Monate) | leakage | medium | 3 | C | process | fi_item, payment_terms | F110 | draft | Defekt |
+| AP-LEA-002 | Skontoverlust je Kreditor (12 Monate) | leakage | medium | 3 | C | process | business_partner, company_code, fi_item, payment_terms | F110 | impl | Defekt |
 | AP-LEA-003 | Überzahlung: Zahlung > Rechnungsbetrag ohne Gutschrift | leakage | high | 2 | B | review | fi_item | – | draft | ohne Testfall |
 
 ## CROSS

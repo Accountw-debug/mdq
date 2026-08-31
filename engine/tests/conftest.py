@@ -173,7 +173,6 @@ def demo_rows(path, table: str) -> list[dict[str, str]]:
 #: versehentlich, faellt die Regression rot aus statt still durchzugehen.
 NOT_YET_BUILT = {
     "AP-DUP-001",
-    "AP-LEA-002",
     "AR-DUP-001",
     "AR-LEA-001",
     "CROSS-DUP-001",

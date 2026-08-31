@@ -40,6 +40,10 @@ OPTIONAL_KEYS = ("parameters",)
 #: Name eines Regelparameters: `${params.<name>}` im SQL, `parameters.<name>` im Kopf
 _PARAMETER_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
+#: Eine Schwelle, die ein Betrag ist, steht als ausgeschriebene Dezimalzahl im Kopf –
+#: nie als float (Regel 2). Mehr als das kommt als Zeichenkette nicht ins SQL.
+_DECIMAL_LITERAL_RE = re.compile(r"^-?[0-9]+(\.[0-9]+)?$")
+
 SIDES = ("AR", "AP", "CROSS")
 SEVERITIES = ("low", "medium", "high", "critical")
 DAMAGE_CLASSES = (1, 2, 3)
@@ -99,7 +103,7 @@ class Rule:
     tests: dict[str, tuple[str, ...]]
     #: Benannte Schwellen der Regel, als `${params.<name>}` ins SQL eingesetzt (D-107).
     #: Leer, wenn die Regel keine hat.
-    parameters: dict[str, int | float]
+    parameters: dict[str, int | float | str]
     title: str
     sql: str
     path: Path
@@ -152,12 +156,18 @@ def _check_tests(errors: list[str], head: dict) -> dict[str, tuple[str, ...]]:
     return result
 
 
-def _check_parameters(errors: list[str], head: dict) -> dict[str, int | float]:
+def _check_parameters(errors: list[str], head: dict) -> dict[str, int | float | str]:
     """Prueft den optionalen Block `parameters` – benannte Schwellen der Regel (D-107).
 
-    Nur Zahlen: sie werden unveraendert als Literal ins SQL gesetzt, und eine Zeichenkette
-    braeuchte eine Quotierung, die niemand sieht. Braucht eine Regel spaeter einen Text,
-    wird das hier ausdruecklich erlaubt, nicht stillschweigend.
+    Zahlen werden unveraendert als Literal ins SQL gesetzt. Dazu ist **eine** Sorte
+    Zeichenkette erlaubt: eine ausgeschriebene Dezimalzahl (`"1000.00"`). Der Grund ist
+    Regel 2 – eine Schwelle, die ein Betrag ist, darf nicht durch ein `float`. YAML liest
+    `1000.00` als `float`; der Vergleich in DuckDB zoege den DECIMAL-Betrag auf die
+    Fliesskommaseite, und eine Schwelle wie `1000.05` waere binaer gar nicht darstellbar.
+    Als Zeichenkette bleibt sie exakt und wird im SQL nach DECIMAL gecastet
+    (`${params.min_loss}::DECIMAL(15,2)`); `repr()` setzt die Anfuehrungszeichen. Das
+    Muster laesst nur Ziffern, ein Vorzeichen und einen Punkt zu – kein anderer Text
+    kommt so ins SQL.
     """
     parameters = head.get("parameters")
     if parameters is None:
@@ -165,13 +175,25 @@ def _check_parameters(errors: list[str], head: dict) -> dict[str, int | float]:
     if not isinstance(parameters, dict) or not parameters:
         errors.append("parameters: muss ein nicht-leeres Objekt sein")
         return {}
-    checked: dict[str, int | float] = {}
+    checked: dict[str, int | float | str] = {}
     for name, value in parameters.items():
         if not isinstance(name, str) or not _PARAMETER_NAME_RE.match(name):
             errors.append(f"parameters: '{name}' ist kein gueltiger Name ([a-z][a-z0-9_]*)")
             continue
+        if isinstance(value, str):
+            if not _DECIMAL_LITERAL_RE.match(value):
+                errors.append(
+                    f"parameters.{name}: als Zeichenkette ist nur eine ausgeschriebene "
+                    f"Dezimalzahl erlaubt (etwa \"1000.00\"), nicht {value!r}"
+                )
+                continue
+            checked[name] = value
+            continue
         if isinstance(value, bool) or not isinstance(value, int | float):
-            errors.append(f"parameters.{name}: erwartet eine Zahl, nicht {type(value).__name__}")
+            errors.append(
+                f"parameters.{name}: erwartet eine Zahl oder eine ausgeschriebene "
+                f"Dezimalzahl als Zeichenkette, nicht {type(value).__name__}"
+            )
             continue
         checked[name] = value
     return checked

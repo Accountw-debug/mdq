@@ -386,3 +386,109 @@ def test_ap_con_001_meldet_keinen_zentralregulierer(regression_run) -> None:
         for key in [finding["entity"]["bp_key"], *finding["entity"]["related_bp_keys"]]
     }
     assert not any(key.startswith("C:") for key in beteiligt)
+
+
+# --- AP-LEA-002 – Skontoverlust -------------------------------------------------------
+
+
+def test_ap_lea_002_liefert_die_acht_kreditoren(regression_run) -> None:
+    findings = findings_of(regression_run, "AP-LEA-002")
+    assert sorted(
+        (f["entity"]["bp_key"], f["entity"]["company_code"]) for f in findings
+    ) == [
+        ("V:0000200117", "1000"),
+        ("V:0000200177", "1000"),
+        ("V:0000200180", "1000"),
+        ("V:0000200181", "1000"),
+        ("V:0000200186", "2000"),
+        ("V:0000200188", "1000"),
+        ("V:0000200190", "1000"),
+        ("V:0000200191", "1000"),
+    ]
+
+
+def test_ap_lea_002_trifft_den_ankerfall_aus_f005(regression_run) -> None:
+    """F-005 ist Victors fachliche Spec fuer diese Regel – der Lauf muss sie treffen.
+
+    Verglichen werden die Zahlen, die aus den Daten kommen: 23 von 31 Rechnungen,
+    Skontobasis 240.620,00 EUR, Verlust 4.812,40 EUR bei 2 % und Zahlungsbedingung ZB02.
+    """
+    finding = next(
+        f
+        for f in findings_of(regression_run, "AP-LEA-002")
+        if f["entity"]["bp_key"] == "V:0000200117"
+    )
+    assert finding["title"] == "Skontoverlust 12 Monate: 4.812,40 EUR bei 23 Rechnungen"
+    assert finding["current"]["display"].startswith("23 von 31 Rechnungen nach Skontofrist")
+    assert "ZB02" in finding["current"]["display"]
+    assert finding["impact_eur"]["amount"] == "4812.40"
+    assert finding["impact_eur"]["currency"] == "EUR"
+    assert "240.620,00 EUR × 2 %" in finding["impact_eur"]["formula"]
+
+
+def test_ap_lea_002_haelt_die_drei_toepfe_auseinander(regression_run) -> None:
+    """Realisiert, verfallen-unbezahlt, vermeidbar – nur der dritte ist ein Versprechen.
+
+    `impact_eur` traegt allein den realisierten Verlust; die beiden offenen Toepfe stehen
+    in der Evidenz, und ihre Summen sind verschieden benannt.
+    """
+    findings = findings_of(regression_run, "AP-LEA-002")
+    assert findings, "ohne Findings prueft dieser Test nichts"
+    for finding in findings:
+        offen = next(e for e in finding["evidence"] if e["reference"].startswith("BSIK"))
+        assert "verfallen)" in offen["value"]
+        assert "vermeidbar)" in offen["value"]
+        assert offen["agrees"] is False
+        # Der Schaden ist der realisierte Verlust, nicht die Summe aller drei Toepfe
+        assert finding["impact_eur"]["amount"] != "0.00"
+
+
+def test_ap_lea_002_verspricht_nur_was_zu_holen_ist(regression_run) -> None:
+    """Der Handlungssatz nennt einen vermeidbaren Betrag nur, wenn es einen gibt.
+
+    Genau ein Kreditor des Demo-Mandanten hat eine offene Rechnung mit laufender
+    Skontofrist; bei den uebrigen sieben sagt der Satz ausdruecklich, dass nichts mehr
+    zu holen ist – sonst laese der Bericht sich wie eine Einsparung.
+    """
+    mit_rest, ohne_rest = [], []
+    for finding in findings_of(regression_run, "AP-LEA-002"):
+        (mit_rest if "vermeidbar" in finding["proposed"]["display"] else ohne_rest).append(
+            finding["entity"]["bp_key"]
+        )
+    assert mit_rest == ["V:0000200117"]
+    assert len(ohne_rest) == 7
+    for finding in findings_of(regression_run, "AP-LEA-002"):
+        if finding["entity"]["bp_key"] in ohne_rest:
+            assert "nichts mehr zu holen" in finding["proposed"]["display"]
+
+
+def test_ap_lea_002_traegt_ein_soll_ohne_wert(regression_run) -> None:
+    """Kein Feld ist falsch, sondern ein Takt: der Handlungssatz ist das Soll (D-186)."""
+    for finding in findings_of(regression_run, "AP-LEA-002"):
+        assert finding["tier"] == "C"
+        assert finding["action_type"] == "process"
+        assert finding["proposed"]["value"] is None
+        assert finding["proposed"]["display"].startswith("Zahllauf-Timing")
+
+
+def test_ap_lea_002_rechnet_ohne_float(regression_run) -> None:
+    """Betraege tragen zwei Dezimalen und keine Fliesskomma-Reste (Regel 2).
+
+    `sum(basis * prozent) / 100` haette in DuckDB ein DOUBLE ergeben – sichtbar an
+    Werten wie 1900.0000000000005. Gerechnet wird deshalb mit `* 0.01` in DECIMAL.
+    """
+    for finding in findings_of(regression_run, "AP-LEA-002"):
+        betrag = finding["impact_eur"]["amount"]
+        assert re.match(r"^-?[0-9]+\.[0-9]{2}$", betrag), betrag
+
+
+def test_ap_lea_002_nennt_den_stichtag_des_laufs(regression_run) -> None:
+    """Der Zeitraum kommt aus dem Lauf, nicht aus `current_date` (Regel 9).
+
+    Sonst lieferte derselbe Input morgen andere Findings. Taggenau statt als Monatslabel:
+    das Fenster beginnt am Stichtag minus zwoelf Monate, nicht am Monatsersten.
+    """
+    for finding in findings_of(regression_run, "AP-LEA-002"):
+        statistik = next(e for e in finding["evidence"] if e["reference"].startswith("BSAK"))
+        assert statistik["reference"] == "BSAK 2025-08-28..2026-08-28"
+        assert statistik["observed_at"] == "2026-08-28"

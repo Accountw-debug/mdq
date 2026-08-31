@@ -277,3 +277,28 @@ def test_cli_rules_list_reports_broken_rule(tmp_path, valid_rule_text) -> None:
 def test_cli_rules_list_empty_directory(tmp_path) -> None:
     result = runner.invoke(app, ["rules", "list", "--dir", str(tmp_path)])
     assert result.exit_code == EXIT_NO_INPUT
+
+
+def test_betragsschwelle_darf_eine_zeichenkette_sein(tmp_path, valid_rule_text) -> None:
+    """Eine ausgeschriebene Dezimalzahl ist als Parameter erlaubt (Regel 2)."""
+    text = valid_rule_text.replace(
+        "requires_tables: [business_partner]",
+        'requires_tables: [business_partner]\nparameters:\n  min_loss: "1000.00"',
+    )
+    path = tmp_path / "AR-VAL-009.rule.sql"
+    path.write_text(text, encoding="utf-8")
+    assert load_rule_file(path).parameters == {"min_loss": "1000.00"}
+
+
+def test_zeichenkette_ohne_zahl_wird_gemeldet(tmp_path, valid_rule_text) -> None:
+    """Alles andere als eine Dezimalzahl kommt als Zeichenkette nicht ins SQL."""
+    text = valid_rule_text.replace(
+        "requires_tables: [business_partner]",
+        'requires_tables: [business_partner]\nparameters:\n  min_loss: "1000; DROP TABLE"',
+    )
+    path = tmp_path / "AR-VAL-009.rule.sql"
+    path.write_text(text, encoding="utf-8")
+    with pytest.raises(RuleError) as excinfo:
+        load_rule_file(path)
+    assert "min_loss" in str(excinfo.value)
+    assert "Dezimalzahl" in str(excinfo.value)
