@@ -1,7 +1,8 @@
 # Extraktionsanleitung SAP ECC – Finance Master Data & Leakage Check
 
-Ziel: 5–6 Exports je Seite (Debitoren/Kreditoren), Aufwand beim Kunden ca. 1–2 Stunden
-für einen SAP-Key-User. Es wird nichts im System geändert, nur gelesen.
+Ziel: **15 Exportdateien** – vier für beide Seiten gemeinsam, sechs Debitoren, fünf
+Kreditoren. Aufwand beim Kunden ca. 1–2 Stunden für einen SAP-Key-User. Es wird nichts im
+System geändert, nur gelesen.
 
 ## Grundeinstellungen für alle Exports (SE16N)
 
@@ -15,15 +16,28 @@ für einen SAP-Key-User. Es wird nichts im System geändert, nur gelesen.
 
 ## Minimal-Set V1
 
+Die Feldlisten stehen so in `logic/mappings/sap_ecc.yaml` – der Datei, die die Engine
+wirklich liest. Eine Spalte, die im Export fehlt, meldet der Lauf mit Namen; eine Spalte,
+die weder abgebildet noch ausdrücklich ignoriert ist, bricht ihn ab (Regel 4). Dass diese
+Anleitung und das Mapping nicht auseinanderlaufen, hält ein Test fest
+(`engine/tests/test_extraction_doc.py`).
+
 ### Beide Seiten (Pflicht)
 
 | Tabelle | Inhalt | Felder (technisch) | Filter |
 |---|---|---|---|
 | T001 | Buchungskreise mit **Hauswährung** | BUKRS BUTXT WAERS LAND1 | BUKRS im Scope |
+| TIBAN | IBAN zu Bankverbindung | BANKS BANKL BANKN BKONT IBAN VALID_FROM | keiner (Tabelle ist klein) |
+| T052 | Zahlungsbedingungen: Skontotage und -prozent | ZTERM ZTAGG ZTAG1 ZPRZ1 ZTAG2 ZPRZ2 ZTAG3 | keiner |
+| T052U | Texte zu den Zahlungsbedingungen | ZTERM SPRAS TEXT1 | SPRAS = D bevorzugt |
 
 Ohne T001 gibt es keine Hauswährung, und `DMBTR` wäre ein Betrag ohne Währung. Die
 Relevanzstufe bricht dann ab und nennt die fehlende Tabelle – ein Ersatz über die
 Belegwährung (`WAERS` in BSID/BSIK) wäre bei jeder Fremdwährungsrechnung falsch.
+Kommen im Scope mehrere Hauswährungen vor, endet der Lauf mit Exit 2 und nennt den
+Ausweg: je Hauswährung einen Lauf, abgegrenzt über `--company-codes`.
+
+TIBAN, T052 und T052U werden **einmal** exportiert und gelten für beide Seiten.
 
 ### Debitoren (AR)
 
@@ -32,21 +46,30 @@ Belegwährung (`WAERS` in BSID/BSIK) wäre bei jeder Fremdwährungsrechnung fals
 | KNA1 | Allgemeine Daten | KUNNR LAND1 NAME1 NAME2 NAME3 NAME4 SORTL ORT01 PSTLZ REGIO STRAS PFACH PSTL2 ADRNR KTOKD XCPDK LOEVM SPERR KNRZA KONZS SPRAS ERDAT ERNAM TELF1 STCD1 STCD2 STCEG | keiner |
 | KNB1 | Buchungskreisdaten | KUNNR BUKRS AKONT ZTERM MAHNA SPERR LOEVM ZWELS ZAHLS KNRZB TOGRU ZUAWA ERDAT ERNAM | BUKRS im Scope |
 | KNBK | Bankverbindungen | KUNNR BANKS BANKL BANKN BKONT BVTYP KOINH XEZER | keiner |
-| TIBAN | IBAN zu Bankverbindung | BANKS BANKL BANKN BKONT IBAN VALID_FROM | keiner (Tabelle ist klein) |
 | KNVP | Partnerrollen (Regulierer, Rechnungsempfänger) | KUNNR VKORG VTWEG SPART PARVW KUNN2 PARZA | PARVW in RG RE AG WE |
-| BSID + BSAD *oder* FBL5N | Offene und ausgeglichene Posten | KUNNR BUKRS GJAHR BELNR BUZEI BUDAT BLDAT CPUDT BLART BSCHL SHKZG UMSKZ WAERS WRBTR DMBTR XBLNR ZUONR SGTXT ZFBDT ZTERM ZBD1T ZBD1P SKFBT SKNTO ZLSCH ZLSPR REBZG HKONT AUGDT AUGBL | BUDAT letzte 24 Monate; BSID komplett |
-| T052 (+ T052U) | Zahlungsbedingungen | ZTERM ZTAGG ZTAG1 ZPRZ1 ZTAG2 ZPRZ2 ZTAG3 · T052U: ZTERM SPRAS TEXT1 | keiner |
+| BSID | Offene Posten | KUNNR BUKRS GJAHR BELNR BUZEI BUDAT BLDAT CPUDT BLART BSCHL SHKZG UMSKZ WAERS WRBTR DMBTR XBLNR ZUONR SGTXT ZFBDT ZTERM ZBD1T ZBD1P SKFBT SKNTO ZLSCH ZLSPR REBZG HKONT AUGDT AUGBL | komplett |
+| BSAD | Ausgeglichene Posten | KUNNR BUKRS GJAHR BELNR BUZEI BUDAT BLDAT CPUDT BLART BSCHL SHKZG UMSKZ WAERS WRBTR DMBTR XBLNR ZUONR SGTXT ZFBDT ZTERM ZBD1T ZBD1P SKFBT SKNTO ZLSCH ZLSPR REBZG HKONT AUGDT AUGBL | BUDAT letzte 24 Monate |
 
 ### Kreditoren (AP)
 
 | Tabelle | Inhalt | Felder (technisch) | Filter |
 |---|---|---|---|
 | LFA1 | Allgemeine Daten | LIFNR LAND1 NAME1 NAME2 NAME3 NAME4 SORTL ORT01 PSTLZ REGIO STRAS PFACH PSTL2 ADRNR KTOKK XCPDK LOEVM SPERR LNRZA KONZS SPRAS ERDAT ERNAM TELF1 STCD1 STCD2 STCEG | keiner |
-| LFB1 | Buchungskreisdaten | LIFNR BUKRS AKONT ZTERM SPERR LOEVM ZWELS ZAHLS LNRZB TOGRU **REPRF** ZUAWA ERDAT ERNAM | BUKRS im Scope |
+| LFB1 | Buchungskreisdaten | LIFNR BUKRS AKONT ZTERM SPERR LOEVM ZWELS ZAHLS LNRZB TOGRU REPRF ZUAWA ERDAT ERNAM | BUKRS im Scope |
 | LFBK | Bankverbindungen | LIFNR BANKS BANKL BANKN BKONT BVTYP KOINH XEZER | keiner |
-| TIBAN | wie oben | – | – |
-| BSIK + BSAK *oder* FBL1N | Posten | wie BSID/BSAD mit LIFNR statt KUNNR, zusätzlich EBELN | BUDAT letzte 24 Monate |
-| T052 | wie oben | – | – |
+| BSIK | Offene Posten | LIFNR BUKRS GJAHR BELNR BUZEI BUDAT BLDAT CPUDT BLART BSCHL SHKZG UMSKZ WAERS WRBTR DMBTR XBLNR ZUONR SGTXT ZFBDT ZTERM ZBD1T ZBD1P SKFBT SKNTO ZLSCH ZLSPR REBZG EBELN HKONT AUGDT AUGBL | komplett |
+| BSAK | Ausgeglichene Posten | LIFNR BUKRS GJAHR BELNR BUZEI BUDAT BLDAT CPUDT BLART BSCHL SHKZG UMSKZ WAERS WRBTR DMBTR XBLNR ZUONR SGTXT ZFBDT ZTERM ZBD1T ZBD1P SKFBT SKNTO ZLSCH ZLSPR REBZG EBELN HKONT AUGDT AUGBL | BUDAT letzte 24 Monate |
+
+Die vier Postentabellen sind bis auf drei Dinge gleich: Kontonummernfeld (`KUNNR` bzw.
+`LIFNR`), Bestellnummer (`EBELN`, nur auf der Kreditorenseite) und die Frage, ob der
+Posten offen ist – das sagt schon die Quelltabelle, ein eigenes Feld gibt es dafür nicht.
+`AUGDT` und `AUGBL` gehören trotzdem in **jeden** der vier Exports: ohne sie ist nicht
+erkennbar, wann und womit ausgeglichen wurde.
+
+Zwei Felder werden erfahrungsgemäß übersehen und sind beide wichtig: **REPRF** in LFB1
+(Prüfung auf doppelte Rechnung – ohne das Feld fehlt die Ursache zu jeder Doppelzahlung)
+und **XBLNR** in den Postentabellen (Referenz, meist die Rechnungsnummer des Lieferanten –
+ohne sie ist eine Doppelzahlung nicht als solche zu erkennen).
 
 ## Alternative: FBL5N / FBL1N statt BSID/BSAD bzw. BSIK/BSAK
 
@@ -57,14 +80,22 @@ Feldern, Export als Tabellenkalkulation/Textdatei. Wichtig: Spalte **Ausgleichsb
 
 ## Erweiterung (nur wenn vereinbart)
 
+Diese Tabellen liest V1 noch nicht; im Mapping stehen sie mit `status: later` und ihren
+Feldern von Interesse. Wer sie mitliefert, spart einen zweiten Termin.
+
 | Tabelle | Zweck | Felder |
 |---|---|---|
 | KNB5 | Mahndaten | KUNNR BUKRS MABER MAHNS MADAT MANSP KNRMA |
-| KNVV | Vertriebsbereich | KUNNR VKORG VTWEG SPART ZTERM INCO1 WAERS KDGRP AUFSD LIFSD FAKSD LOEVM |
-| ADR6 | E-Mail-Adressen | ADDRNUMBER SMTP_ADDR FLGDEFAULT |
-| CDHDR + CDPOS | Änderungsbelege (Bankdaten, Sperren) | CDHDR: OBJECTCLAS OBJECTID CHANGENR USERNAME UDATE UTIME TCODE · CDPOS: OBJECTCLAS OBJECTID CHANGENR TABNAME FNAME VALUE_OLD VALUE_NEW CHNGIND · Filter OBJECTCLAS = DEBI / KRED, UDATE letzte 24 Monate |
-| REGUH + REGUP | Zahlläufe (erfolgreiche Zahlungen an IBAN) | REGUH: LAUFD LAUFI ZBUKR LIFNR KUNNR VBLNR ZALDT RWBTR WAERS ZBNKS ZBNKL ZBNKN ZIBAN · REGUP: LAUFD LAUFI VBLNR BELNR GJAHR |
-| FEBKO + FEBEP | Kontoauszüge (Zahler-IBAN) | FEBKO: KUKEY AZDAT ABSND · FEBEP: KUKEY ESNUM KWBTR KWAER PABLN PARTN VGEXT SGTXT |
+| KNVV | Vertriebsbereich | KUNNR VKORG VTWEG SPART ZTERM INCO1 INCO2 WAERS KDGRP AUFSD LIFSD FAKSD LOEVM |
+| ADR6 | E-Mail-Adressen | ADDRNUMBER SMTP_ADDR |
+| CDHDR | Änderungsbelege, Kopf | OBJECTCLAS OBJECTID CHANGENR USERNAME UDATE UTIME TCODE |
+| CDPOS | Änderungsbelege, Positionen | OBJECTCLAS OBJECTID CHANGENR TABNAME FNAME VALUE_NEW VALUE_OLD CHNGIND |
+
+Filter für CDHDR/CDPOS: `OBJECTCLAS` in DEBI / KRED, `UDATE` letzte 24 Monate.
+
+Ohne Eintrag im Mapping und deshalb ohne Feldliste hier – erst wenn eine Regel sie
+braucht: REGUH + REGUP (Zahlläufe, erfolgreiche Zahlungen an eine IBAN) und
+FEBKO + FEBEP (Kontoauszüge, Zahler-IBAN).
 
 ## Kontrollsummen (bitte mitliefern)
 
