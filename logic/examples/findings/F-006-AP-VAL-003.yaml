@@ -1,7 +1,7 @@
 finding_id: F-e2f7b19c4d83
 run_id: demo-2026-08-30
 rule_id: AP-VAL-003
-rule_version: "1.0"
+rule_version: "1.1"
 engine_version: "0.1.0"
 pack_version: "0.1"
 side: AP

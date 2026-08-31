@@ -6,7 +6,7 @@ import re
 import pytest
 from typer.testing import CliRunner
 
-from mdq import LOGIC_DIR
+from mdq import LOGIC_DIR, RULES_DIR
 from mdq.cli import EXIT_INVALID, EXIT_NO_INPUT, app
 from mdq.findings import (
     FindingFileError,
@@ -17,6 +17,7 @@ from mdq.findings import (
     schema_version,
     validate_finding,
 )
+from mdq.rules import load_rules
 
 runner = CliRunner()
 
@@ -31,6 +32,30 @@ def test_examples_exist() -> None:
 @pytest.mark.parametrize("path", EXAMPLE_FILES, ids=lambda p: p.name)
 def test_example_findings_are_valid(path) -> None:
     assert validate_finding(load_finding_file(path)) == []
+
+
+@pytest.mark.parametrize("path", EXAMPLE_FILES, ids=lambda p: p.name)
+def test_example_finding_matches_its_rule_version(path) -> None:
+    """Ein Beispiel-Finding nennt die Version der Regel, die es zeigt.
+
+    F-006 trug `1.0` und zeigte eine Euro-Wirkung, die erst 1.1 liefert (D-196) – ein
+    halbes Jahr spaeter haette niemand mehr gewusst, welche der beiden Angaben stimmt.
+    Diese Klammer faellt auf, sobald eine Regelversion steigt und ihr Beispiel nicht.
+
+    Schlaegt sie an, ist die Antwort **nicht**, das Beispiel nachzuziehen: die Dateien in
+    `logic/examples/` sind Victors fachliche Spec (Regel 1). Entweder das Beispiel zeigt
+    etwas, das die neue Version so nicht mehr liefert – dann gehoert es besprochen –,
+    oder die Versionsangabe hinkt nach und wird ausdruecklich freigegeben.
+    """
+    finding = load_finding_file(path)
+    versions = {rule.id: rule.version for rule in load_rules(RULES_DIR)}
+    rule_id = finding["rule_id"]
+    if rule_id not in versions:
+        pytest.skip(f"{rule_id} ist noch nicht gebaut")
+    assert finding["rule_version"] == versions[rule_id], (
+        f"{path.name}: Beispiel nennt {finding['rule_version']}, "
+        f"{rule_id} steht auf {versions[rule_id]}"
+    )
 
 
 def test_minimal_finding_is_valid(minimal_finding) -> None:
