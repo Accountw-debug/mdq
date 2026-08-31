@@ -27,6 +27,11 @@ diese Datei wird dann geleert.
 
 ## Entscheidungen (werden beim Merge nach `docs/DECISIONS.md` übernommen)
 
+> **Übertragen am 2026-08-31** beim Merge nach `main`: alle Einträge bis hier stehen
+> in `docs/DECISIONS.md` als **D-112 bis D-184** mit der Herkunft
+> „UI-Strom". Neue Einträge kommen weiterhin hier hinein und werden beim nächsten
+> Merge nachgezogen; diese Datei bleibt die Arbeitsdatei des UI-Stroms.
+
 Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
 
 - **2026-08-30 · Ab 30.08.: UI ist Produktcode, kein Prototyp.** Freigabe Victor. Daraus
