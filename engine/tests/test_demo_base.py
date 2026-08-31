@@ -4,11 +4,18 @@ Ohne diese Tests wäre der Demo-Mandant wertlos. In Aufgabe 2 wird jeder Defekt 
 einem erwarteten Finding zugeordnet; jeder Zufallstreffer aus dem Basis-Mandanten wäre
 ein Finding ohne Defekt – und die Regression würde entweder rot oder falsch grün.
 
+Die Prüfungen hier messen die Daten: sie rechnen nach, was eine Regel später sähe. Am
+Ende der Datei steht die andere Richtung – ein vollständiger `mdq run` über denselben
+Mandanten, der die gebauten Regeln wirklich laufen lässt (SPRINT-3, Aufgabe 9). Beides
+wird gebraucht: die Datenprüfung deckt auch Regeln ab, die es noch nicht gibt, der Lauf
+deckt ab, was eine gebaute Regel über die Absicht hinaus meldet.
+
 Die Tests nennen nur Schlüssel und Regel-IDs, nie Namen, IBAN oder Adressen (Regel 8).
 """
 
+import json
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import timedelta
 from decimal import Decimal
 from itertools import pairwise
@@ -17,13 +24,19 @@ import pytest
 import yaml
 from schwifty import IBAN
 from stdnum.de import vat as de_vat
+from typer.testing import CliRunner
 
 from mdq import LOGIC_DIR
+from mdq.cli import app
 from mdq.demo import DATA_AS_OF, PAYMENT_TERMS, SKONTO_LOSS_LIMIT, WINDOW_END, WINDOW_START
 from mdq.demo.names import LEGAL_FORMS_BY_COUNTRY, normalize_core
 from mdq.formats import parse_amount, parse_date
+from mdq.report import STATUS_EXECUTED
+from mdq.run import EXIT_CLEAN, RunOptions, execute_run
 
 from .conftest import demo_rows
+
+runner = CliRunner()
 
 #: Meldegrenze von AP-LEA-002 – der Basis-Mandant bleibt darunter
 SKONTO_FINDING_LIMIT = Decimal("1000.00")
@@ -300,3 +313,57 @@ def test_cleared_share_is_about_two_thirds(items) -> None:
         cleared = [row for row in invoices if row["AUGBL"] != ""]
         share = len(cleared) / len(invoices)
         assert 0.55 <= share <= 0.75, share
+
+# --- Die andere Richtung: der Lauf ueber den defektfreien Mandanten --------------------
+
+
+@pytest.fixture(scope="module")
+def base_run(demo_client, tmp_path_factory):
+    """Ein vollstaendiger `mdq run` ueber den Mandanten, den `--no-defects` schreibt.
+
+    Fester `created_at`, damit zwei Laeufe vergleichbar bleiben (D-092).
+    """
+    out, _ = demo_client
+    return execute_run(
+        RunOptions(
+            input_dir=out,
+            out_dir=tmp_path_factory.mktemp("base_run"),
+            created_at="2026-08-31T08:00:00Z",
+        )
+    )
+
+
+def test_no_rule_fires_on_the_defect_free_client(base_run) -> None:
+    """Der Nachweis zu `--no-defects`: kein Finding, wenn kein Defekt gesetzt ist (D-045).
+
+    Bis hierher war die Invariante nur ueber die Daten geprueft – jede Regel einzeln
+    nachgerechnet. Dieser Test laesst die gebauten Regeln wirklich laufen. Schlaegt er
+    an, ist das ein Fund und keine Testschwaeche: entweder traegt der Basis-Generator
+    einen Defekt, den niemand gesetzt hat, oder eine Regel trennt schlechter als ihr
+    Klartext behauptet. Gemeldet wird er dann, nicht angepasst (Regel 1).
+    """
+    by_rule = Counter(finding["rule_id"] for finding in base_run.findings)
+    assert base_run.findings == [], f"Findings ohne Defekt: {dict(by_rule)}"
+
+
+def test_the_run_over_the_defect_free_client_is_clean(base_run) -> None:
+    """Keine Rejects, keine uebersprungene Regel, Exit 0 – der Lauf selbst ist unauffaellig."""
+    assert base_run.report.rejects == []
+    assert [rule.rule_id for rule in base_run.report.rules if rule.status != STATUS_EXECUTED] == []
+    assert base_run.exit_code == EXIT_CLEAN
+
+
+def test_the_cli_flag_writes_exactly_this_client(demo_client, tmp_path) -> None:
+    """`--no-defects` und die Fixture sind derselbe Mandant.
+
+    Ohne diese Klammer pruefte alles oben einen Mandanten, den der Schalter so gar nicht
+    schreibt – der Nachweis haette dann ein Loch genau an der Stelle, um die es geht.
+    """
+    _, fixture_manifest = demo_client
+    result = runner.invoke(
+        app,
+        ["demo", "generate", "--out", str(tmp_path / "ohne"), "--no-defects"],
+    )
+    assert result.exit_code == 0, result.stderr
+    written = json.loads((tmp_path / "ohne" / "manifest.json").read_text(encoding="utf-8"))
+    assert written == fixture_manifest

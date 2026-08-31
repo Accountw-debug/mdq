@@ -65,9 +65,18 @@ def test_other_seed_gives_other_data(tmp_path) -> None:
 
 
 def test_defects_are_bound_to_their_seed(tmp_path) -> None:
-    """Ein anderer Seed bricht mit klarer Meldung ab, statt in Folgefehler zu laufen."""
-    with pytest.raises(DefectError, match="Seed"):
+    """Ein anderer Seed bricht mit klarer Meldung ab, statt in Folgefehler zu laufen.
+
+    Die Meldung nennt den Ausweg beim Namen (D-059) – und der Ausweg funktioniert.
+    Eine Meldung, die auf einen Schalter verweist, der nichts tut, waere schlimmer als
+    keine.
+    """
+    with pytest.raises(DefectError, match="Seed") as excinfo:
         generate(tmp_path / "x", DEFAULT_SEED + 1)
+    assert "--no-defects" in str(excinfo.value)
+
+    manifest = generate(tmp_path / "y", DEFAULT_SEED + 1, ())
+    assert manifest["seed"] == DEFAULT_SEED + 1
 
 
 def test_manifest_matches_files(demo_client) -> None:
