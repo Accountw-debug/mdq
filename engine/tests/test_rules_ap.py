@@ -5,7 +5,24 @@ prueft, **welche** Findings entstehen, hier steht, **wie** sie aussehen – Mask
 Stufe, Soll. Beide teilen sich den Lauf aus `regression_run` (conftest).
 """
 
+import re
+
 from .conftest import findings_of
+
+#: Eine Folge aus zwei Buchstaben und mindestens zehn weiteren Zeichen ohne Trenner ist
+#: eine unmaskierte IBAN. Die Maske (`DE44 … 4932`) enthaelt Leerzeichen und ist kuerzer.
+IBAN_LIKE = re.compile(r"[A-Z]{2}[0-9][0-9][A-Za-z0-9]{10,}")
+
+
+def _all_text(value) -> list[str]:
+    """Jede Zeichenkette irgendwo in einem Finding – auch tief in evidence/records."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [text for item in value.values() for text in _all_text(item)]
+    if isinstance(value, list):
+        return [text for item in value for text in _all_text(item)]
+    return []
 
 # --- AP-VAL-001 – USt-ID-Praefix passt nicht zum Sitzland ----------------------------
 
@@ -96,3 +113,109 @@ def test_ap_val_002_schlaegt_kein_soll_vor(regression_run) -> None:
     for finding in findings:
         assert finding["tier"] == "C"
         assert "proposed" not in finding
+
+
+# --- AP-VAL-003 – IBAN-Pruefziffer ---------------------------------------------------
+
+
+def test_ap_val_003_liefert_die_fuenf_kreditoren(regression_run) -> None:
+    findings = findings_of(regression_run, "AP-VAL-003")
+    assert sorted(f["entity"]["bp_key"] for f in findings) == [
+        "V:0000200072",
+        "V:0000200073",
+        "V:0000200075",
+        "V:0000200077",
+        "V:0000201330",
+    ]
+
+
+def test_ap_val_003_maskiert_nach_dem_schema(regression_run) -> None:
+    """Vier Stellen vorn, vier hinten, dazwischen die Ellipse (finding.schema.json)."""
+    maske = re.compile(r"^[A-Z0-9]{4} … [A-Z0-9]{4}$")
+    findings = findings_of(regression_run, "AP-VAL-003")
+    assert findings, "ohne Findings prueft dieser Test nichts"
+    for finding in findings:
+        assert maske.match(finding["current"]["value"]), finding["current"]["value"]
+
+
+def test_ap_val_003_nennt_bankschluessel_und_bankdetail(regression_run) -> None:
+    """Maskiert, aber auffindbar: BANKL und BVTYP identifizieren die Bankverbindung
+    im Stammsatz, ohne die Kontonummer zu nennen (D-105)."""
+    for finding in findings_of(regression_run, "AP-VAL-003"):
+        referenz = finding["evidence"][0]["reference"]
+        assert referenz.startswith("TIBAN BANKL ")
+        assert " / BVTYP " in referenz
+
+
+def test_ar_val_003_nennt_bankschluessel_und_bankdetail(regression_run) -> None:
+    """Derselbe Nachzug in der AR-Schwester – D-105 gilt fuer beide Regeln."""
+    findings = findings_of(regression_run, "AR-VAL-003")
+    assert findings, "ohne Findings prueft dieser Test nichts"
+    for finding in findings:
+        referenz = finding["evidence"][0]["reference"]
+        assert referenz.startswith("TIBAN BANKL ")
+        assert " / BVTYP " in referenz
+
+
+def test_ap_val_003_bleibt_stufe_c_ohne_soll(regression_run) -> None:
+    """Aus einer falschen IBAN folgt keine richtige – und Klasse 1 wird nie Stufe A."""
+    for finding in findings_of(regression_run, "AP-VAL-003"):
+        assert finding["tier"] == "C"
+        assert finding["damage_class"] == 1
+        assert "proposed" not in finding           # kein Soll, kein Vorschlag (D-186)
+        assert finding["remediation"]["mass_change_eligible"] is False
+
+
+# --- Maskierung, ueber den ganzen Lauf (D-105) ---------------------------------------
+
+
+#: Regeln, die Bankdaten ins Finding schreiben. Ueber genau sie laeuft die Kehrmaschine.
+#: Ein laufweiter Test ist nicht moeglich: eine USt-IdNr. hat dieselbe Form wie eine IBAN
+#: ("NL130921080B80"), und ein Formmuster kann beide nicht trennen. Waechst die Liste um
+#: eine Regel, die Bankdaten traegt, gehoert sie hier hinein - `test_bankdatenregeln_sind_
+#: vollstaendig` haelt fest, dass keine vergessen wird.
+BANKDATENREGELN = ("AR-VAL-003", "AP-VAL-003")
+
+
+def test_bankdatenregeln_zeigen_nirgends_eine_vollstaendige_iban(regression_run) -> None:
+    """Schadensklasse 1: die IBAN steht nur maskiert im Finding (Regel 8, D-105).
+
+    Geprueft wird **jede Zeichenkette jedes Findings** dieser Regeln - `current`,
+    `evidence`, `records`, `source_summary`, `params`, `title` -, nicht nur die Felder,
+    an die man beim Schreiben der Regel denkt. D-105 hat den Test fuer AR-VAL-003
+    eingefuehrt; AP-VAL-003 laeuft jetzt mit, AP-CON-001 kommt mit seiner Regel dazu.
+    """
+    for rule_id in BANKDATENREGELN:
+        findings = findings_of(regression_run, rule_id)
+        assert findings, f"{rule_id} liefert nichts - dieser Test prueft dann nichts"
+        for finding in findings:
+            for text in _all_text(finding):
+                assert not IBAN_LIKE.search(text), (
+                    f"unmaskierte IBAN in {rule_id} {finding['entity']['bp_key']}"
+                )
+
+
+def test_bankdatenregeln_sind_vollstaendig() -> None:
+    """Jede gebaute Regel, die `bp_bank_account` liest, steht in `BANKDATENREGELN`.
+
+    Sonst waechst die Engine um eine Regel mit Bankdaten, und die Kehrmaschine laeuft
+    stillschweigend an ihr vorbei.
+    """
+    from mdq.rules import load_rules
+
+    mit_bankdaten = {
+        rule.id for rule in load_rules() if "bp_bank_account" in rule.requires_tables
+    }
+    assert mit_bankdaten == set(BANKDATENREGELN)
+
+
+def test_kein_beispiel_finding_zeigt_eine_vollstaendige_iban(example_findings_dir) -> None:
+    """Dieselbe Kehrmaschine ueber `logic/examples/findings/` (D-105, D-069 Punkt 3).
+
+    F-006 zeigte die IBAN bis Aufgabe 7 vollstaendig; ohne diesen Test faellt ein
+    Rueckfall dorthin niemandem auf, weil das Schema den Freitext in `current.value`
+    nicht gegen das Maskenmuster prueft.
+    """
+    for path in sorted(example_findings_dir.glob("*.yaml")):
+        treffer = IBAN_LIKE.search(path.read_text(encoding="utf-8"))
+        assert treffer is None, f"unmaskierte IBAN in {path.name}"

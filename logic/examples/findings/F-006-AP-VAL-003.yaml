@@ -24,12 +24,12 @@ relevance:
 current:
   source_table: TIBAN
   source_field: IBAN
-  value: "DE44 5001 0517 5407 3249 32"
+  value: "DE44 … 4932"
   display: "Prüfziffer ungültig (schwifty)"
 evidence:
   - source_type: iban_checksum
-    reference: "TIBAN"
-    value: "DE44500105175407324932"
+    reference: "TIBAN BANKL 50010517 / BVTYP 0001"
+    value: "DE44 … 4932"
     observed_at: null
     agrees: false
     note: "Mod-97-Prüfung fehlgeschlagen"
