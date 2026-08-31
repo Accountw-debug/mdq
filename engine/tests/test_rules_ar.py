@@ -8,6 +8,8 @@ Die Regression (`test_regression.py`) prueft, **welche** Findings entstehen. Hie
 import re
 from datetime import date
 
+from mdq.formats import format_date
+
 from .conftest import findings_of
 
 #: Eine Folge aus zwei Buchstaben und mindestens zehn weiteren Zeichen ohne Trenner ist
@@ -150,6 +152,18 @@ def test_ar_lea_001_zeigt_das_leere_feld_und_den_betrag(regression_run) -> None:
         assert beleg["cleared_on"] is None and beleg["reference"] is None
 
 
+def test_ar_lea_001_nennt_das_buchungsdatum_deutsch(regression_run) -> None:
+    """Das Buchungsdatum steht im Satz und deshalb deutsch (D-201).
+
+    Verglichen wird gegen das Datum, das derselbe Beleg im Datenfeld traegt – dort in
+    ISO. Damit haelt der Test beide Seiten zusammen, statt eine Schreibweise zu wiederholen.
+    """
+    for finding in findings_of(regression_run, "AR-LEA-001"):
+        beobachtet = finding["evidence"][0]["observed_at"]
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", beobachtet), beobachtet
+        assert f" vom {format_date(beobachtet)}," in finding["current"]["display"]
+
+
 def test_ar_lea_001_ist_aelter_als_die_schwelle(regression_run) -> None:
     """Grenzfall: gemessen wird gegen den Datenstand des Laufs, nie gegen heute (D-193).
     Eine Zahlung, die am Datenstand 30 Tage oder juenger ist, ist kein Befund."""
@@ -289,12 +303,16 @@ def test_ar_hyg_001_entscheidet_nicht_sondern_legt_optionen_vor(regression_run) 
 
 
 def test_ar_hyg_001_nennt_den_fensterbeginn_des_laufs(regression_run) -> None:
-    """Der Fensterbeginn kommt vom Lauf, nicht aus der Regel (D-110)."""
+    """Der Fensterbeginn kommt vom Lauf, nicht aus der Regel (D-110).
+
+    Im Freitext steht er deutsch (D-201); der Lauf fuehrt ihn weiter in ISO. Verglichen
+    wird deshalb gegen `format_date` und nicht gegen eine zweite Schreibweise im Testcode.
+    """
     fenster = regression_run.report.scope["item_window_from_effective"]
     assert fenster == "2024-09-02"
     for finding in findings_of(regression_run, "AR-HYG-001"):
-        assert fenster in finding["title"]
-        assert fenster in finding["proposed"]["source_summary"]
+        assert format_date(fenster) in finding["title"]
+        assert format_date(fenster) in finding["proposed"]["source_summary"]
 
 
 # --- AR-VAL-005 – Platzhalter in Name und Ort ----------------------------------------
@@ -369,6 +387,27 @@ def test_jedes_proposed_traegt_ein_soll(regression_run) -> None:
 # --- Betraege im Freitext (D-187) ----------------------------------------------------
 
 
+def _freitexte(finding: dict) -> list[str]:
+    """Die Felder eines Findings, die ein Mensch als Satz liest.
+
+    `evidence[].value` und `.note` gehoeren dazu – die Beispiel-Findings schreiben dort
+    „RE-4711, Belegdatum 01.03.2026". **Nicht** dazu gehoert `evidence[].reference`: das
+    ist ein Zeiger („BSAK 2025-08-28..2026-08-28", „1000/2026/1900004411") und kein Satz;
+    eine Zeitspanne darin bleibt in ISO sortierbar und eindeutig.
+    """
+    proposed = finding.get("proposed") or {}
+    texte = [
+        finding["title"],
+        finding["current"].get("display") or "",
+        proposed.get("source_summary") or "",
+        proposed.get("display") or "",
+    ]
+    for eintrag in finding.get("evidence") or ():
+        texte.append(eintrag.get("value") or "")
+        texte.append(eintrag.get("note") or "")
+    return texte
+
+
 def test_betraege_in_titeln_sind_deutsch_geschrieben(regression_run) -> None:
     """Kein `42100.00 EUR` mehr im Titel – der Betrag steht wie ueberall sonst (D-187).
 
@@ -376,15 +415,38 @@ def test_betraege_in_titeln_sind_deutsch_geschrieben(regression_run) -> None:
     danach ist die englische Schreibweise und darf in keinem Titel und keiner
     Quellenlage mehr vorkommen.
     """
-    englisch = re.compile(r"\d+\.\d{2}(?!\d)")
+    # `(?!\.\d{4})` schliesst das deutsche Datum aus: "02.09.2024" traegt dieselbe Form
+    # wie ein englischer Betrag, seit D-201 steht es so in der Prosa. Ein Betrag am
+    # Satzende ("... 42100.00.") wird weiterhin gefunden.
+    englisch = re.compile(r"\d+\.\d{2}(?!\d)(?!\.\d{4})")
     for finding in regression_run.findings:
-        texte = [finding["title"], finding["current"].get("display") or ""]
-        proposed = finding.get("proposed") or {}
-        texte.append(proposed.get("source_summary") or "")
-        texte.append(proposed.get("display") or "")
-        for text in texte:
-            # Datumsangaben und Belegnummern enthalten keinen Punkt vor zwei Ziffern
+        for text in _freitexte(finding):
             assert not englisch.search(text), (finding["finding_id"], text)
+
+
+def test_datumsangaben_in_prosa_sind_deutsch_geschrieben(regression_run) -> None:
+    """Kein `2024-09-02` in einem Satz – dort steht `02.09.2024` (D-201).
+
+    Das Gegenstueck zur Betragskehrmaschine, und aus demselben Grund laufweit: ISO
+    gehoert in die Datenfelder, wo eine Maschine mitliest, nicht in einen Satz, den
+    jemand vorliest. Eine neue Regel, die ein Datum unformatiert in den Titel schreibt,
+    faellt hier auf und nicht beim Kunden.
+    """
+    iso = re.compile(r"\d{4}-\d{2}-\d{2}")
+    for finding in regression_run.findings:
+        for text in _freitexte(finding):
+            assert not iso.search(text), (finding["finding_id"], text)
+
+
+def test_datenfelder_bleiben_iso(regression_run) -> None:
+    """Die Gegenprobe: `data_as_of` und `observed_at` sind sortierbar, nicht huebsch."""
+    deutsch = re.compile(r"\d{2}\.\d{2}\.\d{4}")
+    for finding in regression_run.findings:
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", finding["data_as_of"])
+        for eintrag in finding.get("evidence") or ():
+            beobachtet = eintrag.get("observed_at")
+            if beobachtet:
+                assert not deutsch.fullmatch(beobachtet), (finding["finding_id"], beobachtet)
 
 
 def test_ap_lea_001_nennt_den_betrag_einmal(regression_run) -> None:

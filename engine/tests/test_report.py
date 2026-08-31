@@ -245,3 +245,41 @@ def test_cli_load_uses_the_real_loader(canonical_db) -> None:
     """Gegenprobe: dieselben Dateien über load_table ergeben dieselben Zeilenzahlen."""
     rows = {load_table(canonical_db, path).rows for path in sorted(SAMPLES.glob("KNA1_*.txt"))}
     assert rows == {5}
+
+
+# --- Datum und Betrag im Bericht (D-201) ----------------------------------------------
+
+
+def test_report_writes_dates_in_german(regression_run) -> None:
+    """`report.txt` ist Prosa und schreibt Daten deutsch (D-201).
+
+    Vier Zeilen tragen ein Datum: Datenstand und Postenfenster im Kopf, das gelieferte
+    Fenster der kanonischen Stufe und Datenstand samt Fenster in der Relevanz.
+    """
+    text = (regression_run.directory / "report.txt").read_text(encoding="utf-8")
+    for zeile in (
+        "Datenstand: 28.08.2026",
+        "Postenfenster ab: 02.09.2024",
+        "Geliefertes Postenfenster: 02.09.2024 bis 28.08.2026",
+        "Fenster: nach 28.08.2025 bis 28.08.2026",
+    ):
+        assert zeile in text, zeile
+
+
+def test_run_json_keeps_dates_in_iso(regression_run) -> None:
+    """Die Gegenprobe: `run.json` liest eine Maschine, dort bleibt ISO stehen."""
+    document = json.loads((regression_run.directory / "run.json").read_text(encoding="utf-8"))
+    assert document["data_as_of"] == "2026-08-28"
+    assert document["relevance"]["window_from"] == "2025-08-28"
+    assert document["scope"]["item_window_from_effective"] == "2024-09-02"
+
+
+def test_report_writes_the_relevance_totals_in_german(regression_run) -> None:
+    """Die Summenzeile der Relevanz stand bis D-201 unformatiert da (`246952505.45 EUR`).
+
+    Sie war die letzte Stelle im Bericht, die D-187 ausgelassen hatte – derselbe Betrag
+    zweimal verschieden geschrieben ist genau das, was der Formatierer verhindern soll.
+    """
+    text = (regression_run.directory / "report.txt").read_text(encoding="utf-8")
+    assert "offene Posten 246.952.505,45 EUR" in text
+    assert "Volumen 12M 379.519.999,03 EUR" in text

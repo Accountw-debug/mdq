@@ -323,3 +323,29 @@ def format_amount(value: Decimal | str | None, currency: str | None = None) -> s
     zahl = ("-" if negativ else "") + ".".join(gruppen) + "," + nachkomma
     return f"{zahl} {currency}" if currency else zahl
 
+
+def format_date(value: date | str | None) -> str | None:
+    """Datum als deutscher Freitext: ``17.03.2026`` (D-201).
+
+    Das Gegenstueck zu :func:`format_amount` und aus demselben Grund da: ein Datum mitten
+    in einem Satz ist von der Prosa nur durch Raten zu trennen, also wird es schon
+    geschrieben, wenn es entsteht. Ohne ``locale`` und ohne ``strftime``-Laenderformat:
+    dieselbe Zeichenkette auf jedem Rechner (Regel 9).
+
+    **Nur fuer Prosa.** In Datenfeldern – ``data_as_of``, ``observed_at``, ``params`` mit
+    Datumsinhalt, ``documents[].document_date``, ``run.json`` – bleibt ISO stehen: dort
+    liest eine Maschine mit, und ISO ist sortierbar und eindeutig.
+
+    ``None`` bleibt ``None``. Alles, was kein ISO-Datum ist, ist ein Fehler mit Namen –
+    ein halb geparstes Datum waere schlimmer als keines.
+    """
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return f"{value.day:02d}.{value.month:02d}.{value.year:04d}"
+    text = str(value).strip()
+    match = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", text)
+    if not match:
+        raise ValueError(f"format_date: {text!r} ist kein ISO-Datum (erwartet JJJJ-MM-TT).")
+    year, month, day = match.groups()
+    return f"{day}.{month}.{year}"

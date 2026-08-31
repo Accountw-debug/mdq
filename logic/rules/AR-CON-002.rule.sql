@@ -80,7 +80,8 @@ SELECT
     to_json([{
         'source_type': 'deterministic',
         'reference':   'BSID ' || cc.company_code,
-        'value':       CAST(o.open_local AS VARCHAR),
+        -- Freitext, kein Datenfeld: der Betrag steht deutsch mit Waehrung (D-187).
+        'value':       mdq_money(o.open_local, o.currency),
         'observed_at': NULL,
         'agrees':      TRUE,
         'note':        'Summe offene Posten im Buchungskreis'

@@ -19,7 +19,7 @@ from rich.table import Table
 
 from mdq.canonical import CanonicalResult
 from mdq.decisions import DecisionMemory
-from mdq.formats import format_amount
+from mdq.formats import format_amount, format_date
 from mdq.loader import LoadResult
 from mdq.relevance import RelevanceResult
 from mdq.rules import Rule
@@ -378,7 +378,7 @@ def _render_header(console: Console, report: RunReport) -> None:
     parts = [
         ("Engine", report.engine_version),
         ("Regelpaket", report.pack_version),
-        ("Datenstand", report.data_as_of),
+        ("Datenstand", format_date(report.data_as_of)),
         ("Hauswährung", report.house_currency),
     ]
     console.print("  " + "   ".join(f"{label}: {value or '–'}" for label, value in parts))
@@ -393,7 +393,7 @@ def _render_header(console: Console, report: RunReport) -> None:
         fenster = report.scope.get("item_window_from_effective")
         if fenster:
             console.print(
-                f"  Postenfenster ab: {fenster} "
+                f"  Postenfenster ab: {format_date(fenster)} "
                 f"({report.scope.get('item_window_from_source')})"
             )
     if report.versions:
@@ -515,7 +515,10 @@ def _render_canonical(console: Console, report: RunReport) -> None:
     console.print(f"  Durch den Scope nicht aufgenommen: {result.out_of_scope_items} Posten.")
     window = "–"
     if result.posting_date_from or result.posting_date_to:
-        window = f"{result.posting_date_from} bis {result.posting_date_to}"
+        window = (
+            f"{format_date(result.posting_date_from)} bis "
+            f"{format_date(result.posting_date_to)}"
+        )
     console.print(f"  Geliefertes Postenfenster: {window}")
 
     table = Table(box=box.SIMPLE)
@@ -547,10 +550,12 @@ def _render_relevance(console: Console, report: RunReport) -> None:
         return
 
     console.print("\n[bold]Relevanz (BP-360)[/]")
-    console.print(f"  Datenstand: {result.data_as_of} ({result.data_as_of_source})")
     console.print(
-        f"  Fenster: nach {result.window_from} bis {result.data_as_of} "
-        f"({result.window_months_text})"
+        f"  Datenstand: {format_date(result.data_as_of)} ({result.data_as_of_source})"
+    )
+    console.print(
+        f"  Fenster: nach {format_date(result.window_from)} bis "
+        f"{format_date(result.data_as_of)} ({result.window_months_text})"
     )
     console.print(f"  Hauswährung: {result.house_currency}")
 
@@ -560,10 +565,12 @@ def _render_relevance(console: Console, report: RunReport) -> None:
     for status, count in result.by_status:
         table.add_row(_STATUS_TEXT.get(status, status), str(count))
     console.print(table)
+    # Beide Summen ueber format_amount: hier stand der Betrag bis D-201 unformatiert
+    # ("2588513.05 CHF") und war die letzte Stelle im Report, die D-187 ausgelassen hat.
     console.print(
-        f"  {result.partners} Partner · offene Posten {result.open_items_total} "
-        f"{result.house_currency} · Volumen 12M {result.volume_12m_total} "
-        f"{result.house_currency}"
+        f"  {result.partners} Partner · offene Posten "
+        f"{format_amount(result.open_items_total, result.house_currency)} · Volumen 12M "
+        f"{format_amount(result.volume_12m_total, result.house_currency)}"
     )
 
 

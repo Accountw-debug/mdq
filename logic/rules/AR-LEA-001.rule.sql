@@ -132,7 +132,7 @@ SELECT
     -- Das Feld ist leer - genau das ist der Befund (dieselbe Form wie AR-COM-002).
     NULL                                          AS current_value,
     'Zahlungseingang über ' || mdq_money(a.amount_doc, a.currency)
-        || ' vom ' || a.posting_date::VARCHAR
+        || ' vom ' || mdq_date(a.posting_date)
         || ', seit ' || a.tage::VARCHAR || ' Tagen ohne Rechnungsbezug und ohne Ausgleich'
                                                   AS current_display,
     -- Stufe B verlangt ein Soll; welche Rechnung gemeint ist, sagen die Daten nicht -

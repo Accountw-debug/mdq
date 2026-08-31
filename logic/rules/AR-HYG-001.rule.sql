@@ -61,7 +61,7 @@ SELECT
     'kein Posten im Postenfenster, keine offenen Posten'  AS current_display,
     NULL                                          AS proposed_value,
     NULL                                          AS proposed_display,
-    'Kein Posten seit Fensterbeginn ' || ${scope.item_window_from}::VARCHAR
+    'Kein Posten seit Fensterbeginn ' || mdq_date(${scope.item_window_from})
         || '; Anlage davor; offene Posten ' || mdq_money(r.open_items_local, r.currency)
                                                   AS source_summary,
     to_json([
@@ -81,7 +81,9 @@ SELECT
         'agrees':         TRUE,
         'note':           'Letzte Aktivität: keine; Anlagedatum vor Fensterbeginn'
     }])                                           AS evidence,
-    to_json({'window_from': ${scope.item_window_from}::VARCHAR})  AS params
+    -- Der Titel setzt {window_from} ein und ist Prosa; der Platzhalter traegt das
+    -- Datum deshalb deutsch (D-201, dieselbe Ueberlegung wie params.amount in D-187).
+    to_json({'window_from': mdq_date(${scope.item_window_from})})  AS params
 FROM business_partner bp
 JOIN bp_relevance r
   ON r.bp_key = bp.bp_key

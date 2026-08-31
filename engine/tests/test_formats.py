@@ -11,6 +11,7 @@ from mdq.formats import (
     ParseError,
     detect_notation,
     format_amount,
+    format_date,
     parse_amount,
     parse_date,
     parse_flag,
@@ -342,5 +343,56 @@ def test_makro_und_python_sind_gleich() -> None:
                 "SELECT mdq_money(CAST(? AS DECIMAL(15,2)), 'EUR')", [wert]
             ).fetchone()[0]
             assert aus_sql == format_amount(wert, "EUR"), wert
+    finally:
+        con.close()
+
+
+# --- Datum als Freitext (D-201) --------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("wert", "erwartet"),
+    [
+        ("2026-03-17", "17.03.2026"),
+        ("2024-09-01", "01.09.2024"),
+        ("2026-12-31", "31.12.2026"),
+        ("2024-02-29", "29.02.2024"),
+        ("1999-01-01", "01.01.1999"),
+        (None, None),
+    ],
+)
+def test_format_date(wert, erwartet) -> None:
+    assert format_date(wert) == erwartet
+
+
+def test_format_date_nimmt_date() -> None:
+    assert format_date(date(2026, 3, 17)) == "17.03.2026"
+    assert format_date(date(2024, 9, 1)) == "01.09.2024"
+
+
+def test_format_date_lehnt_alles_andere_ab() -> None:
+    """Ein halb geparstes Datum waere schlimmer als keines."""
+    for unsinn in ("17.03.2026", "20260317", "2026-3-17", "2026-03-17T08:00:00Z", ""):
+        with pytest.raises(ValueError, match="kein ISO-Datum"):
+            format_date(unsinn)
+
+
+def test_datums_makro_und_python_sind_gleich() -> None:
+    """`mdq_date` im SQL und `format_date` in Python schreiben denselben Text.
+
+    Dieselbe Klammer wie bei `mdq_money`: sonst stuende im Ist-Text eines Findings eine
+    andere Schreibweise als im Run-Report – dasselbe Datum, zwei Bilder.
+    """
+    werte = [
+        "2024-01-01", "2024-02-29", "2024-09-01", "2024-09-06", "2024-12-31",
+        "2025-01-31", "2025-08-28", "2026-03-17", "2026-08-28", "2026-12-31",
+        "1999-12-31", "2000-01-01", "2019-01-02", "2100-01-01",
+    ]
+    con = duckdb.connect(":memory:")
+    try:
+        con.execute(RULE_MACROS.read_text(encoding="utf-8"))
+        for wert in werte:
+            aus_sql = con.execute("SELECT mdq_date(CAST(? AS DATE))", [wert]).fetchone()[0]
+            assert aus_sql == format_date(wert), wert
     finally:
         con.close()
