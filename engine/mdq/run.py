@@ -39,7 +39,7 @@ from mdq.executor import (
     ExecutionError,
     InvalidFindingError,
     RunContext,
-    execute_rule,
+    execute_rule_rows,
     missing_tables,
 )
 from mdq.findings import schema_version
@@ -112,6 +112,15 @@ class RunResult:
     #: Vermerk, wenn ein vorhandener Lauf ersetzt wurde. Steht **nicht** in den Dateien:
     #: sonst waere der zweite Lauf nicht mehr byte-identisch mit dem ersten (D-092).
     replaced: str | None = None
+    #: ``finding_id -> finding_key`` der Regel, die das Finding erzeugt hat (D-099).
+    #: Nicht Teil von ``findings.json``: der Schluessel gehoert nicht ins Finding-Schema,
+    #: sondern ist der Vergleichsschluessel der Regression (D-068).
+    finding_keys: dict[str, str | None] = field(default_factory=dict)
+
+    @property
+    def finding_rows(self) -> list[tuple[dict[str, Any], str | None]]:
+        """Findings mit ihrem ``finding_key`` – die Form, die ``regression`` erwartet."""
+        return [(finding, self.finding_keys[finding["finding_id"]]) for finding in self.findings]
 
 
 def now_utc() -> str:
@@ -234,7 +243,7 @@ def _execute_rules(
     ctx: RunContext,
     report: RunReport,
     rules_dir: Path = RULES_DIR,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, str | None]]:
     """Fuehrt alle Regeln aus ``logic/rules/`` aus, in fester Reihenfolge (Regel 9).
 
     Eine Regel, deren Tabellen fehlen, wird uebersprungen und im Report genannt; eine
@@ -242,8 +251,13 @@ def _execute_rules(
     uebrigen nicht auf – beides fuehrt zu Exit 1 (D-097). Ein **ungueltiges Finding**
     dagegen bricht den Lauf ab: ein Lauf, der schema-ungueltige Findings ausliefert, ist
     schlimmer als keiner (CLAUDE.md Regel 6).
+
+    Geliefert werden die sortierten Findings **und** ihre ``finding_key``s: aus dem
+    fertigen Finding ist der Schluessel nicht mehr herauszulesen, die Regression braucht
+    ihn aber (D-068, D-099).
     """
     findings: list[dict[str, Any]] = []
+    keys: dict[str, str | None] = {}
     origin: dict[str, str] = {}
     for rule in load_rules(rules_dir):
         absent = missing_tables(con, rule)
@@ -251,13 +265,13 @@ def _execute_rules(
             report.add_rule(RuleOutcome.skipped(rule, absent))
             continue
         try:
-            produced = execute_rule(con, rule, ctx)
+            produced = execute_rule_rows(con, rule, ctx)
         except InvalidFindingError:
             raise
         except ExecutionError as exc:
             report.add_rule(RuleOutcome.failed(rule, str(exc)))
             continue
-        for finding in produced:
+        for finding, finding_key in produced:
             finding_id = finding["finding_id"]
             if finding_id in origin:
                 raise RunError(
@@ -266,9 +280,10 @@ def _execute_rules(
                     "beiden braucht eine eigene finding_key-Spalte."
                 )
             origin[finding_id] = rule.id
-        findings.extend(produced)
+            keys[finding_id] = finding_key
+            findings.append(finding)
         report.add_rule(RuleOutcome.executed(rule, len(produced)))
-    return sorted(findings, key=lambda finding: finding["finding_id"])
+    return sorted(findings, key=lambda finding: finding["finding_id"]), keys
 
 
 def _dump(payload: Any) -> str:
@@ -407,7 +422,7 @@ def execute_run(options: RunOptions) -> RunResult:
             created_at=created_at,
             decisions=memory,
         )
-        findings = _execute_rules(con, ctx, report, options.rules_dir)
+        findings, finding_keys = _execute_rules(con, ctx, report, options.rules_dir)
         report.add_decisions(DecisionSummary.of(memory, rules_executed=True))
         report.rejects = collect_rejects(con, run_id)
         report.exit_code = EXIT_PROBLEMS if report.has_problems else EXIT_CLEAN
@@ -431,4 +446,5 @@ def execute_run(options: RunOptions) -> RunResult:
         directory=target,
         exit_code=report.exit_code,
         replaced=replaced,
+        finding_keys=finding_keys,
     )

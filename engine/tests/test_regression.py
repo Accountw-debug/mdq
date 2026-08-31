@@ -1,8 +1,9 @@
 """Regression: Lauf auf dem Demo-Mandanten gegen `expected_findings.yaml`.
 
-Zwei Teile. Die Vergleichslogik ist heute schon pruefbar und wird hier vollstaendig
-getestet. Der Lauf selbst braucht das Mapping SAP -> kanonisch und ist deshalb noch
-uebersprungen (D-068) -- uebersprungen, nicht geloescht, damit er sichtbar bleibt.
+Zwei Teile. Die Vergleichslogik wird an erfundenen Zeilen vollstaendig getestet; danach
+laeuft der ganze Lauf auf `testdata/demo_mandant` und wird gegen die Erwartung gestellt.
+Weicht er ab, ist entweder die Regel, der Generator oder die Erwartung falsch -- das wird
+geklaert, nicht weggetestet (CLAUDE.md Regel 1, D-010).
 """
 
 from pathlib import Path
@@ -10,7 +11,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from mdq import DEMO_MANDANT_DIR
+from mdq import DEMO_MANDANT_DIR, RULES_DIR
 from mdq.cli import app
 from mdq.regression import (
     ActualFinding,
@@ -22,6 +23,7 @@ from mdq.regression import (
     parse_version,
 )
 from mdq.rules import load_rules
+from mdq.run import EXIT_CLEAN, RunOptions, execute_run
 
 runner = CliRunner()
 
@@ -259,12 +261,107 @@ def test_run_schreibt_ein_laufverzeichnis(tmp_path) -> None:
     ]
 
 
-@pytest.mark.skip(reason="Regression wird in Sprint 3, Aufgabe 5 scharf geschaltet (D-068)")
-def test_demo_mandant_regression(demo_client) -> None:
+# --- Die scharfe Regression ----------------------------------------------------------
+
+#: Regeln, die `expected_findings.yaml` erwartet und die es als Datei noch nicht gibt.
+#: Diese Menge ist eine Erklaerung, keine Erwartung: sie sagt, welche Regeln gebaut sind
+#: – nicht, ob sie das Richtige finden (das pruefen die drei Fehlertoepfe). Ein
+#: Regelpaket aus Aufgabe 6-8 entfernt seine IDs hier im selben Commit; am Ende von
+#: Sprint 3 muss genau {AR-DUP-001, AP-DUP-001} uebrig sein (D-100). Verschwindet eine
+#: Regeldatei versehentlich, faellt der Test rot aus statt still durchzugehen.
+NOT_YET_BUILT = {
+    "AP-COM-003",
+    "AP-CON-001",
+    "AP-DUP-001",
+    "AP-HYG-001",
+    "AP-LEA-002",
+    "AP-VAL-001",
+    "AP-VAL-002",
+    "AP-VAL-003",
+    "AR-COM-002",
+    "AR-DUP-001",
+    "AR-HYG-001",
+    "AR-LEA-001",
+    "AR-VAL-002",
+    "AR-VAL-003",
+    "AR-VAL-005",
+    "CROSS-DUP-001",
+}
+
+#: Die zwei Doppelzahlungspaare ueber Kreditoren-Dubletten hinweg: erst ab AP-LEA-001 1.1
+#: Pflicht, bis dahin bekannt-offen (D-054).
+KNOWN_OPEN = {
+    ("AP-LEA-001", "V:0000200001", "1000", "1900003015|1900003016"),
+    ("AP-LEA-001", "V:0000200003", "1000", "1900004459|1900003017"),
+}
+
+
+@pytest.fixture(scope="module")
+def regression_run(tmp_path_factory):
+    """Ein Lauf auf dem eingecheckten Demo-Mandanten – die Eingabe aus SPRINT-3.md.
+
+    Bewusst `testdata/demo_mandant` und nicht die neu erzeugte Fixture: die Regeln sehen
+    im Repo genau diese Dateien. Dass sie dem Generator entsprechen, haelt
+    `test_demo_output.test_repo_copy_matches_the_generator` fest.
+    """
+    return execute_run(
+        RunOptions(
+            input_dir=DEMO_MANDANT_DIR,
+            out_dir=tmp_path_factory.mktemp("regression"),
+            created_at="2026-08-31T08:00:00Z",
+        )
+    )
+
+
+@pytest.fixture(scope="module")
+def comparison(regression_run):
+    """Erwartung und Lauf, verglichen ueber `regression.py`."""
+    return compare(
+        load_expected(),
+        actual_from_findings(regression_run.finding_rows),
+        {rule.id: rule.version for rule in load_rules(RULES_DIR)},
+    )
+
+
+def test_demo_mandant_regression(comparison) -> None:
     """Der Demo-Mandant liefert exakt `expected_findings.yaml` – nicht mehr, nicht weniger.
 
-    Ab Sprint 3: Exporte laden, auf das kanonische Schema mappen, alle Regeln ausfuehren,
+    Exporte laden, auf das kanonische Schema mappen, alle Regeln ausfuehren,
     `actual_from_findings` darauf, dann `compare`. Faellt der Vergleich durch, ist die
     Meldung `Comparison.render()` – und die Erwartung wird nicht angepasst (Regel 1).
     """
-    raise NotImplementedError("Sprint 3, Aufgabe 5: Vergleich ueber regression.py")
+    assert comparison.ok, "\n" + comparison.render()
+
+
+def test_lauf_ist_sauber(regression_run) -> None:
+    """Ein Lauf mit Rejects oder uebersprungenen Regeln vergliche nicht das Ganze."""
+    assert regression_run.exit_code == EXIT_CLEAN
+    assert list(regression_run.report.rejects) == []
+
+
+def test_gebaute_regeln_liefern_ihre_erwarteten_findings(regression_run) -> None:
+    """Dieselbe Aussage wie `ok`, nur als Zahl je Regel – die Handprobe aus Aufgabe 4."""
+    geliefert: dict[str, int] = {}
+    for finding in regression_run.findings:
+        geliefert[finding["rule_id"]] = geliefert.get(finding["rule_id"], 0) + 1
+    assert geliefert == {"AR-VAL-001": 15, "AR-CON-002": 7, "AP-LEA-001": 8}
+
+
+def test_bekannt_offen_sind_genau_die_zwei_paare(comparison) -> None:
+    """Die beiden Faelle aus D-054 – nicht mehr, und keiner davon still verschwunden."""
+    assert {item.match_key for item in comparison.known_open} == KNOWN_OPEN
+    assert all(item.from_rule_version == "1.1" for item in comparison.known_open)
+
+
+def test_nichts_wird_vorzeitig_erfuellt(comparison) -> None:
+    """Ein v1.1-Finding, das 1.0 schon liefert, hiesse: `from_rule_version` ist zu hoch."""
+    assert comparison.early == (), "\n" + comparison.render()
+
+
+def test_offene_regeln_sind_genau_die_erklaerte_menge(comparison) -> None:
+    """`rule_missing` == `NOT_YET_BUILT` (D-100).
+
+    Landet ein Regelpaket, entfernt derselbe Commit seine IDs oben; am Sprintende bleibt
+    genau {AR-DUP-001, AP-DUP-001} uebrig. Faellt eine Regeldatei weg, wird es hier rot.
+    """
+    assert {item.rule_id for item in comparison.rule_missing} == NOT_YET_BUILT
