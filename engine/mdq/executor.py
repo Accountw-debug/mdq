@@ -338,10 +338,44 @@ def _check_contract(columns: list[str], rule: Rule) -> None:
         raise ExecutionError(f"{rule.id}: Spalten mehrfach im SQL-Ergebnis: {duplicates}")
 
 
-def _build_entity(row: dict[str, Any], rule: Rule) -> dict[str, Any]:
+def _display_names_by_bp(
+    con: duckdb.DuckDBPyConnection, bp_keys: list[str]
+) -> dict[str, str]:
+    """``bp_key -> "Name, Ort"`` aus ``business_partner`` (D-185).
+
+    Zentral hier und nicht je Regel: der Anzeigename haengt am Geschaeftspartner, nicht an
+    der Frage, die eine Regel stellt – und 14 Regeln, die dieselbe Zeile selbst bauen,
+    wuerden 14 Schreibweisen liefern. Format wie in ``logic/examples/findings/``:
+    ``"Müller Maschinenbau GmbH, Augsburg"``. Fehlt eines der beiden Felder, steht das
+    andere allein; fehlen beide, bleibt das Feld weg – ein Komma ohne Namen ist kein Name.
+
+    Der Wert steht ausschliesslich im Finding. Er geht **nicht** in die ``finding_id`` ein
+    (``ID_COLUMNS``) und nicht in Report, Hinweise oder Logs (Regel 8).
+    """
+    if not bp_keys or not _table_exists(con, "business_partner"):
+        return {}
+    placeholders = ", ".join("?" for _ in bp_keys)
+    rows = con.execute(
+        "SELECT bp_key, name1, city FROM business_partner "
+        f"WHERE bp_key IN ({placeholders})",
+        bp_keys,
+    ).fetchall()
+    namen: dict[str, str] = {}
+    for bp_key, name1, city in rows:
+        teile = [teil.strip() for teil in (name1, city) if teil and teil.strip()]
+        if teile:
+            namen[bp_key] = ", ".join(teile)
+    return namen
+
+
+def _build_entity(
+    row: dict[str, Any], rule: Rule, display_name: str | None = None
+) -> dict[str, Any]:
     entity: dict[str, Any] = {"bp_key": row["bp_key"], "role": row["role"]}
     if row.get("company_code") is not None:
         entity["company_code"] = row["company_code"]
+    if display_name:
+        entity["display_name"] = display_name
     related = _decode_json(row.get("related_bp_keys"), rule.id, "related_bp_keys")
     if related:
         entity["related_bp_keys"] = related
@@ -387,7 +421,9 @@ def _build_finding(
     rule: Rule,
     ctx: RunContext,
     relevance: dict[str, dict[str, Any]],
+    display_names: dict[str, str] | None = None,
 ) -> dict[str, Any]:
+    display_names = display_names or {}
     params = _decode_json(row.get("params"), rule.id, "params") or {}
     if not isinstance(params, dict):
         raise ExecutionError(f"{rule.id}: Spalte params ist kein JSON-Objekt.")
@@ -408,7 +444,7 @@ def _build_finding(
     }
 
     finding["title"] = _fill(rule.title, params, rule.id, "title")
-    finding["entity"] = _build_entity(row, rule)
+    finding["entity"] = _build_entity(row, rule, display_names.get(row["bp_key"]))
 
     bp_relevance = relevance.get(row["bp_key"])
     if bp_relevance:
@@ -467,12 +503,14 @@ def execute_rule_rows(
     _check_contract(columns, rule)
     rows = [dict(zip(columns, values, strict=True)) for values in cursor.fetchall()]
 
-    relevance = _relevance_by_bp(con, [row["bp_key"] for row in rows], rule.id)
+    bp_keys = [row["bp_key"] for row in rows]
+    relevance = _relevance_by_bp(con, bp_keys, rule.id)
+    display_names = _display_names_by_bp(con, bp_keys)
 
     findings: list[tuple[dict[str, Any], str | None]] = []
     seen: dict[str, int] = {}
     for position, row in enumerate(rows):
-        finding = _build_finding(row, rule, ctx, relevance)
+        finding = _build_finding(row, rule, ctx, relevance, display_names)
         finding_id = finding["finding_id"]
         if finding_id in seen:
             raise ExecutionError(

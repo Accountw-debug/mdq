@@ -195,12 +195,33 @@ def test_kein_float_in_den_artefakten(demo_run):
 
 
 def test_keine_partnerdaten_in_report_und_run(demo_run):
-    """Regel 8: der Report nennt Schluessel und Regel-IDs, keine Namen oder Adressen."""
+    """Regel 8: der Report nennt Schluessel und Regel-IDs, keine Namen oder Adressen.
+
+    Seit D-185 traegt jedes Finding einen `entity.display_name`. Der gehoert in
+    `findings.json` und nirgendwo sonst – geprueft wird deshalb nicht mehr gegen eine
+    Handvoll erfundener Namen, sondern gegen die Namen, die der Lauf **tatsaechlich**
+    in seine Findings geschrieben hat.
+    """
     text = (demo_run.directory / REPORT_FILE).read_text(encoding="utf-8")
     text += (demo_run.directory / RUN_FILE).read_text(encoding="utf-8")
     for name in ("Müller", "Mueller Maschinenbau", "Bergmann", "Nordwind", "Brandt"):
         assert name not in text, name
+    for finding in gelesen(demo_run.directory, FINDINGS_FILE):
+        anzeige = finding["entity"].get("display_name")
+        assert anzeige, finding["finding_id"]
+        for teil in anzeige.split(", "):
+            assert teil not in text, teil
     assert "raw_excerpt" not in text
+
+
+def test_jedes_finding_traegt_einen_anzeigenamen(demo_run):
+    """D-185: Name und Ort aus `business_partner`, zentral im Executor gefuellt."""
+    findings = gelesen(demo_run.directory, FINDINGS_FILE)
+    assert findings
+    for finding in findings:
+        anzeige = finding["entity"]["display_name"]
+        assert anzeige and ", " in anzeige, finding["finding_id"]
+        assert not anzeige.startswith(", ") and not anzeige.endswith(", ")
 
 
 def test_report_txt_haelt_die_feste_breite(demo_run):

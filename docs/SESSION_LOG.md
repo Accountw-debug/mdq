@@ -93,3 +93,7 @@ Format je Session: Datum · Ziel · Ergebnis · Offen/Nächster Schritt (max. 3 
   Ergebnis: `uv run pytest` **782 passed**, `uv run ruff check .` sauber; in `ui/` `npm test` **312 passed in 20 Dateien**, `npm run build` erfolgreich (456 kB JS, 62 kB CSS). `npm ci` war nötig – `node_modules/` ist zu Recht nicht eingecheckt.
   Offene Punkte aus `ui/NOTES.md` an die Engine, die dieses Zwischenpaket adressiert: `entity.display_name` ist im ganzen Lauf leer (Commit 2), Titel tragen Beträge unformatiert (Commit 4), `proposed.display` von F-e2f7b19c4d83 beginnt mit „Kein Soll ermittelbar" (Commit 3).
   Nächster Schritt: Zwischenpaket 2 – `entity.display_name` zentral im Executor.
+- **2026-08-31 · Zwischenpaket 2: `entity.display_name` zentral im Executor.** `_display_names_by_bp()` liest Name und Ort aus `business_partner` und `_build_entity()` setzt sie als `"<NAME1>, <ORT>"` ins Finding – einmal für alle Regeln, im Format der Beispiel-Findings (D-185). Fehlt eines der Felder, steht das andere allein; fehlen beide, bleibt das Feld weg. Der Name geht nicht in die `finding_id` ein.
+  Ergebnis: `uv run pytest` **786 passed**, ruff sauber, Regression unverändert 0/0/0. Alle **110 Findings** des Demo-Laufs tragen jetzt einen Anzeigenamen. Der Regel-8-Test ist dabei schärfer geworden: er sucht nicht mehr fünf erfundene Namen in `report.txt` und `run.json`, sondern jeden Namen, den der Lauf tatsächlich in ein Finding geschrieben hat.
+  Nächster Schritt: Zwischenpaket 3 – Soll-Konvention (kein leeres `proposed`).
+

@@ -13,8 +13,10 @@ import pytest
 
 from mdq.dictionaries import parse_document_types
 from mdq.executor import (
+    ID_COLUMNS,
     ExecutionError,
     RunContext,
+    _display_names_by_bp,
     execute_rule,
     finding_id_for,
     house_currency,
@@ -626,3 +628,31 @@ def test_platzhalterbegriffe_werden_als_regex_eingesetzt(run_context) -> None:
     sql = rule_sql(RULES["AR-VAL-005"], dataclasses.replace(run_context))
     assert "${placeholder_terms" not in sql
     assert "xxx" in sql
+
+
+# --- entity.display_name (D-185) -----------------------------------------------------
+
+
+def test_anzeigename_faellt_weg_wenn_beide_felder_fehlen(db) -> None:
+    """Ein Komma ohne Namen ist kein Name – dann bleibt das Feld weg."""
+    db.execute(
+        "INSERT INTO business_partner (bp_key, role, source_id, name1, city) "
+        "VALUES ('C:0000000009', 'CUSTOMER', '9', NULL, NULL)"
+    )
+    assert _display_names_by_bp(db, ["C:0000000009"]) == {}
+
+
+def test_anzeigename_nimmt_das_vorhandene_feld(db) -> None:
+    db.execute(
+        "INSERT INTO business_partner (bp_key, role, source_id, name1, city) VALUES "
+        "('C:0000000010', 'CUSTOMER', '10', 'Beispiel GmbH', NULL), "
+        "('C:0000000011', 'CUSTOMER', '11', 'Beispiel AG', 'Beispielstadt')"
+    )
+    namen = _display_names_by_bp(db, ["C:0000000010", "C:0000000011"])
+    assert namen["C:0000000010"] == "Beispiel GmbH"
+    assert namen["C:0000000011"] == "Beispiel AG, Beispielstadt"
+
+
+def test_anzeigename_aendert_die_finding_id_nicht() -> None:
+    """Der Name gehoert nicht in den Schluessel – sonst verschoebe eine Umbenennung ihn."""
+    assert "display_name" not in ID_COLUMNS
