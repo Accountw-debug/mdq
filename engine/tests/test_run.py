@@ -22,6 +22,7 @@ from mdq import DEMO_MANDANT_DIR, __version__
 from mdq.canonical import Scope
 from mdq.cli import app
 from mdq.relevance import RelevanceError
+from mdq.rules import load_rules
 from mdq.run import (
     EXIT_ABORTED,
     EXIT_CLEAN,
@@ -93,14 +94,18 @@ def test_lauf_schreibt_drei_dateien(demo_run):
     assert demo_run.directory.name == demo_run.report.run_id
 
 
-def test_demo_mandant_liefert_die_bekannten_dreissig_findings(demo_run):
-    """15 + 7 + 8 wie in der Handprobe; die Regression prueft sie einzeln (Aufgabe 5)."""
+def test_demo_mandant_liefert_findings_gebauter_regeln(demo_run):
+    """Der Lauf liefert Findings, und jedes stammt aus einer gebauten Regel.
+
+    Hier stand die feste Tabelle 15/7/8 aus der Handprobe zu Aufgabe 4. Seit die
+    Regression scharf ist (Aufgabe 5), gehoert die Zahl je Regel dorthin – zweimal
+    gepflegt liefe sie auseinander. Dieser Test bleibt bei dem, was `run.py` verantwortet:
+    dass ueberhaupt Findings entstehen und keines aus einer unbekannten Regel kommt.
+    """
     findings = gelesen(demo_run.directory, FINDINGS_FILE)
-    assert len(findings) == 30
-    je_regel = {}
-    for finding in findings:
-        je_regel[finding["rule_id"]] = je_regel.get(finding["rule_id"], 0) + 1
-    assert je_regel == {"AR-VAL-001": 15, "AR-CON-002": 7, "AP-LEA-001": 8}
+    assert findings
+    gebaut = {rule.id for rule in load_rules()}
+    assert {finding["rule_id"] for finding in findings} <= gebaut
 
 
 def test_findings_sind_nach_id_sortiert(demo_run):
@@ -157,7 +162,9 @@ def test_run_json_traegt_scope_und_versionen(demo_run):
 
 def test_run_json_zeigt_die_stufen_und_die_ampel(demo_run):
     run = gelesen(demo_run.directory, RUN_FILE)
-    assert run["totals"]["findings"] == 30
+    # Die Zahl selbst gehoert der Regression; hier zaehlt, dass Report und Datei sie
+    # gleich sehen – eine zweite feste Zahl liefe mit jedem Regelpaket auseinander.
+    assert run["totals"]["findings"] == len(gelesen(demo_run.directory, FINDINGS_FILE))
     assert run["totals"]["rejects"] == 0
     assert run["has_problems"] is False
     assert run["exit_code"] == EXIT_CLEAN
@@ -435,4 +442,5 @@ def test_cli_run_auf_dem_demo_mandanten_endet_sauber(tmp_path):
          "--created-at", CREATED_AT],
     )
     assert result.exit_code == EXIT_CLEAN, result.output
-    assert "30 Findings" in result.output
+    lauf = next((tmp_path / "runs").iterdir())
+    assert f"{len(gelesen(lauf, FINDINGS_FILE))} Findings" in result.output

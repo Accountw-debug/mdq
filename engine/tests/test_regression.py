@@ -6,12 +6,13 @@ Weicht er ab, ist entweder die Regel, der Generator oder die Erwartung falsch --
 geklaert, nicht weggetestet (CLAUDE.md Regel 1, D-010).
 """
 
+from collections import Counter
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
-from mdq import DEMO_MANDANT_DIR, RULES_DIR
+from mdq import DEMO_MANDANT_DIR
 from mdq.cli import app
 from mdq.regression import (
     ActualFinding,
@@ -23,7 +24,9 @@ from mdq.regression import (
     parse_version,
 )
 from mdq.rules import load_rules
-from mdq.run import EXIT_CLEAN, RunOptions, execute_run
+from mdq.run import EXIT_CLEAN
+
+from .conftest import NOT_YET_BUILT
 
 runner = CliRunner()
 
@@ -178,14 +181,24 @@ def test_expected_file_has_no_duplicate_match_keys() -> None:
 
 
 def test_current_split_over_the_buckets() -> None:
-    """Stand heute: 3 von 19 Regeln gebaut."""
+    """Ein leerer Lauf verteilt jede Erwartung auf genau einen Topf.
+
+    Frueher standen hier drei feste Zahlen (198/30/230); sie waren eine zweite Buchhaltung
+    ueber denselben Sachverhalt und mussten bei jeder gebauten Regel angefasst werden. Die
+    Aussage haengt jetzt an `NOT_YET_BUILT` und bleibt ueber jedes Regelpaket gueltig
+    (D-100).
+    """
     expected = load_expected()
     versions = {rule.id: rule.version for rule in load_rules()}
     result = compare(expected, [], versions)
-    assert len(result.rule_missing) == 198
+    assert {item.rule_id for item in result.rule_missing} == NOT_YET_BUILT
     assert len(result.known_open) == 2
-    assert len(result.missing) == 30
-    assert len(result.missing) + len(result.known_open) + len(result.rule_missing) == 230
+    assert not result.unexpected and not result.deviating
+    # Ohne Lauf ist jede Erwartung entweder fehlend, bekannt offen oder ohne Regel
+    assert (
+        len(result.missing) + len(result.known_open) + len(result.rule_missing)
+        == len(expected)
+    )
 
 
 def test_unknown_field_is_reported(tmp_path: Path) -> None:
@@ -263,64 +276,12 @@ def test_run_schreibt_ein_laufverzeichnis(tmp_path) -> None:
 
 # --- Die scharfe Regression ----------------------------------------------------------
 
-#: Regeln, die `expected_findings.yaml` erwartet und die es als Datei noch nicht gibt.
-#: Diese Menge ist eine Erklaerung, keine Erwartung: sie sagt, welche Regeln gebaut sind
-#: – nicht, ob sie das Richtige finden (das pruefen die drei Fehlertoepfe). Ein
-#: Regelpaket aus Aufgabe 6-8 entfernt seine IDs hier im selben Commit; am Ende von
-#: Sprint 3 muss genau {AR-DUP-001, AP-DUP-001} uebrig sein (D-100). Verschwindet eine
-#: Regeldatei versehentlich, faellt der Test rot aus statt still durchzugehen.
-NOT_YET_BUILT = {
-    "AP-COM-003",
-    "AP-CON-001",
-    "AP-DUP-001",
-    "AP-HYG-001",
-    "AP-LEA-002",
-    "AP-VAL-001",
-    "AP-VAL-002",
-    "AP-VAL-003",
-    "AR-COM-002",
-    "AR-DUP-001",
-    "AR-HYG-001",
-    "AR-LEA-001",
-    "AR-VAL-002",
-    "AR-VAL-003",
-    "AR-VAL-005",
-    "CROSS-DUP-001",
-}
-
 #: Die zwei Doppelzahlungspaare ueber Kreditoren-Dubletten hinweg: erst ab AP-LEA-001 1.1
 #: Pflicht, bis dahin bekannt-offen (D-054).
 KNOWN_OPEN = {
     ("AP-LEA-001", "V:0000200001", "1000", "1900003015|1900003016"),
     ("AP-LEA-001", "V:0000200003", "1000", "1900004459|1900003017"),
 }
-
-
-@pytest.fixture(scope="module")
-def regression_run(tmp_path_factory):
-    """Ein Lauf auf dem eingecheckten Demo-Mandanten – die Eingabe aus SPRINT-3.md.
-
-    Bewusst `testdata/demo_mandant` und nicht die neu erzeugte Fixture: die Regeln sehen
-    im Repo genau diese Dateien. Dass sie dem Generator entsprechen, haelt
-    `test_demo_output.test_repo_copy_matches_the_generator` fest.
-    """
-    return execute_run(
-        RunOptions(
-            input_dir=DEMO_MANDANT_DIR,
-            out_dir=tmp_path_factory.mktemp("regression"),
-            created_at="2026-08-31T08:00:00Z",
-        )
-    )
-
-
-@pytest.fixture(scope="module")
-def comparison(regression_run):
-    """Erwartung und Lauf, verglichen ueber `regression.py`."""
-    return compare(
-        load_expected(),
-        actual_from_findings(regression_run.finding_rows),
-        {rule.id: rule.version for rule in load_rules(RULES_DIR)},
-    )
 
 
 def test_demo_mandant_regression(comparison) -> None:
@@ -339,12 +300,19 @@ def test_lauf_ist_sauber(regression_run) -> None:
     assert list(regression_run.report.rejects) == []
 
 
-def test_gebaute_regeln_liefern_ihre_erwarteten_findings(regression_run) -> None:
-    """Dieselbe Aussage wie `ok`, nur als Zahl je Regel – die Handprobe aus Aufgabe 4."""
-    geliefert: dict[str, int] = {}
-    for finding in regression_run.findings:
-        geliefert[finding["rule_id"]] = geliefert.get(finding["rule_id"], 0) + 1
-    assert geliefert == {"AR-VAL-001": 15, "AR-CON-002": 7, "AP-LEA-001": 8}
+def test_gebaute_regeln_liefern_ihre_erwarteten_findings(regression_run, comparison) -> None:
+    """Dieselbe Aussage wie `ok`, nur als Zahl je Regel – die Handprobe aus Aufgabe 4.
+
+    Die Sollzahlen kommen aus `expected_findings.yaml`, nicht aus einer Liste im Test:
+    eine gebaute Regel liefert genau ihre Erwartung, abzueglich der bekannt offenen
+    Faelle (D-054).
+    """
+    erwartet = Counter(
+        item.rule_id for item in load_expected() if item.rule_id not in NOT_YET_BUILT
+    )
+    bekannt_offen = Counter(item.rule_id for item in comparison.known_open)
+    geliefert = Counter(finding["rule_id"] for finding in regression_run.findings)
+    assert geliefert == erwartet - bekannt_offen
 
 
 def test_bekannt_offen_sind_genau_die_zwei_paare(comparison) -> None:

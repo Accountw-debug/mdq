@@ -24,8 +24,17 @@ def _write(tmp_path: Path, text: str, name: str = "AR-VAL-009.rule.sql") -> Path
 
 
 def test_repo_rules_load() -> None:
+    """Jede Regeldatei laedt, und die Reihenfolge ist die des Verzeichnisses (Regel 9).
+
+    Bewusst keine Aufzaehlung der IDs: welche Regeln gebaut sind, sagt der Katalog
+    (`test_catalog.py`) und die Regression (`NOT_YET_BUILT`) – eine dritte Liste liefe
+    auseinander.
+    """
     rules = load_rules()
-    assert [rule.id for rule in rules] == ["AP-LEA-001", "AR-CON-002", "AR-VAL-001"]
+    assert rules, "das Repo hat Regeln"
+    assert [rule.id for rule in rules] == sorted(
+        path.name.removesuffix(".rule.sql") for path in iter_rule_files()
+    )
 
 
 def test_template_is_skipped() -> None:
@@ -252,9 +261,10 @@ def test_parse_rule_takes_path_for_messages(tmp_path, valid_rule_text) -> None:
 def test_cli_rules_list() -> None:
     result = runner.invoke(app, ["rules", "list"])
     assert result.exit_code == 0
-    for rule_id in ("AP-LEA-001", "AR-CON-002", "AR-VAL-001"):
-        assert rule_id in result.stdout
-    assert "3 Regeln" in result.stdout
+    rules = load_rules()
+    for rule in rules:
+        assert rule.id in result.stdout
+    assert f"{len(rules)} Regeln" in result.stdout
 
 
 def test_cli_rules_list_reports_broken_rule(tmp_path, valid_rule_text) -> None:
