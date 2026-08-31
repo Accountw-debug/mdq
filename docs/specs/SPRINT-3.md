@@ -45,8 +45,8 @@ Akzeptanz: `mdq validate logic/examples/findings/` 6/6; ein Negativtest je neuem
 
 - `mdq run --input <dir> --out runs/ [--company-codes …] [--side …] [--decimal-notation …] [--data-as-of JJJJ-MM-TT]`.
 - Ablauf: load → stage → map → relevance → Regeln → Findings validieren → schreiben.
-- Ausgaben in `runs/<run_id>/`: `findings.json` (Array, nach finding_id sortiert), `run.json` (= `RunReport.to_dict()` plus Scope und Versionen – das Format, das das UI lädt), `report.txt` (Render). `run_id` = `<data_as_of>-<kurzhash der Input-Hashes>`, deterministisch.
-- Exit-Codes: 0 sauber, 1 Findings mit Auffälligkeiten im Lauf (Rejects/übersprungene Regeln), 2 Abbruch (Währung, fehlende Pflichtdateien). Der Stolperdraht-Test aus Sprint 2 wird jetzt bewusst angefasst.
+- Ausgaben in `runs/<run_id>/`: `findings.json` (Array, nach finding_id sortiert), `run.json` (= `RunReport.to_dict()` plus Scope und Versionen – das Format, das das UI lädt), `report.txt` (Render). `run_id` = `<data_as_of>-<kurzhash>` über Input-Hashes, Scope, Datenstand und Entscheidungsdatei – ohne Versionen (präzisiert 2026-08-31, D-093).
+- Exit-Codes: 0 sauber, 1 der Lauf selbst hatte Auffälligkeiten (Rejects, übersprungene oder fehlgeschlagene Regeln), 2 Abbruch (Währung, fehlende Pflichtdateien). Findings allein sind kein Grund für 1, Hinweise ändern den Code nicht (präzisiert 2026-08-31, D-097). Der Stolperdraht-Test aus Sprint 2 wird jetzt bewusst angefasst.
 - Laufzeit auf dem Demo-Mandanten unter 60 Sekunden.
 
 ## Aufgabe 5 – Regression scharf
@@ -77,7 +77,7 @@ Reihenfolge innerhalb: Regel bauen → Klartext prüfen → `hits/no_hits/edge` 
 Regression exakt im Endbild von Aufgabe 5 · `mdq run` unter 60 s, Exit-Codes wie definiert ·
 `runs/<id>/run.json` + `findings.json` laden im UI über „Findings-Datei laden" (Handprobe) ·
 alle neuen Regeln mit Testfällen, Katalog konsistent · DECISIONS je Aufgabe · keine
-Geschäftspartnerdaten in Logs · Läufe deterministisch (zweimal `mdq run` → identische Dateien).
+Geschäftspartnerdaten in Logs · Läufe deterministisch: mit festem `--created-at` byte-identisch; ohne ihn identisch bis auf `created_at` in `run.json` und Findings (präzisiert 2026-08-31, D-092).
 
 ## Nicht in Sprint 3
 Dubletten mit Fuzzy (Sprint 4), Euro-Wirkung Doppelzahlung über Konten (v1.1, Sprint 4),

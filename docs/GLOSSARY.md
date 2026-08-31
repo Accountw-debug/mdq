@@ -32,6 +32,9 @@
 | **Whitelist** | Vom Kunden abgelehnte Vorschläge/„bewusst getrennt"-Paare, bleiben über Läufe |
 | **Policy** | Kundenregel, die einen `decision`-Fall deterministisch macht |
 | **Lauf (run)** | Unveränderlicher Snapshot: Input-Hashes, Versionen, Datenstand, Findings |
+| **Lauf-Kennung (run_id)** | `<data_as_of>-<kurzhash>`: der Kurzhash steht für die Input-Hashes, den Scope, den Datenstand und die Entscheidungsdatei – nicht für Engine- oder Paketversion. Derselbe Datenstand mit derselben Frage ist derselbe Lauf (D-093) |
+| **Regelpaket (pack_version)** | Version der fachlichen Logik in `logic/` (Schema, Regeln, Mappings), gepflegt in `logic/pack.yaml`; `dict_version` versioniert die Wörterbücher. Ob das Paket unverändert war, zeigt `versions.pack_hash` – ein sha256 über alle Dateien unter `logic/` (D-096) |
+| **Hinweis vs. Auffälligkeit** | Hinweis: etwas, das der Lauf sagt, ohne dass es ihn beeinträchtigt (leere `name_norm`, Belegart ohne Klasse, verwaiste Entscheidung) – steht in `run.json` unter `hints`. Auffälligkeit: Rejects, übersprungene oder fehlgeschlagene Regeln – `has_problems` wird wahr und der Lauf endet mit Exit 1 (D-097) |
 | **Datenstand (data_as_of)** | Datum des Exports beim Kunden |
 | **Demo-Mandant** | Synthetischer SAP-Datensatz mit eingebauten Fehlern (`testdata/demo_mandant`) |
 | **Regression** | Lauf auf dem Demo-Mandanten muss exakt `testdata/expected/` liefern |

@@ -5,10 +5,11 @@ laut ``docs/specs/SPRINT-1.md``. Noch nicht implementierte Befehle brechen mit e
 Exit-Code ungleich 0 ab, damit nichts stumm ins Leere laeuft.
 """
 
+import time
 from collections import Counter
 from datetime import date, datetime
 from pathlib import Path
-from typing import Annotated, NoReturn
+from typing import Annotated
 
 import duckdb
 import typer
@@ -29,6 +30,8 @@ from mdq.demo import DEFAULT_SEED
 from mdq.demo.defects import write_expected
 from mdq.demo.generate import build_client
 from mdq.demo.generate import generate as generate_demo
+from mdq.dictionaries import DictionaryError
+from mdq.executor import ExecutionError
 from mdq.findings import (
     FindingFileError,
     duplicate_finding_ids,
@@ -39,15 +42,24 @@ from mdq.findings import (
 from mdq.formats import NOTATIONS
 from mdq.loader import LoaderError, load_table
 from mdq.mapping import MappingError, load_mapping
+from mdq.pack import PackError
 from mdq.relevance import RelevanceError, build_relevance
 from mdq.report import DecisionSummary, RunReport, collect_rejects, render
 from mdq.rules import RuleError, load_rules
+from mdq.run import (
+    EXIT_ABORTED,
+    FINDINGS_FILE,
+    REPORT_FILE,
+    RUN_FILE,
+    RunError,
+    RunOptions,
+    execute_run,
+    parse_created_at,
+)
 from mdq.staging import StagingError, stage_all
 
 #: Mindestens ein Finding ist ungueltig
 EXIT_INVALID = 1
-#: Exit-Code fuer Befehle, deren Umsetzung noch aussteht
-EXIT_NOT_IMPLEMENTED = 2
 #: Es gab nichts zu pruefen – nie stillschweigend als Erfolg melden
 EXIT_NO_INPUT = 3
 
@@ -67,12 +79,6 @@ app.add_typer(rules_app, name="rules")
 
 demo_app = typer.Typer(help="Demo-Mandanten erzeugen (Sprint 2).", no_args_is_help=True)
 app.add_typer(demo_app, name="demo")
-
-
-def _not_implemented(what: str, task: str) -> NoReturn:
-    """Bricht mit klarer Meldung ab, statt ein leeres Ergebnis vorzutaeuschen."""
-    err_console.print(f"[bold red]{what} ist noch nicht implementiert.[/] Geplant in: {task}.")
-    raise typer.Exit(code=EXIT_NOT_IMPLEMENTED)
 
 
 @app.command()
@@ -248,16 +254,7 @@ def load(
         )
         raise typer.Exit(code=EXIT_INVALID)
 
-    as_of: date | None = None
-    if data_as_of is not None:
-        try:
-            as_of = datetime.strptime(data_as_of, "%Y-%m-%d").date()  # noqa: DTZ007
-        except ValueError:
-            err_console.print(
-                f"[bold red]Fehler:[/] --data-as-of {data_as_of!r} ist kein Datum "
-                "im Format JJJJ-MM-TT."
-            )
-            raise typer.Exit(code=EXIT_INVALID) from None
+    as_of = _as_date(data_as_of, "--data-as-of") if data_as_of is not None else None
 
     if side not in SIDES:
         err_console.print(
@@ -317,6 +314,17 @@ def load(
 
     report.rejects = collect_rejects(con, LOAD_RUN_ID)
     render(report, console)
+
+
+def _as_date(value: str, option: str) -> date:
+    """``JJJJ-MM-TT`` aus einem Schalter; ein Tippfehler ist ein Fehler mit Namen."""
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()  # noqa: DTZ007
+    except ValueError:
+        err_console.print(
+            f"[bold red]Fehler:[/] {option} {value!r} ist kein Datum im Format JJJJ-MM-TT."
+        )
+        raise typer.Exit(code=EXIT_INVALID) from None
 
 
 def _load_memory(input_dir: Path, given: Path | None) -> DecisionMemory:
@@ -404,11 +412,126 @@ def run(
     ],
     out_dir: Annotated[
         Path,
-        typer.Option("--out", help="Zielverzeichnis fuer den Lauf."),
+        typer.Option("--out", help="Zielverzeichnis fuer den Lauf (z. B. runs/)."),
     ],
+    company_codes: Annotated[
+        str | None,
+        typer.Option(
+            "--company-codes",
+            help="Buchungskreise des Laufs, durch Komma getrennt. Ohne Angabe: alle.",
+        ),
+    ] = None,
+    side: Annotated[
+        str,
+        typer.Option("--side", help="Seite des Laufs: ar, ap oder both."),
+    ] = "both",
+    decimal_notation: Annotated[
+        str | None,
+        typer.Option(
+            "--decimal-notation",
+            help=(
+                "Dezimalnotation der Exporte (de|iso). Greift nur, wo eine Datei selbst "
+                "keinen eindeutigen Betrag enthaelt."
+            ),
+        ),
+    ] = None,
+    data_as_of: Annotated[
+        str | None,
+        typer.Option(
+            "--data-as-of",
+            help=(
+                "Datenstand als JJJJ-MM-TT. Ohne Angabe: spaetestes Buchungs- oder "
+                "Ausgleichsdatum der Posten; der Report nennt den verwendeten Wert."
+            ),
+        ),
+    ] = None,
+    decisions: Annotated[
+        Path | None,
+        typer.Option(
+            "--decisions",
+            help=(
+                "YAML mit getroffenen Entscheidungen. Ohne Angabe wird "
+                "<input>/decisions.yaml verwendet, falls vorhanden."
+            ),
+        ),
+    ] = None,
+    created_at: Annotated[
+        str | None,
+        typer.Option(
+            "--created-at",
+            help=(
+                "Zeitpunkt des Laufs (JJJJ-MM-TTTHH:MM:SSZ, UTC). Ohne Angabe die Uhr; "
+                "festgesetzt werden zwei Laeufe byte-identisch."
+            ),
+        ),
+    ] = None,
 ) -> None:
-    """Fuehrt einen vollstaendigen Lauf aus (raw -> staged -> canonical -> findings)."""
-    _not_implemented(f"run ({input_dir} -> {out_dir})", "Sprint 3")
+    """Fuehrt einen vollstaendigen Lauf aus: raw -> staged -> canonical -> findings.
+
+    Schreibt ``runs/<run_id>/`` mit ``findings.json``, ``run.json`` und ``report.txt``.
+    Exit-Codes: 0 sauber, 1 Auffaelligkeiten im Lauf (Rejects, uebersprungene oder
+    fehlgeschlagene Regeln), 2 Abbruch (D-097).
+    """
+    if decimal_notation is not None and decimal_notation not in NOTATIONS:
+        err_console.print(
+            f"[bold red]Fehler:[/] --decimal-notation {decimal_notation!r} ist unbekannt; "
+            f"erlaubt sind {list(NOTATIONS)}."
+        )
+        raise typer.Exit(code=EXIT_ABORTED)
+    if side not in SIDES:
+        err_console.print(
+            f"[bold red]Fehler:[/] --side {side!r} ist unbekannt; erlaubt sind {sorted(SIDES)}."
+        )
+        raise typer.Exit(code=EXIT_ABORTED)
+
+    try:
+        stamp = parse_created_at(created_at) if created_at is not None else None
+        options = RunOptions(
+            input_dir=input_dir,
+            out_dir=out_dir,
+            scope=Scope(
+                company_codes=tuple(
+                    code.strip() for code in (company_codes or "").split(",") if code.strip()
+                ),
+                side=side,
+            ),
+            decimal_notation=decimal_notation,
+            data_as_of=_as_date(data_as_of, "--data-as-of") if data_as_of else None,
+            decisions_path=decisions,
+            created_at=stamp,
+        )
+        started = time.perf_counter()
+        result = execute_run(options)
+    except (
+        RunError,
+        LoaderError,
+        MappingError,
+        StagingError,
+        CanonicalError,
+        RelevanceError,
+        DecisionError,
+        DictionaryError,
+        PackError,
+        RuleError,
+        ExecutionError,
+        FindingFileError,
+    ) as exc:
+        err_console.print(f"[bold red]Fehler:[/] {exc}")
+        raise typer.Exit(code=EXIT_ABORTED) from exc
+
+    seconds = time.perf_counter() - started
+    render(result.report, console)
+    if result.replaced:
+        console.print(f"\n[yellow]HINWEIS[/] {result.replaced}")
+    console.print(
+        f"\n{len(result.findings)} Findings in {result.directory} "
+        f"({FINDINGS_FILE}, {RUN_FILE}, {REPORT_FILE})."
+    )
+    # Der Zeitpunkt steht ausdruecklich da: er landet in jedem Finding, und mit
+    # --created-at sind zwei Laeufe byte-identisch (D-092). Die Dauer wird nur gesagt,
+    # nie geschrieben – sonst waere keine Datei je zweimal gleich.
+    console.print(f"Zeitpunkt (created_at): {result.report.created_at}   Dauer: {seconds:.1f} s")
+    raise typer.Exit(code=result.exit_code)
 
 
 if __name__ == "__main__":  # pragma: no cover

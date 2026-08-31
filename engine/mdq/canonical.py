@@ -208,6 +208,20 @@ class Scope:
     def roles(self) -> tuple[str, ...]:
         return SIDES[self.side]
 
+    def to_dict(self) -> dict:
+        """Der Scope als JSON – so steht er in ``run.json`` und in ``run_meta.scope``.
+
+        Leere ``company_codes`` heissen "alle": die Liste beschreibt den **Filter**, nicht
+        den Inhalt des Laufs. Welche Buchungskreise wirklich enthalten sind, sagt
+        ``run.json`` unter ``company_codes`` (D-095).
+        """
+        return {
+            "company_codes": list(self.company_codes),
+            "side": self.side,
+            "item_window_from": _iso(self.item_window_from),
+            "item_window_to": _iso(self.item_window_to),
+        }
+
     def describe(self) -> str:
         """Einzeiler fuer den Run-Report – der Scope muss sichtbar sein, nicht erraten."""
         codes = ", ".join(self.company_codes) if self.company_codes else "alle"

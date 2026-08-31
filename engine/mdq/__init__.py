@@ -30,6 +30,9 @@ RULES_DIR = LOGIC_DIR / "rules"
 #: Mapping SAP ECC -> kanonisches Schema; Quelle der Wahrheit fuer Feldlisten
 SAP_MAPPING = LOGIC_DIR / "mappings" / "sap_ecc.yaml"
 
+#: Version des Regelpakets (pack_version, dict_version); der Hash kommt aus mdq.pack
+PACK_FILE = LOGIC_DIR / "pack.yaml"
+
 #: Woerterbuch der Belegarten (BLART) nach fachlicher Klasse, je Seite
 DOCUMENT_TYPES = LOGIC_DIR / "dictionaries" / "document_types.yaml"
 
@@ -57,6 +60,7 @@ __all__ = [
     "EXPECTED_FINDINGS",
     "FINDING_SCHEMA",
     "LOGIC_DIR",
+    "PACK_FILE",
     "PROJECT_ROOT",
     "RULES_DIR",
     "SAP_MAPPING",

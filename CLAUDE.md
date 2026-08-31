@@ -70,5 +70,6 @@ angebunden, nicht über gemeinsamen Code (D-064).
 uv sync                                     # Abhängigkeiten
 uv run pytest                               # alle Tests
 uv run ruff check .                         # Lint
-uv run mdq run --input testdata/demo_mandant --out runs/   # Lauf (ab Sprint 3)
+uv run mdq run --input testdata/demo_mandant --out runs/   # Lauf: runs/<run_id>/
+uv run mdq run --input <dir> --out runs/ --created-at 2026-08-31T08:00:00Z   # Lauf festnageln
 ```

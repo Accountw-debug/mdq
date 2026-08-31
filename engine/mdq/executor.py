@@ -67,6 +67,16 @@ class ExecutionError(RuntimeError):
     """Die Regel konnte nicht ausgefuehrt werden oder verletzt den Ausgabe-Vertrag."""
 
 
+class InvalidFindingError(ExecutionError):
+    """Ein Finding ist nicht schema-valide – der Lauf schlaegt fehl (CLAUDE.md Regel 6).
+
+    Eigene Klasse, weil der Lauf die beiden Faelle verschieden behandelt: eine Regel mit
+    kaputtem SQL gilt als fehlgeschlagen und haelt die uebrigen nicht auf (Exit 1), ein
+    ungueltiges Finding bricht den Lauf ab (Exit 2). Ein Lauf, der schema-ungueltige
+    Findings ausliefert, ist schlimmer als keiner (D-098).
+    """
+
+
 @dataclass(frozen=True)
 class RunContext:
     """Unveraenderliche Kopfdaten eines Laufs.
@@ -394,7 +404,9 @@ def execute_rule_rows(
         errors = validate_finding(finding)
         if errors:
             joined = "\n    ".join(errors)
-            raise ExecutionError(f"{rule.id}: Finding ist nicht schema-valide:\n    {joined}")
+            raise InvalidFindingError(
+                f"{rule.id}: Finding ist nicht schema-valide:\n    {joined}"
+            )
         findings.append((finding, row.get("finding_key")))
     return findings
 

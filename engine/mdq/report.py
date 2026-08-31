@@ -9,6 +9,7 @@ in eine Ausgabe, die jemand in ein Ticket kopiert (Regel 8, D-036).
 """
 
 from dataclasses import dataclass, field
+from io import StringIO
 from typing import Any
 
 import duckdb
@@ -38,6 +39,9 @@ _STATUS_TEXT = {
     "dormant": "ruhend",
     "never_posted": "ohne Posten",
 }
+
+#: Feste Breite von `report.txt` – unabhängig von der Terminalbreite (Regel 9)
+REPORT_WIDTH = 100
 
 #: Kürzung des sha256 in der Anzeige – die volle Summe steht im LoadResult und in to_dict()
 SHA_DISPLAY_LENGTH = 8
@@ -177,7 +181,17 @@ class RunReport:
     pack_version: str | None = None
     data_as_of: str | None = None
     house_currency: str | None = None
+    #: Zeitpunkt des Laufs; steht so in jedem Finding (D-092)
+    created_at: str | None = None
     note: str | None = None
+    #: Der Filter des Laufs (``Scope.to_dict()``) – nicht sein Inhalt (D-095)
+    scope: dict[str, Any] | None = None
+    #: Engine, Regelpaket, Wörterbücher, Mapping, Finding-Schema, Paket-Hash
+    versions: dict[str, str] | None = None
+    #: Buchungskreise, die der Lauf tatsächlich enthält – sortiert (D-095)
+    company_codes: tuple[str, ...] = ()
+    #: Exit-Code, mit dem der Prozess endet; nur gesetzt, wenn der Lauf zu Ende lief
+    exit_code: int | None = None
     loads: list[LoadResult] = field(default_factory=list)
     stages: list[StageResult] = field(default_factory=list)
     canonical: CanonicalResult | None = None
@@ -245,7 +259,18 @@ class RunReport:
         return self.canonical.rows_total if self.canonical else 0
 
     @property
-    def warnings(self) -> list[str]:
+    def tables_loaded(self) -> int:
+        """Zahl der geladenen Quelltabellen – die UI zeigt sie im Datenstand-Banner."""
+        return len(self.loads)
+
+    @property
+    def hints(self) -> list[str]:
+        """Hinweise aller Stufen: gesagt, aber nicht ausschlaggebend für den Exit-Code.
+
+        Ein Hinweis ist etwas anderes als eine Auffälligkeit: dass `name_norm` bis
+        Sprint 4 leer bleibt (D-079), steht in **jedem** Lauf – an `has_problems`
+        gekoppelt wäre der Exit-Code dauerhaft 1 und damit ohne Aussage (D-097).
+        """
         collected = [
             warning
             for results in (self.sorted_loads, self.sorted_stages)
@@ -262,14 +287,14 @@ class RunReport:
 
     @property
     def has_problems(self) -> bool:
-        """Wahr, sobald etwas nicht glatt lief.
+        """Wahr, sobald der Lauf **selbst** Auffälligkeiten hatte.
 
-        Ein Lauf mit Rejects, übersprungenen oder fehlgeschlagenen Regeln ist kein
-        stiller Erfolg (D-038). Ob daraus ein Exit-Code wird, entscheidet Sprint 3.
+        Rejects, übersprungene oder fehlgeschlagene Regeln sind kein stiller Erfolg
+        (D-038) und führen zu Exit 1. Hinweise gehören nicht dazu (D-097): sie stehen
+        im Report unter `hints`, ändern aber den Exit-Code nicht. Findings selbst sind
+        das Produkt des Laufs und keine Auffälligkeit.
         """
-        return bool(
-            self.rejects_total or self.skipped_rules or self.failed_rules or self.warnings
-        )
+        return bool(self.rejects_total or self.skipped_rules or self.failed_rules)
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-serialisierbare Fassung – gleiche Zahlen wie die Textausgabe."""
@@ -278,8 +303,15 @@ class RunReport:
             "engine_version": self.engine_version,
             "pack_version": self.pack_version,
             "data_as_of": self.data_as_of,
+            # Die UI liest diese beiden Schlüssel flach von oben (RunInfo); `tables_loaded`
+            # steht zusätzlich als `totals.files` – redundant, aber am erwarteten Platz.
+            "tables_loaded": self.tables_loaded,
+            "company_codes": list(self.company_codes),
+            "created_at": self.created_at,
             "house_currency": self.house_currency,
             "note": self.note,
+            "versions": dict(self.versions) if self.versions else None,
+            "scope": dict(self.scope) if self.scope else None,
             "files": [
                 {
                     "table": result.table,
@@ -310,7 +342,9 @@ class RunReport:
                 "rules_skipped": len(self.skipped_rules),
                 "rules_failed": len(self.failed_rules),
             },
+            "hints": self.hints,
             "has_problems": self.has_problems,
+            "exit_code": self.exit_code,
         }
 
 
@@ -347,6 +381,31 @@ def _render_header(console: Console, report: RunReport) -> None:
         ("Hauswährung", report.house_currency),
     ]
     console.print("  " + "   ".join(f"{label}: {value or '–'}" for label, value in parts))
+    if report.created_at:
+        console.print(f"  Zeitpunkt: {report.created_at}")
+    if report.scope:
+        codes = ", ".join(report.scope.get("company_codes") or []) or "alle"
+        console.print(
+            f"  Scope: Buchungskreise {codes} · Seite {report.scope.get('side')}"
+            f"   Im Lauf: {', '.join(report.company_codes) or '–'}"
+        )
+    if report.versions:
+        console.print(
+            "  Versionen: "
+            + " · ".join(
+                f"{label} {report.versions[key]}"
+                for key, label in (
+                    ("engine", "Engine"),
+                    ("pack", "Paket"),
+                    ("dict", "Wörterbücher"),
+                    ("mapping", "Mapping"),
+                    ("finding_schema", "Finding-Schema"),
+                )
+                if key in report.versions
+            )
+        )
+        if "pack_hash" in report.versions:
+            console.print(f"  Paket-Hash: {report.versions['pack_hash'][:SHA_DISPLAY_LENGTH]}")
     if report.note:
         console.print(f"  [yellow]{report.note}[/]")
 
@@ -381,7 +440,7 @@ def _render_files(console: Console, report: RunReport) -> None:
         f"{sum(result.rows for result in report.loads)} Zeilen."
     )
     # Warnungen bewusst als eigene Zeilen: in einer Spalte gingen sie unter.
-    for warning in report.warnings:
+    for warning in report.hints:
         console.print(f"  [yellow]HINWEIS[/] {warning}")
 
 
@@ -579,3 +638,17 @@ def render(report: RunReport, console: Console | None = None) -> None:
     _render_rules(out, report)
     if report.has_problems:
         out.print("\n[yellow]Der Lauf hatte Auffälligkeiten – siehe oben.[/]")
+
+
+def render_to_text(report: RunReport, width: int = REPORT_WIDTH) -> str:
+    """Denselben Report als Text für ``runs/<run_id>/report.txt``.
+
+    Feste Breite und keine Farbcodes: `rich` richtet sich sonst nach der Terminalbreite,
+    und dieselbe Datei sähe auf zwei Rechnern verschieden aus (Regel 9).
+    """
+    buffer = StringIO()
+    console = Console(
+        file=buffer, width=width, soft_wrap=False, no_color=True, highlight=False, emoji=False
+    )
+    render(report, console)
+    return buffer.getvalue()

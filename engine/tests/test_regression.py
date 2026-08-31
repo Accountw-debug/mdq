@@ -11,7 +11,7 @@ import pytest
 from typer.testing import CliRunner
 
 from mdq import DEMO_MANDANT_DIR
-from mdq.cli import EXIT_NOT_IMPLEMENTED, app
+from mdq.cli import app
 from mdq.regression import (
     ActualFinding,
     ExpectedFinding,
@@ -240,18 +240,26 @@ def test_actual_from_findings_reads_entity_and_key() -> None:
 # --- Der Lauf selbst -----------------------------------------------------------------
 
 
-def test_run_is_still_a_stub() -> None:
-    """Stolperdraht: baut Sprint 3 `mdq run`, wird dieser Test rot.
+def test_run_schreibt_ein_laufverzeichnis(tmp_path) -> None:
+    """Der frueher hier stehende Stolperdraht: `mdq run` ist gebaut (Sprint 3, Aufgabe 4).
 
-    Dann gehoert der uebersprungene Regressionstest darunter angefasst – ein `skip`, den
-    niemand mehr sieht, ist keine Absicherung.
+    Er hat seinen Zweck erfuellt – der `skip` darunter ist damit angefasst und nennt
+    jetzt Aufgabe 5 als Termin, nicht mehr "ab Sprint 3".
     """
-    result = runner.invoke(app, ["run", "--input", str(DEMO_MANDANT_DIR), "--out", "runs/"])
-    assert result.exit_code == EXIT_NOT_IMPLEMENTED
-    assert "Sprint 3" in result.output
+    result = runner.invoke(
+        app,
+        ["run", "--input", str(DEMO_MANDANT_DIR), "--out", str(tmp_path / "runs"),
+         "--created-at", "2026-08-31T08:00:00Z"],
+    )
+    assert result.exit_code == 0, result.output
+    laufe = list((tmp_path / "runs").iterdir())
+    assert len(laufe) == 1
+    assert sorted(p.name for p in laufe[0].iterdir()) == [
+        "findings.json", "report.txt", "run.json",
+    ]
 
 
-@pytest.mark.skip(reason="Mapping SAP → kanonisch ab Sprint 3 (D-068)")
+@pytest.mark.skip(reason="Regression wird in Sprint 3, Aufgabe 5 scharf geschaltet (D-068)")
 def test_demo_mandant_regression(demo_client) -> None:
     """Der Demo-Mandant liefert exakt `expected_findings.yaml` – nicht mehr, nicht weniger.
 
@@ -259,4 +267,4 @@ def test_demo_mandant_regression(demo_client) -> None:
     `actual_from_findings` darauf, dann `compare`. Faellt der Vergleich durch, ist die
     Meldung `Comparison.render()` – und die Erwartung wird nicht angepasst (Regel 1).
     """
-    raise NotImplementedError("Sprint 3: mdq run")
+    raise NotImplementedError("Sprint 3, Aufgabe 5: Vergleich ueber regression.py")

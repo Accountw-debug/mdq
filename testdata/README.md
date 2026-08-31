@@ -10,6 +10,7 @@ uv run mdq demo generate --out testdata/demo_mandant          # Seed 20260830, m
 uv run mdq demo generate --out /tmp/basis --no-defects        # reiner Basis-Mandant
 uv run mdq demo expected                                      # erwartete Findings neu ableiten
 uv run mdq load --input testdata/demo_mandant                 # 16 Tabellen, 0 Rejects
+uv run mdq run  --input testdata/demo_mandant --out runs/     # ganzer Lauf, 30 Findings
 ```
 
 16 Dateien: KNA1 KNB1 KNBK KNVP KNB5 LFA1 LFB1 LFBK TIBAN BSID BSAD BSIK BSAK T001 T052 T052U,

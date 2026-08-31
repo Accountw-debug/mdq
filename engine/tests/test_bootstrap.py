@@ -3,7 +3,8 @@
 from typer.testing import CliRunner
 
 from mdq import __version__
-from mdq.cli import EXIT_NOT_IMPLEMENTED, app
+from mdq.cli import app
+from mdq.run import EXIT_ABORTED
 
 runner = CliRunner()
 
@@ -20,11 +21,13 @@ def test_version_command_succeeds() -> None:
     assert __version__ in result.stdout
 
 
-def test_stub_command_exits_non_zero(tmp_path) -> None:
-    """Ein noch nicht umgesetzter Befehl meldet nie einen leeren Erfolg (D-013).
+def test_no_command_reports_an_empty_success(tmp_path) -> None:
+    """Kein Befehl meldet einen leeren Erfolg (D-013).
 
-    Geprueft am letzten verbliebenen Stub `run` (Sprint 3); `validate` und `rules list`
-    sind umgesetzt und werden in test_findings.py bzw. test_rules.py geprueft.
+    Seit Sprint 3, Aufgabe 4 gibt es keinen Stub mehr: `run` ist umgesetzt. Geprueft wird
+    deshalb der Fall, in dem es nichts zu tun gab – ein leeres Eingabeverzeichnis endet
+    mit Abbruch und Grund, nicht mit Exit 0 (D-097).
     """
     result = runner.invoke(app, ["run", "--input", str(tmp_path), "--out", str(tmp_path)])
-    assert result.exit_code == EXIT_NOT_IMPLEMENTED
+    assert result.exit_code == EXIT_ABORTED
+    assert "Keine Exportdateien" in result.output

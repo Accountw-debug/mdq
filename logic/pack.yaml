@@ -1,0 +1,16 @@
+# Version des Regelpakets – das, was ein Kunde als `logic/` bekommt: Schema, Regeln,
+# Mappings, Wörterbücher, Beispiel-Findings.
+#
+# Wozu zwei Nummern: `pack_version` versioniert die fachliche Logik (Regeln, Schema,
+# Mappings), `dict_version` die Wörterbücher darunter (Rechtsformen, PLZ-Muster,
+# USt-IdNr.-Muster, Straßenkürzel, Belegarten). Ein Wörterbuch wächst häufiger als eine
+# Regel; `run_meta` führt beide Spalten getrennt, und die UI zeigt die Paketversion neben
+# dem Datenstand.
+#
+# Beide Nummern stehen in jedem Finding (`pack_version`) bzw. in `run.json`
+# (`versions.dict`). Sie werden von Hand gepflegt – die Nummer sagt, was gemeint war.
+# Ob das Paket wirklich unverändert ist, sagt sie nicht: dafür steht `versions.pack_hash`
+# in `run.json`, ein sha256 über alle Dateien unter `logic/` (D-096).
+version: "0.1"
+pack_version: "0.1"
+dict_version: "0.1"

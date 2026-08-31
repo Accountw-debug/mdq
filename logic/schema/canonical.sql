@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS run_meta (
     engine_version  TEXT NOT NULL,
     pack_version    TEXT NOT NULL,
     dict_version    TEXT NOT NULL,
+    -- sha256 ueber alle Dateien unter logic/ (Pfad + Inhalt, sortiert): die Nummer sagt,
+    -- was gemeint war, der Hash, dass das Paket unveraendert war (D-096)
+    pack_hash       TEXT NOT NULL,
     data_as_of      DATE NOT NULL,
     started_at      TIMESTAMP NOT NULL,
     finished_at     TIMESTAMP,
