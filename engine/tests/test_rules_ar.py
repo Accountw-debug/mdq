@@ -69,6 +69,35 @@ def test_ar_val_003_bleibt_stufe_c_ohne_soll(regression_run) -> None:
         assert finding["remediation"]["mass_change_eligible"] is False
 
 
+def test_ar_val_003_beziffert_den_lastschrifteinzug(regression_run) -> None:
+    """Die Euro-Wirkung ist der Betrag, der ueber diese Bankverbindung eingezogen wuerde.
+
+    Er kommt aus `bp_relevance.open_items_local` und steht deshalb Cent-genau auch in
+    `relevance.open_items` desselben Findings.
+    """
+    findings = [f for f in findings_of(regression_run, "AR-VAL-003") if f.get("impact_eur")]
+    assert findings, "ohne Findings mit Euro-Wirkung prueft dieser Test nichts"
+    for finding in findings:
+        impact = finding["impact_eur"]
+        assert impact["amount"] == finding["relevance"]["open_items"]
+        assert impact["currency"] == finding["relevance"]["currency"]
+        assert impact["formula"].endswith(
+            ", die über diese IBAN per Lastschrift eingezogen würden"
+        )
+
+
+def test_ar_val_003_schreibt_den_betrag_deutsch(regression_run) -> None:
+    """Der Betrag in der Formel ist Freitext und wird deshalb schon beim Entstehen
+    geschrieben - deutsch, mit Waehrung daneben (D-187, `mdq_money`)."""
+    for finding in findings_of(regression_run, "AR-VAL-003"):
+        impact = finding.get("impact_eur")
+        if impact is None:
+            continue
+        ganzzahl, _, rest = impact["amount"].partition(".")
+        erwartet = f"{int(ganzzahl):,}".replace(",", ".") + "," + rest
+        assert f"Offene Posten {erwartet} {impact['currency']}," in impact["formula"]
+
+
 # --- AR-COM-002 – Zahlungsbedingung im Buchungskreis leer ----------------------------
 
 

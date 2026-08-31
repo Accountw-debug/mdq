@@ -7,6 +7,8 @@ Stufe, Soll. Beide teilen sich den Lauf aus `regression_run` (conftest).
 
 import re
 
+import yaml
+
 from .conftest import findings_of
 
 #: Eine Folge aus zwei Buchstaben und mindestens zehn weiteren Zeichen ohne Trenner ist
@@ -164,6 +166,61 @@ def test_ap_val_003_bleibt_stufe_c_ohne_soll(regression_run) -> None:
         assert finding["damage_class"] == 1
         assert "proposed" not in finding           # kein Soll, kein Vorschlag (D-186)
         assert finding["remediation"]["mass_change_eligible"] is False
+
+
+def test_ap_val_003_beziffert_die_offenen_posten(regression_run) -> None:
+    """Die Euro-Wirkung ist der Betrag, der ueber diese Bankverbindung hinausginge.
+
+    Er kommt aus `bp_relevance.open_items_local` und steht deshalb Cent-genau auch in
+    `relevance.open_items` desselben Findings - zwei Wege zur selben Zahl.
+    """
+    findings = [f for f in findings_of(regression_run, "AP-VAL-003") if f.get("impact_eur")]
+    assert findings, "ohne Findings mit Euro-Wirkung prueft dieser Test nichts"
+    for finding in findings:
+        impact = finding["impact_eur"]
+        assert impact["amount"] == finding["relevance"]["open_items"]
+        assert impact["currency"] == finding["relevance"]["currency"]
+        assert impact["formula"].endswith(", die an diese IBAN gezahlt würden")
+
+
+def test_ap_val_003_ohne_offene_posten_kein_impact(regression_run) -> None:
+    """Grenzfall: kein offener Posten, keine Zahl - und keine behauptete 0,00 (Regel 4)."""
+    ohne_op = [
+        f for f in findings_of(regression_run, "AP-VAL-003")
+        if f["relevance"]["open_items"] == "0.00"
+    ]
+    assert ohne_op, "ohne einen Kreditor ohne offene Posten prueft dieser Test nichts"
+    for finding in ohne_op:
+        assert "impact_eur" not in finding
+
+
+def test_ap_val_003_reproduziert_f006_woertlich(regression_run, example_findings_dir) -> None:
+    """F-006 ist Victors Spec und nennt die Euro-Wirkung; bis Aufgabe 7 lieferte die
+    Regel keine. Dieser Test haelt fest, dass der Lauf den Ankerfall jetzt Wort fuer
+    Wort trifft - Betrag, Waehrung und Formel."""
+    beispiel = yaml.safe_load(
+        (example_findings_dir / "F-006-AP-VAL-003.yaml").read_text(encoding="utf-8")
+    )
+    anker = beispiel["entity"]["bp_key"]
+    finding = next(
+        f for f in findings_of(regression_run, "AP-VAL-003") if f["entity"]["bp_key"] == anker
+    )
+    assert finding["impact_eur"]["amount"] == beispiel["impact_eur"]["amount"] == "27300.00"
+    assert finding["impact_eur"]["currency"] == beispiel["impact_eur"]["currency"]
+    assert finding["impact_eur"]["formula"] == beispiel["impact_eur"]["formula"]
+
+
+def test_die_val_003_zwillinge_formulieren_rollengerecht(regression_run) -> None:
+    """Dieselbe Rechnung, zwei Saetze: beim Kreditor geht Geld hinaus, beim Debitor wird
+    es eingezogen (D-188 - wo die Zwillinge abweichen, weicht die Seite ab, nicht die
+    Logik)."""
+    ap = [f for f in findings_of(regression_run, "AP-VAL-003") if f.get("impact_eur")]
+    ar = [f for f in findings_of(regression_run, "AR-VAL-003") if f.get("impact_eur")]
+    assert ap and ar
+    assert all(f["impact_eur"]["formula"].startswith("Offene Posten ") for f in ap + ar)
+    assert all("an diese IBAN gezahlt würden" in f["impact_eur"]["formula"] for f in ap)
+    assert all("über diese IBAN per Lastschrift eingezogen würden" in
+               f["impact_eur"]["formula"] for f in ar)
 
 
 # --- Maskierung, ueber den ganzen Lauf (D-105) ---------------------------------------

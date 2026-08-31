@@ -1,6 +1,6 @@
 /* ---
 id: AR-VAL-003
-version: "1.1"
+version: "1.2"
 title: "IBAN mit ungültiger Prüfziffer ({iban_masked})"
 side: AR
 category: validity
@@ -8,7 +8,7 @@ severity: critical
 damage_class: 1
 default_tier: C
 default_action_type: review
-requires_tables: [business_partner, bp_bank_account]
+requires_tables: [business_partner, bp_bank_account, bp_relevance]
 plain_logic: >
   Finding, wenn eine Bankverbindung eines Debitors (kein CpD) eine IBAN trägt, deren
   Prüfziffer nach ISO 13616 (Mod-97) falsch ist. Bankverbindungen ohne IBAN werden nicht
@@ -18,6 +18,11 @@ plain_logic: >
   auch nicht per Policy. Im Finding steht die IBAN ausschließlich maskiert (Regel 8);
   auffindbar bleibt die Bankverbindung über Bankschlüssel (BANKL) und Bankdetail-ID
   (BVTYP), die beide keine Kontonummer nennen (D-105).
+  Euro-Wirkung: die offenen Posten des Debitors sind der Betrag, der über genau diese
+  Bankverbindung per Lastschrift eingezogen würde. Er kommt aus
+  `bp_relevance.open_items_local` und steht nur da, wo offene Posten existieren – ohne
+  sie gibt es nichts zu beziffern, und eine 0,00 wäre eine Behauptung statt einer
+  fehlenden Zahl (Regel 4).
 why: >
   Eine IBAN mit falscher Prüfziffer wird von der Bank abgewiesen – die Zahlung bleibt
   liegen – oder sie trifft, wenn die verdrehte Stelle zufällig ein gültiges Konto ergibt,
@@ -76,6 +81,15 @@ SELECT
         'agrees':      FALSE,
         'note':        'Mod-97-Prüfung fehlgeschlagen'
     }])                                           AS evidence,
+    -- Euro-Wirkung: was ueber diese Bankverbindung per Lastschrift eingezogen wuerde.
+    -- Ohne offene Posten traegt das Finding kein impact_eur - die Zahl fehlt dann, sie
+    -- wird nicht als 0,00 behauptet (Regel 4).
+    CASE WHEN r.open_items_local > 0 THEN r.open_items_local END    AS impact_amount,
+    CASE WHEN r.open_items_local > 0 THEN r.currency END            AS impact_currency,
+    CASE WHEN r.open_items_local > 0
+         THEN 'Offene Posten ' || mdq_money(r.open_items_local, r.currency)
+              || ', die über diese IBAN per Lastschrift eingezogen würden'
+    END                                                             AS impact_formula,
     to_json({
         'iban_masked':        substr(b.iban_norm, 1, 4) || ' … ' || substr(b.iban_norm, -4),
         'bank_key':           b.bank_key,
@@ -84,6 +98,8 @@ SELECT
 FROM bp_bank_account b
 JOIN business_partner bp
   ON bp.bp_key = b.bp_key
+LEFT JOIN bp_relevance r
+  ON r.bp_key = bp.bp_key
 WHERE bp.role = 'CUSTOMER'
   AND bp.is_one_time = FALSE
   -- NULL heisst "keine IBAN hinterlegt": nicht geprueft, kein Finding
