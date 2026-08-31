@@ -51,7 +51,7 @@ die Policy hebt zur Laufzeit Stufe **und** Aktion gemeinsam an.
 | AP-CON-001 | Gleiche IBAN bei mehreren Kreditoren | consistency | critical | 1 | C | review | bp_bank_account | XK02 | draft | Defekt |
 | AP-CON-002 | IBAN-Land ≠ Sitzland bei Kreditor | consistency | medium | 1 | C | review | business_partner, bp_bank_account | – | draft | ohne Testfall |
 | AP-CON-003 | Zahlung an gesperrten/zur Löschung vorgemerkten Kreditor (letzte 12 Monate) | consistency | high | 3 | C | review | business_partner, bp_company_code, fi_item | – | draft | ohne Testfall |
-| AP-HYG-001 | Kein Posten im gesamten Postenfenster, Anlage vor Fensterbeginn (Löschkandidat) | hygiene | low | 3 | decision (Policy kann zur Laufzeit auf A heben) | decision | business_partner, bp_relevance | XK06 | draft | Defekt |
+| AP-HYG-001 | Kein Posten im gesamten Postenfenster, Anlage vor Fensterbeginn, keine OP (Löschkandidat) | hygiene | low | 3 | decision (Policy kann zur Laufzeit auf A heben) | decision | business_partner, bp_relevance, fi_item | XK06 | impl | Defekt |
 | AP-RSK-001 | Bankdatenänderung kurz vor Zahlung (< 30 Tage) ohne Vier-Augen (V2: CDHDR) | risk | critical | 1 | C | process | change_document, fi_item | – | draft | ohne Testfall |
 | AP-DUP-001 | Kreditoren-Dubletten-Cluster | duplicate | high | 2 | B | review | business_partner, bp_tax_id, bp_bank_account | XK05/XK06 | draft | Defekt |
 | AP-LEA-001 | Mögliche Doppelzahlung (Referenz fuzzy, gleicher Betrag, 60 Tage) | leakage | critical | 2 | B | review | business_partner, fi_item | FBL1N | impl | Defekt |

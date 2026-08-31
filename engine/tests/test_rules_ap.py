@@ -219,3 +219,48 @@ def test_kein_beispiel_finding_zeigt_eine_vollstaendige_iban(example_findings_di
     for path in sorted(example_findings_dir.glob("*.yaml")):
         treffer = IBAN_LIKE.search(path.read_text(encoding="utf-8"))
         assert treffer is None, f"unmaskierte IBAN in {path.name}"
+
+
+# --- AP-HYG-001 – Loeschkandidaten ----------------------------------------------------
+
+
+def test_ap_hyg_001_liefert_die_fuenfundzwanzig_stillgelegten_konten(regression_run) -> None:
+    findings = findings_of(regression_run, "AP-HYG-001")
+    assert len(findings) == 25
+    assert all(f["entity"]["bp_key"].startswith("V:") for f in findings)
+
+
+def test_ap_hyg_001_entscheidet_nicht_sondern_legt_optionen_vor(regression_run) -> None:
+    """Loeschen, behalten oder sperren haengt an Fristen, nicht an den Daten (D-111)."""
+    findings = findings_of(regression_run, "AP-HYG-001")
+    assert findings, "ohne Findings prueft dieser Test nichts"
+    for finding in findings:
+        assert finding["tier"] == "decision"
+        assert finding["action_type"] == "decision"
+        assert len(finding["proposed"]["options"]) == 3
+        assert "value" not in finding["proposed"] or finding["proposed"]["value"] is None
+
+
+def test_ap_hyg_001_traegt_keine_offenen_posten(regression_run) -> None:
+    """Die Bedingung aus der AR-Schwester gilt hier genauso.
+
+    Eine Loeschung scheitert in SAP, solange eine Verbindlichkeit offen ist – ein
+    Loeschvorschlag auf einem Konto mit offenem Posten waere ein Vorschlag ins Leere.
+    """
+    findings = findings_of(regression_run, "AP-HYG-001")
+    assert findings, "ohne Findings prueft dieser Test nichts"
+    for finding in findings:
+        assert finding["relevance"]["open_items"] == "0.00"
+
+
+def test_ap_hyg_001_und_ar_hyg_001_sind_deckungsgleich(regression_run) -> None:
+    """Zwillinge: gleiche Bedingungen, gleiche Optionen, nur die Seite unterscheidet sie."""
+    ar = findings_of(regression_run, "AR-HYG-001")
+    ap = findings_of(regression_run, "AP-HYG-001")
+    assert ar and ap, "ohne Findings prueft dieser Test nichts"
+    assert {o["label"] for o in ar[0]["proposed"]["options"]} == {
+        o["label"] for o in ap[0]["proposed"]["options"]
+    }
+    assert ar[0]["current"]["display"] == ap[0]["current"]["display"]
+    assert ar[0]["remediation"]["sap_transaction"] == "XD06"
+    assert ap[0]["remediation"]["sap_transaction"] == "XK06"
