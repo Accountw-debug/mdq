@@ -19,12 +19,15 @@ plain_logic: >
   Buchungskreises leer ist. Soll ist die Zahlungsbedingung, die auf **mehr als der Hälfte**
   der Rechnungsbelege dieses Debitors in diesem Buchungskreis steht, sofern es mindestens
   `min_invoices` Rechnungen gibt – dann Stufe B. Gibt es keine solche Mehrheit, keine
-  Rechnungen oder zu wenige, entsteht das Finding trotzdem, aber ohne Soll und mit Stufe C:
-  ein geratenes Soll wäre schlimmer als keins. CpD-Konten ausgeschlossen.
+  Rechnungen oder zu wenige, entsteht das Finding trotzdem, aber mit Stufe C und **ohne
+  `proposed`** – wie sich die Belege verteilen, steht dann im Ist (D-186); ein geratenes Soll
+  wäre schlimmer als keins. CpD-Konten ausgeschlossen.
 why: >
   Ohne Zahlungsbedingung im Stammsatz zieht SAP beim Buchen keinen Vorschlag; das Fälligkeitsdatum
   entsteht dann aus dem, was der Erfasser eintippt. Die Folge sind falsche Mahnstufen, ein
   falsches Fälligkeitsbild in der OP-Liste und Skontoabzüge, die niemand vereinbart hat.
+  Widersprechen sich die Belege, nennt das Finding kein Soll: die vereinbarte Bedingung steht
+  dann im Vertrag und nicht in den Daten.
 if_wrong: >
   Wird eine falsche Bedingung übernommen, verschiebt sich die Fälligkeit aller künftigen
   Rechnungen dieses Kunden – zu früh gemahnt kostet die Beziehung, zu spät gemahnt kostet
@@ -104,22 +107,24 @@ SELECT
     'KNB1'                                            AS source_table,
     'ZTERM'                                           AS source_field,
     NULL                                              AS current_value,
-    'nicht gepflegt'                                  AS current_display,
+    CASE
+        WHEN b.hat_mehrheit THEN 'nicht gepflegt'
+        WHEN b.rechnungen = 0 THEN 'nicht gepflegt; keine Rechnung im Buchungskreis'
+        ELSE 'nicht gepflegt; ' || b.rechnungen::VARCHAR || ' Rechnungen verteilen sich auf '
+             || b.varianten::VARCHAR || ' Zahlungsbedingungen ohne Mehrheit'
+    END                                               AS current_display,
     CASE WHEN b.hat_mehrheit THEN b.haeufigste END    AS proposed_value,
     CASE
         WHEN b.hat_mehrheit THEN (
             SELECT max(pt.description) FROM payment_terms pt WHERE pt.terms_key = b.haeufigste
         )
     END                                               AS proposed_display,
+    -- Ohne Mehrheit gibt es kein Soll und damit kein proposed (D-186); wie sich die
+    -- Belege verteilen, steht dann im Ist.
     CASE
         WHEN b.hat_mehrheit THEN
             b.haeufigste_treffer::VARCHAR || ' von ' || b.rechnungen::VARCHAR
             || ' Rechnungen im Buchungskreis tragen ' || b.haeufigste
-        WHEN b.rechnungen = 0 THEN
-            'Keine Rechnung im Buchungskreis – kein Soll ableitbar'
-        ELSE
-            'Kein Soll ableitbar: ' || b.rechnungen::VARCHAR || ' Rechnungen verteilen sich auf '
-            || b.varianten::VARCHAR || ' Zahlungsbedingungen ohne Mehrheit'
     END                                               AS source_summary,
     -- Stufe B nur mit Mehrheit: beobachtetes Verhalten ist eine starke Quelle, eine
     -- Minderheit ist keine (CONCEPT §4). Ohne Mehrheit Stufe C ohne Soll.

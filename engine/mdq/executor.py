@@ -386,11 +386,26 @@ def _build_entity(
 
 
 def _build_proposed(row: dict[str, Any], rule: Rule) -> dict[str, Any] | None:
+    """Das Soll – oder ``None``, wenn es keines gibt (D-186).
+
+    Ein Soll ist ein Wert (``proposed_value``), eine aufbereitete Entscheidung
+    (``options``) oder eine Handlung, die in kein Feld passt (``proposed_display``).
+    Ein ``proposed``, das **nur** eine Quellenlage traegt, ist keines von beidem: es
+    erklaert, warum es kein Soll gibt, und sieht in jeder Ansicht aus wie ein leerer
+    Vorschlag. Diese Form bricht den Lauf ab (Regel 6) – der Satz gehoert nach
+    ``remediation`` oder ``why``.
+    """
     options = _decode_json(row.get("options"), rule.id, "options")
-    has_content = any(
-        row.get(column) is not None for column in ("proposed_value", "source_summary")
-    ) or bool(options)
-    if not has_content:
+    traegt_soll = row.get("proposed_value") is not None or bool(options) or (
+        row.get("proposed_display") is not None
+    )
+    if not traegt_soll:
+        if row.get("source_summary") is not None:
+            raise InvalidFindingError(
+                f"{rule.id}: proposed traegt nur eine Quellenlage und kein Soll "
+                f"(bp_key {row['bp_key']}). Ohne Soll gehoert kein proposed ins Finding; "
+                "der erklaerende Satz gehoert nach remediation oder why (D-186)."
+            )
         return None
     proposed: dict[str, Any] = {
         "value": row.get("proposed_value"),

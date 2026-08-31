@@ -24,7 +24,8 @@ if_wrong: >
   Eine falsch korrigierte IBAN ist eine Fehlüberweisung an einen Dritten und praktisch
   nicht rückholbar. Deshalb nie automatisch übernehmen, sondern über einen bekannten
   Kanal beim Kunden bestätigen lassen – nicht über eine Nummer aus dem Schreiben, das
-  die Änderung ankündigt.
+  die Änderung ankündigt. Die richtige IBAN steht in keinem anderen Feld des Mandanten;
+  deshalb nennt das Finding kein Soll, sondern ein Vorgehen.
 remediation:
   sap_transaction: XD02
   path: "Zahlungsverkehr → Bankverbindungen"
@@ -58,11 +59,10 @@ SELECT
     -- (CLAUDE.md Regel 8, Maske nach logic/finding.schema.json $defs.iban_masked)
     substr(b.iban_norm, 1, 4) || ' … ' || substr(b.iban_norm, -4)  AS current_value,
     'Prüfziffer ungültig (Mod-97)'                AS current_display,
+    -- Kein Soll und deshalb kein proposed (D-186): das Vorgehen steht unter remediation.
     NULL                                          AS proposed_value,
-    'Bestätigung über einen bekannten Kanal einholen, nicht über den Absender der Änderung'
-                                                  AS proposed_display,
-    'Prüfziffer schlägt fehl; keine zweite Quelle für die richtige IBAN im Datenbestand'
-                                                  AS source_summary,
+    NULL                                          AS proposed_display,
+    NULL                                          AS source_summary,
     to_json([{
         'source_type': 'iban_checksum',
         'reference':   'TIBAN',

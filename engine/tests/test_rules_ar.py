@@ -65,7 +65,7 @@ def test_ar_val_003_bleibt_stufe_c_ohne_soll(regression_run) -> None:
     for finding in findings_of(regression_run, "AR-VAL-003"):
         assert finding["tier"] == "C"
         assert finding["damage_class"] == 1
-        assert finding["proposed"]["value"] is None
+        assert "proposed" not in finding   # kein Soll, kein Vorschlag (D-186)
         assert finding["remediation"]["mass_change_eligible"] is False
 
 
@@ -85,14 +85,14 @@ def test_ar_com_002_stufe_haengt_an_der_mehrheit(regression_run) -> None:
     Faelligkeit jeder kuenftigen Rechnung.
     """
     for finding in findings_of(regression_run, "AR-COM-002"):
-        soll = finding["proposed"]["value"]
         if finding["tier"] == "B":
-            assert soll, finding["entity"]["bp_key"]
+            assert finding["proposed"]["value"], finding["entity"]["bp_key"]
             assert finding["proposed"]["display"], "Stufe B nennt den Klartext aus T052U"
         else:
             assert finding["tier"] == "C"
-            assert soll is None
-            assert "kein soll" in finding["proposed"]["source_summary"].lower()
+            # Ohne Mehrheit gibt es kein Soll und damit kein `proposed` (D-186)
+            assert "proposed" not in finding
+            assert "ohne Mehrheit" in finding["current"]["display"]
 
 
 def test_ar_com_002_zaehlt_wie_die_belege_es_hergeben(regression_run) -> None:
@@ -130,14 +130,16 @@ def test_ar_val_002_nennt_die_steuernummer_im_falschen_feld(regression_run) -> N
     ]
     assert len(ohne_praefix) == 3   # DEF-0039
     for finding in ohne_praefix:
-        assert "STCD1" in finding["proposed"]["display"]
+        # Der Hinweis steht seit D-186 unter `remediation`, nicht in einem Leervorschlag
+        assert any("STCD1" in schritt for schritt in finding["remediation"]["steps"])
 
 
 def test_ar_val_002_schlaegt_kein_soll_vor(regression_run) -> None:
     """Das richtige Format sagt nichts ueber die richtige Nummer – dafuer braucht es VIES."""
     for finding in findings_of(regression_run, "AR-VAL-002"):
         assert finding["tier"] == "C"
-        assert finding["proposed"]["value"] is None
+        assert "proposed" not in finding
+        assert "VIES" in finding["why"]
 
 
 # --- AR-HYG-001 – Löschkandidaten ----------------------------------------------------
@@ -191,4 +193,45 @@ def test_ar_val_005_schlaegt_keinen_namen_vor(regression_run) -> None:
     """Der richtige Name steht nirgends in den Daten – ein erfundener waere schlimmer."""
     for finding in findings_of(regression_run, "AR-VAL-005"):
         assert finding["tier"] == "C"
-        assert finding["proposed"]["value"] is None
+        assert "proposed" not in finding
+
+
+# --- Soll-Konvention (D-186) ---------------------------------------------------------
+
+
+def test_ohne_soll_kein_proposed(regression_run) -> None:
+    """Ein Vorschlag, der nur erklaert, warum es keinen gibt, ist keiner.
+
+    Die vier Regeln ohne Soll tragen gar kein `proposed`; das Vorgehen steht unter
+    `remediation`, die Quellenlage in der Evidenz.
+    """
+    for rule_id in ("AR-VAL-002", "AR-VAL-003", "AR-VAL-005"):
+        findings = findings_of(regression_run, rule_id)
+        assert findings, rule_id
+        for finding in findings:
+            assert "proposed" not in finding, (rule_id, finding["finding_id"])
+            assert finding["remediation"].get("steps"), rule_id
+
+
+def test_ar_com_002_traegt_proposed_nur_mit_mehrheit(regression_run) -> None:
+    """Stufe B hat ein Soll (Schema verlangt es), Stufe C traegt gar kein `proposed`."""
+    for finding in findings_of(regression_run, "AR-COM-002"):
+        if finding["tier"] == "B":
+            assert finding["proposed"]["value"]
+        else:
+            assert "proposed" not in finding
+            # Wie sich die Belege verteilen, steht jetzt im Ist statt in einem Leervorschlag
+            assert "ohne Mehrheit" in finding["current"]["display"]
+
+
+def test_jedes_proposed_traegt_ein_soll(regression_run) -> None:
+    """Kein Finding des Laufs traegt ein `proposed`, das nur eine Quellenlage ist."""
+    for finding in regression_run.findings:
+        proposed = finding.get("proposed")
+        if proposed is None:
+            continue
+        assert (
+            proposed.get("value") is not None
+            or proposed.get("options")
+            or proposed.get("display") is not None
+        ), finding["finding_id"]

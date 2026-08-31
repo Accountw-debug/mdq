@@ -16,7 +16,9 @@ plain_logic: >
   kommen oft durchgehend in Großbuchstaben. Bewusst keine Präfixregel `Test*`: "Testo SE"
   ist ein realer Hersteller; Zusammensetzungen wie "Testkunde" stehen ausgeschrieben im
   Wörterbuch. Trifft es Name und Ort zugleich, entsteht **ein** Finding und der Name wird
-  genannt – er wiegt schwerer. Kein Soll: der richtige Name steht nirgends in den Daten.
+  genannt – er wiegt schwerer. **Kein `proposed`**: der richtige Name steht nirgends in den
+  Daten, und ein Vorschlag, der nur das erklärt, sieht aus wie ein leerer (D-186); das
+  Vorgehen steht unter `remediation`.
 why: >
   Ein Platzhaltername macht das Konto in jeder Auswertung, Mahnung und Rechnung unbrauchbar
   und ist in der Dublettenprüfung ein Blindgänger – "Test GmbH" gleicht sich mit nichts ab.
@@ -82,13 +84,10 @@ SELECT
         || trim(CASE WHEN g.name_trifft THEN g.name_begriff ELSE g.ort_begriff END,
                 '#.,;:/-_ ')
         || '" als eigenes Wort'                                    AS current_display,
+    -- Kein Soll und deshalb kein proposed (D-186): das Vorgehen steht unter remediation.
     NULL                                              AS proposed_value,
-    'Echten Wert aus Beleg oder Auftrag übernehmen; findet sich keiner, Konto sperren'
-                                                      AS proposed_display,
-    'Begriff aus placeholder_terms.yaml als ganzes Wort im '
-        || CASE WHEN g.name_trifft THEN 'Namen' ELSE 'Ort' END
-        || '; keine zweite Quelle für den richtigen Wert im Datenbestand'
-                                                      AS source_summary,
+    NULL                                              AS proposed_display,
+    NULL                                              AS source_summary,
     to_json([{
         'source_type':    'deterministic',
         'reference':      'placeholder_terms.yaml',

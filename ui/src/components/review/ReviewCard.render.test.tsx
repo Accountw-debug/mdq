@@ -200,12 +200,22 @@ describe('Review-Karte für alle sechs Beispiele', () => {
   })
 
   it('nennt die Spalte „Empfehlung", wenn nur proposed.display vorliegt', () => {
-    // F-e2f7b19c4d83 hat kein `proposed.value`, aber einen Handlungssatz. Der feste
-    // Hinweis wäre hier falsch – es gibt sehr wohl ein Soll, nur keinen Feldwert.
-    const html = render(byId('F-e2f7b19c4d83'))
+    // F-5e8a2c7f0b14 (AP-LEA-002) hat kein `proposed.value`, aber einen Handlungssatz.
+    // Der feste Hinweis wäre hier falsch – es gibt sehr wohl ein Soll, nur keinen
+    // Feldwert. Stand bis 2026-08-31 auf F-e2f7b19c4d83; dort ist `proposed` seit der
+    // Soll-Konvention (D-186) ganz weg, weil der Satz doppelt unter `remediation` stand.
+    const html = render(byId('F-5e8a2c7f0b14'))
     expect(html).toContain('Empfehlung')
     expect(html).not.toContain('Kein Soll ermittelbar – Entscheidung/Prüfung')
-    expect(html).toContain('Anfrage an Lieferant')
+    expect(html).toContain('Zahllauf-Timing')
+  })
+
+  it('nennt den Hinweis, wenn ein Finding gar kein proposed trägt', () => {
+    // F-e2f7b19c4d83 seit D-186: ohne Soll kein `proposed`-Objekt. Die Karte zeigt den
+    // Hinweis, nicht eine leere Spalte – und das Vorgehen steht unter „Umsetzung in SAP".
+    const html = render(byId('F-e2f7b19c4d83'))
+    expect(html).toContain('Kein Soll ermittelbar – Entscheidung/Prüfung')
+    expect(html).not.toContain('Empfehlung')
   })
 
   it('nennt den Hinweis nur, wenn weder Wert noch Text vorliegen', () => {

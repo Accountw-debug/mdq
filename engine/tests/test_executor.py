@@ -15,6 +15,7 @@ from mdq.dictionaries import parse_document_types
 from mdq.executor import (
     ID_COLUMNS,
     ExecutionError,
+    InvalidFindingError,
     RunContext,
     _display_names_by_bp,
     execute_rule,
@@ -656,3 +657,22 @@ def test_anzeigename_nimmt_das_vorhandene_feld(db) -> None:
 def test_anzeigename_aendert_die_finding_id_nicht() -> None:
     """Der Name gehoert nicht in den Schluessel – sonst verschoebe eine Umbenennung ihn."""
     assert "display_name" not in ID_COLUMNS
+
+
+def test_proposed_ohne_soll_bricht_den_lauf_ab(db, run_context) -> None:
+    """Nur eine Quellenlage und kein Soll: das ist ein leerer Vorschlag (D-186)."""
+    text = VALID_RULE_TEXT.replace(
+        "SELECT bp_key, role FROM business_partner WHERE FALSE ORDER BY bp_key;",
+        "SELECT bp_key, role, 'KNA1' AS source_table, 'STCEG' AS source_field, "
+        "'X' AS current_value, 'ohne Soll, nur Erklaerung' AS source_summary "
+        "FROM business_partner ORDER BY bp_key;",
+    )
+    rule = parse_rule(text, Path("AR-VAL-009.rule.sql"))
+    db.execute(
+        "INSERT INTO business_partner (bp_key, role, source_id) "
+        "VALUES ('C:0000000001', 'CUSTOMER', '1')"
+    )
+    with pytest.raises(InvalidFindingError) as excinfo:
+        execute_rule(db, rule, run_context)
+    assert "kein Soll" in str(excinfo.value)
+    assert "remediation" in str(excinfo.value)

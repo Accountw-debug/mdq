@@ -18,13 +18,16 @@ plain_logic: >
   gibt, und verletzt es – oder er trägt gar kein Buchstabenpräfix und passt auf kein Muster;
   dann sieht er wie eine Steuernummer aus und gehört in STCD1. Ein Buchstabenpräfix **ohne**
   Muster im Wörterbuch ergibt kein Finding – nicht beurteilbar ist nicht falsch; der Lauf
-  nennt solche Präfixe als Hinweis. Kein Soll: das richtige Format sagt nichts über die
-  richtige Nummer, dafür braucht es VIES.
+  nennt solche Präfixe als Hinweis. **Kein `proposed`**: das richtige Format sagt nichts
+  über die richtige Nummer, dafür braucht es VIES – und ein `proposed`, das nur erklärt,
+  warum es kein Soll gibt, sieht aus wie ein leerer Vorschlag (D-186). Was zu tun ist,
+  steht unter `remediation`.
 why: >
   Eine USt-IdNr. im falschen Format scheitert bei jeder Bestätigungsanfrage und macht die
   Rechnung nach § 14 UStG angreifbar. Eine Steuernummer im Feld STCEG ist zugleich ein
   Datenfehler mit Folgen für die Zusammenfassende Meldung: dort taucht der Kunde dann gar
-  nicht oder falsch auf.
+  nicht oder falsch auf. Ein Soll nennt das Finding nicht: die richtige Nummer ist erst mit
+  einer Bestätigung über VIES zu ermitteln (`--enrich vies`, nicht in diesem Sprint).
 if_wrong: >
   Wird eine erfundene Nummer eingetragen, um das Format zu erfüllen, ist der Stammsatz
   formal sauber und fachlich falsch – das ist schlechter als das erkannte Problem. Deshalb
@@ -34,6 +37,10 @@ remediation:
   path: "Steuerung → USt-IdNr. / Steuernummer"
   field: STCEG / STCD1
   mass_change_eligible: false
+  steps:
+    - "Trägt der Wert kein Länderpräfix, sieht er wie eine Steuernummer aus: nach STCD1 umtragen und STCEG leeren (D-058)"
+    - "Sonst die richtige USt-IdNr. beim Kunden erfragen – aus Vertrag oder Rechnung, nicht aus dem Stammsatz"
+    - "Vor der Übernahme über VIES bestätigen lassen; ohne Bestätigung bleibt es Stufe C"
 tests:
   # Nur Konten, die `testdata/demo_mandant/defects.yaml` namentlich nennt (D-066).
   hits:
@@ -90,21 +97,11 @@ SELECT
         WHEN g.hat_praefix THEN 'entspricht nicht dem Format für ' || g.praefix
         ELSE 'kein Länderpräfix – sieht wie eine Steuernummer aus'
     END                                           AS current_display,
+    -- Kein Soll und deshalb kein proposed (D-186): das Vorgehen steht unter remediation,
+    -- die Musterverletzung in der Evidenz.
     NULL                                          AS proposed_value,
-    CASE
-        WHEN g.hat_praefix THEN
-            'Richtige Nummer beim Kunden erfragen und über VIES bestätigen lassen'
-        ELSE
-            -- D-058: der haeufigste Formatfehler der Praxis - die Steuernummer steht im
-            -- Feld der USt-IdNr. Beide Felder gibt es, sie meinen nur Verschiedenes.
-            'Sieht wie eine deutsche Steuernummer aus – gehört in STCD1, nicht in STCEG'
-    END                                           AS proposed_display,
-    CASE
-        WHEN g.hat_praefix THEN
-            'Muster ' || g.praefix || ' aus vat_id_patterns.yaml verletzt; ohne VIES kein Soll'
-        ELSE
-            'Kein Länderpräfix und kein Muster des Wörterbuchs trifft zu'
-    END                                           AS source_summary,
+    NULL                                          AS proposed_display,
+    NULL                                          AS source_summary,
     to_json([{
         'source_type':    'deterministic',
         'reference':      'vat_id_patterns.yaml',
