@@ -19,6 +19,7 @@ from mdq import CANONICAL_SCHEMA
 from mdq.canonical import (
     CanonicalError,
     Scope,
+    _unknown_vat_prefixes,
     build_canonical,
     is_valid_iban,
     parse_schema,
@@ -653,3 +654,36 @@ def test_encoding_samples_laufen_durch(repo_root):
     assert _rows(result, "business_partner") == 5
     assert _rows(result, "fi_item") == 4
     assert result.rejected_total == 0
+
+
+# --- Woerterbuch-Abdeckung: Praefixe ohne Formatmuster (D-101) ------------------------
+
+
+def _tax_id(con, bp_key: str, value: str) -> None:
+    con.execute(
+        "INSERT INTO bp_tax_id (bp_key, tax_id_type, value, value_norm) VALUES (?, 'VAT', ?, ?)",
+        [bp_key, value, value],
+    )
+
+
+def test_bekannte_praefixe_erzeugen_keinen_hinweis(canonical_db) -> None:
+    _tax_id(canonical_db, "C:0000000001", "DE123456789")
+    assert _unknown_vat_prefixes(canonical_db) == []
+
+
+def test_unbekanntes_praefix_wird_mit_anzahl_genannt(canonical_db) -> None:
+    """Nicht beurteilbar ist nicht falsch – aber auch nicht stumm (Regel 4)."""
+    _tax_id(canonical_db, "C:0000000001", "US123456789")
+    _tax_id(canonical_db, "C:0000000002", "US987654321")
+    _tax_id(canonical_db, "C:0000000003", "DE123456789")
+    hinweise = _unknown_vat_prefixes(canonical_db)
+    assert len(hinweise) == 1
+    assert "2 mit Präfix US" in hinweise[0]
+    assert "vat_id_patterns.yaml" in hinweise[0]
+
+
+def test_hinweis_nennt_keine_steuernummer(canonical_db) -> None:
+    """Praefix und Zahl, nie ein Wert: eine USt-IdNr. ist Geschaeftspartnerdatum (Regel 8)."""
+    _tax_id(canonical_db, "C:0000000001", "US123456789")
+    hinweis = _unknown_vat_prefixes(canonical_db)[0]
+    assert "123456789" not in hinweis

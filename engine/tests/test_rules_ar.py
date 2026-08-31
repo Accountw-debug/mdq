@@ -100,3 +100,41 @@ def test_ar_com_002_zaehlt_wie_die_belege_es_hergeben(regression_run) -> None:
     findings = findings_of(regression_run, "AR-COM-002")
     stufen = {tier: sum(1 for f in findings if f["tier"] == tier) for tier in ("B", "C")}
     assert stufen == {"B": 15, "C": 5}
+
+
+# --- AR-VAL-002 – Format der USt-IdNr. -----------------------------------------------
+
+
+def test_ar_val_002_liefert_die_sieben_formatfehler(regression_run) -> None:
+    findings = findings_of(regression_run, "AR-VAL-002")
+    assert len(findings) == 7
+
+
+def test_ar_val_002_und_ar_val_001_teilen_sich_kein_konto(regression_run) -> None:
+    """Ein fremdes Praefix in gueltigem Format ist ein Laender-, kein Formatfehler (D-058).
+
+    Waere das Muster nach dem Sitzland gewaehlt, traege jeder AR-VAL-001-Fall zusaetzlich
+    ein AR-VAL-002-Finding – zwei Zeilen fuer einen Sachverhalt.
+    """
+    format_fehler = {f["entity"]["bp_key"] for f in findings_of(regression_run, "AR-VAL-002")}
+    praefix_fehler = {f["entity"]["bp_key"] for f in findings_of(regression_run, "AR-VAL-001")}
+    assert not (format_fehler & praefix_fehler)
+
+
+def test_ar_val_002_nennt_die_steuernummer_im_falschen_feld(regression_run) -> None:
+    """Der haeufigste Formatfehler der Praxis bekommt seinen eigenen Hinweis (D-058)."""
+    ohne_praefix = [
+        f
+        for f in findings_of(regression_run, "AR-VAL-002")
+        if "Länderpräfix" in f["current"]["display"]
+    ]
+    assert len(ohne_praefix) == 3   # DEF-0039
+    for finding in ohne_praefix:
+        assert "STCD1" in finding["proposed"]["display"]
+
+
+def test_ar_val_002_schlaegt_kein_soll_vor(regression_run) -> None:
+    """Das richtige Format sagt nichts ueber die richtige Nummer – dafuer braucht es VIES."""
+    for finding in findings_of(regression_run, "AR-VAL-002"):
+        assert finding["tier"] == "C"
+        assert finding["proposed"]["value"] is None

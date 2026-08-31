@@ -594,3 +594,11 @@ def test_parameter_ohne_eintrag_ist_ein_fehler_mit_namen(db, run_context) -> Non
         rule_sql(rule, run_context)
     assert "min_invoices" in str(excinfo.value)
     assert "parameters" in str(excinfo.value)
+
+
+def test_vat_muster_werden_als_wertepaare_eingesetzt(run_context) -> None:
+    """`${vat_patterns.rows}` wird zu SQL-Wertepaaren aus dem Woerterbuch (D-101)."""
+    rule = RULES["AR-VAL-002"]
+    sql = rule_sql(rule, run_context)
+    assert "${" not in sql
+    assert "('DE', '^DE\\d{9}$')" in sql

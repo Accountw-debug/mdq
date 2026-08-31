@@ -17,7 +17,7 @@ from pathlib import Path
 
 import yaml
 
-from mdq import DOCUMENT_TYPES
+from mdq import DOCUMENT_TYPES, VAT_ID_PATTERNS
 
 #: Seiten, die das Woerterbuch kennt – dieselben Kuerzel wie im Finding (``side``)
 SIDES = ("AR", "AP")
@@ -37,6 +37,10 @@ ROLE_SIDE = {"CUSTOMER": "AR", "VENDOR": "AP"}
 #: verbinden (``credit_memo+reversal``), sobald ein Kundenexport eine Stornobelegart
 #: liefert (offener Punkt aus D-082).
 PLACEHOLDER_RE = re.compile(r"\$\{doc_types\.([A-Za-z]+)\.([a-z_]+(?:\+[a-z_]+)*)\}")
+
+#: Platzhalter fuer die Formatmuster der USt-IdNr.: ``${vat_patterns.rows}`` wird zu
+#: ``('AT','^ATU\d{8}$'), ('BE',…)`` und im Regel-SQL zu einem VALUES-Join (D-101).
+VAT_PATTERN_PLACEHOLDER_RE = re.compile(r"\$\{vat_patterns\.rows\}")
 
 #: Ein Platzhalter, den niemand kennt – die Meldung nennt ihn (Regel 4)
 _ANY_PLACEHOLDER_RE = re.compile(r"\$\{[^}]*\}")
@@ -198,3 +202,87 @@ def substitute(sql: str, types: DocumentTypes, where: str) -> str:
             "mehrere Klassen mit + verbunden."
         )
     return text
+
+
+# --- Formatmuster der USt-IdNr. ------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class VatPatterns:
+    """Praefix -> Regex auf ``bp_tax_id.value_norm``, aus ``vat_id_patterns.yaml``.
+
+    EU- und Nicht-EU-Muster stehen in einer Abbildung: fuer die Formatpruefung ist der
+    Unterschied keiner – geprueft wird die Form, nicht die Gueltigkeit (dafuer braeuchte
+    es VIES, `--enrich vies`). Welche Praefixe aus dem EU-Teil stammen, bleibt trotzdem
+    erhalten, weil AR-VAL-001 den Unterschied braucht.
+    """
+
+    patterns: dict[str, str]
+    eu_prefixes: tuple[str, ...]
+    version: str
+    path: Path
+
+    def rows(self) -> str:
+        """Die Muster als SQL-Wertepaare, sortiert – gleiche Reihenfolge in jedem Lauf."""
+        return ", ".join(
+            f"('{prefix}', '{pattern.replace(chr(39), chr(39) * 2)}')"
+            for prefix, pattern in sorted(self.patterns.items())
+        )
+
+
+def parse_vat_patterns(document: object, path: Path) -> VatPatterns:
+    """Prueft das Woerterbuch vollstaendig, bevor eine Regel darauf laeuft."""
+    if not isinstance(document, dict):
+        raise DictionaryError(f"{path.name}: erwartet ein Objekt")
+
+    version = document.get("version")
+    if not isinstance(version, str) or not version:
+        raise DictionaryError(f"{path.name}: 'version' fehlt oder ist kein Text")
+
+    patterns: dict[str, str] = {}
+    eu: list[str] = []
+    for block, is_eu in (("patterns", True), ("non_eu_patterns", False)):
+        entries = document.get(block)
+        if entries is None and not is_eu:
+            continue
+        if not isinstance(entries, dict) or not entries:
+            raise DictionaryError(f"{path.name}: '{block}' fehlt oder ist kein Objekt")
+        for prefix, pattern in entries.items():
+            if not isinstance(prefix, str) or not re.fullmatch(r"[A-Z]{2}", prefix):
+                raise DictionaryError(
+                    f"{path.name}: '{prefix}' ist kein Praefix aus zwei Grossbuchstaben"
+                )
+            if not isinstance(pattern, str) or not pattern:
+                raise DictionaryError(f"{path.name}: Muster zu {prefix} ist kein Text")
+            try:
+                re.compile(pattern)
+            except re.error as exc:
+                raise DictionaryError(
+                    f"{path.name}: Muster zu {prefix} ist kein gueltiger Regex ({exc})"
+                ) from exc
+            if prefix in patterns and patterns[prefix] != pattern:
+                raise DictionaryError(
+                    f"{path.name}: Praefix {prefix} steht zweimal mit verschiedenen Mustern"
+                )
+            patterns[prefix] = pattern
+            if is_eu:
+                eu.append(prefix)
+
+    return VatPatterns(
+        patterns=patterns, eu_prefixes=tuple(sorted(eu)), version=version, path=path
+    )
+
+
+def load_vat_patterns(path: Path = VAT_ID_PATTERNS) -> VatPatterns:
+    """Liest ``vat_id_patterns.yaml``."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise DictionaryError(
+            f"{path.name}: nicht als UTF-8 lesbar ({type(exc).__name__})"
+        ) from exc
+    try:
+        document = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise DictionaryError(f"{path.name}: kein gueltiges YAML ({type(exc).__name__})") from exc
+    return parse_vat_patterns(document, path)

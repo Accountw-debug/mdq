@@ -18,7 +18,15 @@ from typing import Any
 import duckdb
 
 from mdq.decisions import DecisionMemory, apply_decision
-from mdq.dictionaries import DictionaryError, DocumentTypes, load_document_types, substitute
+from mdq.dictionaries import (
+    VAT_PATTERN_PLACEHOLDER_RE,
+    DictionaryError,
+    DocumentTypes,
+    VatPatterns,
+    load_document_types,
+    load_vat_patterns,
+    substitute,
+)
 from mdq.findings import validate_finding
 from mdq.relevance import multiple_currencies_message
 from mdq.rules import Rule
@@ -97,6 +105,9 @@ class RunContext:
     #: Belegartenklassen fuer die ``${doc_types...}``-Platzhalter im Regel-SQL (D-084);
     #: ohne Angabe gilt ``logic/dictionaries/document_types.yaml``.
     doc_types: DocumentTypes | None = None
+    #: Formatmuster der USt-IdNr. fuer ``${vat_patterns.rows}`` (D-101); ohne Angabe gilt
+    #: ``logic/dictionaries/vat_id_patterns.yaml``.
+    vat_patterns: VatPatterns | None = None
 
 
 def finding_id_for(rule_id: str, row: dict[str, Any]) -> str:
@@ -115,6 +126,12 @@ def finding_id_for(rule_id: str, row: dict[str, Any]) -> str:
 def _default_doc_types() -> DocumentTypes:
     """Das Woerterbuch aus ``logic/`` – einmal gelesen, nicht je Regel neu."""
     return load_document_types()
+
+
+@cache
+def _default_vat_patterns() -> VatPatterns:
+    """Die Formatmuster aus ``logic/`` – einmal gelesen, nicht je Regel neu."""
+    return load_vat_patterns()
 
 
 #: Benannte Schwelle aus dem Regelkopf: ``${params.min_invoices}`` (D-107)
@@ -151,6 +168,9 @@ def rule_sql(rule: Rule, ctx: RunContext) -> str:
     if "${" not in rule.sql:
         return rule.sql
     sql = _substitute_parameters(rule)
+    if VAT_PATTERN_PLACEHOLDER_RE.search(sql):
+        patterns = ctx.vat_patterns or _default_vat_patterns()
+        sql = VAT_PATTERN_PLACEHOLDER_RE.sub(lambda _: patterns.rows(), sql)
     if "${" not in sql:
         return sql
     types = ctx.doc_types or _default_doc_types()

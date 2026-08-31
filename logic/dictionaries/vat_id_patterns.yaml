@@ -37,4 +37,4 @@ patterns:
 non_eu_patterns:
   CH: "^CHE\\d{9}(MWST|TVA|IVA)?$"
   GB: "^GB(\\d{9}|\\d{12}|GD\\d{3}|HA\\d{3})$"
-  NO: "^NO\\d{9}MVA$"
+  "NO": "^NO\\d{9}MVA$"   # in Anfuehrungszeichen: YAML liest NO sonst als Boolean

@@ -37,6 +37,7 @@ from schwifty import IBAN
 from schwifty.exceptions import SchwiftyException
 
 from mdq import CANONICAL_SCHEMA
+from mdq.dictionaries import DictionaryError, load_vat_patterns
 from mdq.loader import ROW_NO_COLUMN
 from mdq.mapping import Mapping, TableMapping
 
@@ -867,6 +868,43 @@ def _insert_tax_ids(
 # --- Die Stufe -------------------------------------------------------------------------
 
 
+def _unknown_vat_prefixes(con: duckdb.DuckDBPyConnection) -> list[str]:
+    """Praefixe in `bp_tax_id`, zu denen `vat_id_patterns.yaml` kein Muster kennt.
+
+    Die Formatregeln (AR-VAL-002/AP-VAL-002) beurteilen solche Werte nicht: ohne Muster
+    ist "falsch" eine Behauptung, nicht ein Befund. Verschwiegen wird das trotzdem nicht
+    (Regel 4) – der Lauf nennt Praefix und Anzahl, damit das Muster beim Onboarding
+    ergaenzt wird (D-101). Genannt werden nur Praefix und Zahl, nie ein Wert: eine
+    USt-IdNr. ist eine Geschaeftspartnerangabe (Regel 8).
+    """
+    try:
+        patterns = load_vat_patterns()
+    except DictionaryError as exc:
+        raise CanonicalError(str(exc)) from exc
+
+    rows = con.execute(
+        """
+        SELECT substr(value_norm, 1, 2) AS praefix, count(*) AS anzahl
+        FROM bp_tax_id
+        WHERE tax_id_type = 'VAT'
+          AND regexp_matches(substr(value_norm, 1, 2), '^[A-Z]{2}$')
+        GROUP BY 1
+        ORDER BY 1
+        """
+    ).fetchall()
+    unbekannt = [(prefix, count) for prefix, count in rows if prefix not in patterns.patterns]
+    if not unbekannt:
+        return []
+    genannt = ", ".join(f"{count} mit Präfix {prefix}" for prefix, count in unbekannt)
+    return [
+        (
+            f"bp_tax_id: {genannt} – zu diesen Präfixen kennt {patterns.path.name} kein "
+            "Muster. Die Formatregeln prüfen solche Werte nicht; Muster beim Onboarding "
+            "ergänzen, dann greifen sie."
+        )
+    ]
+
+
 def build_canonical(
     con: duckdb.DuckDBPyConnection,
     mapping: Mapping,
@@ -952,6 +990,8 @@ def build_canonical(
                 sources=tuple(table.name for table in sources),
             )
         )
+
+    warnings.extend(_unknown_vat_prefixes(con))
 
     delivered = _delivered_window(con, mapping, available)
     return CanonicalResult(

@@ -183,7 +183,6 @@ NOT_YET_BUILT = {
     "AR-DUP-001",
     "AR-HYG-001",
     "AR-LEA-001",
-    "AR-VAL-002",
     "AR-VAL-005",
     "CROSS-DUP-001",
 }
