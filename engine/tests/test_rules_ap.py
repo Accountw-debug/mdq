@@ -264,3 +264,45 @@ def test_ap_hyg_001_und_ar_hyg_001_sind_deckungsgleich(regression_run) -> None:
     assert ar[0]["current"]["display"] == ap[0]["current"]["display"]
     assert ar[0]["remediation"]["sap_transaction"] == "XD06"
     assert ap[0]["remediation"]["sap_transaction"] == "XK06"
+
+
+# --- AP-COM-003 – Pruefung auf doppelte Rechnung -------------------------------------
+
+
+def test_ap_com_003_liefert_dreissig_findings_je_buchungskreis(regression_run) -> None:
+    findings = findings_of(regression_run, "AP-COM-003")
+    assert len(findings) == 30
+    assert all(f["entity"].get("company_code") for f in findings)
+
+
+def test_ap_com_003_ist_die_erste_stufe_a_regel(regression_run) -> None:
+    """Stufe A mit Massenaenderung – erlaubt, weil das Kennzeichen keinen Wert ueberschreibt.
+
+    Das Schema verlangt bei Stufe A/B ein `proposed`; hier ist es das gesetzte
+    Ankreuzfeld. `mass_change` setzt Stufe A voraus (finding.schema.json), und
+    Schadensklasse 1 waere von A ausgeschlossen (Regel 11) – diese Regel ist Klasse 3.
+    """
+    findings = findings_of(regression_run, "AP-COM-003")
+    assert findings, "ohne Findings prueft dieser Test nichts"
+    for finding in findings:
+        assert finding["tier"] == "A"
+        assert finding["action_type"] == "mass_change"
+        assert finding["damage_class"] == 3
+        assert finding["proposed"]["value"] == "X"
+        assert finding["remediation"]["mass_change_eligible"] is True
+
+
+def test_ap_com_003_begruendet_das_soll_aus_der_eigenen_praxis(regression_run) -> None:
+    """Die Quellenlage zaehlt, nicht eine Regel von aussen (Muster aus D-108)."""
+    for finding in findings_of(regression_run, "AP-COM-003"):
+        summary = finding["proposed"]["source_summary"]
+        assert "1497 von 1527" in summary
+        assert "tragen das Kennzeichen bereits" in summary
+
+
+def test_ap_com_003_trifft_nur_kreditoren(regression_run) -> None:
+    """REPRF gibt es nur in LFB1; KNB1 kennt das Feld nicht."""
+    for finding in findings_of(regression_run, "AP-COM-003"):
+        assert finding["entity"]["role"] == "VENDOR"
+        assert finding["current"]["source_table"] == "LFB1"
+        assert finding["current"]["value"] is None

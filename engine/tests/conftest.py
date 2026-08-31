@@ -172,7 +172,6 @@ def demo_rows(path, table: str) -> list[dict[str, str]]:
 #: genau {AR-DUP-001, AP-DUP-001} uebrig sein (D-100). Verschwindet eine Regeldatei
 #: versehentlich, faellt die Regression rot aus statt still durchzugehen.
 NOT_YET_BUILT = {
-    "AP-COM-003",
     "AP-CON-001",
     "AP-DUP-001",
     "AP-LEA-002",
