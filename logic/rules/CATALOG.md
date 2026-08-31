@@ -48,7 +48,7 @@ die Policy hebt zur Laufzeit Stufe **und** Aktion gemeinsam an.
 | AP-VAL-001 | USt-ID-Präfix passt nicht zum Sitzland | validity | high | 2 | B | review | business_partner, bp_tax_id | XK02 | impl | Defekt |
 | AP-VAL-002 | USt-ID entspricht nicht dem Länderformat | validity | high | 2 | C | review | bp_tax_id (+ vat_id_patterns) | XK02 | impl | Defekt |
 | AP-VAL-003 | IBAN-Prüfziffer ungültig | validity | critical | 1 | C | review | business_partner, bp_bank_account | XK02 | impl | Defekt |
-| AP-CON-001 | Gleiche IBAN bei mehreren Kreditoren | consistency | critical | 1 | C | review | bp_bank_account | XK02 | draft | Defekt |
+| AP-CON-001 | Gleiche IBAN bei mehreren Kreditoren | consistency | critical | 1 | C | review | business_partner, bp_bank_account, bp_company_code, bp_partner_function, bp_relevance | XK02 | impl | Defekt |
 | AP-CON-002 | IBAN-Land ≠ Sitzland bei Kreditor | consistency | medium | 1 | C | review | business_partner, bp_bank_account | – | draft | ohne Testfall |
 | AP-CON-003 | Zahlung an gesperrten/zur Löschung vorgemerkten Kreditor (letzte 12 Monate) | consistency | high | 3 | C | review | business_partner, bp_company_code, fi_item | – | draft | ohne Testfall |
 | AP-HYG-001 | Kein Posten im gesamten Postenfenster, Anlage vor Fensterbeginn, keine OP (Löschkandidat) | hygiene | low | 3 | decision (Policy kann zur Laufzeit auf A heben) | decision | business_partner, bp_relevance, fi_item | XK06 | impl | Defekt |

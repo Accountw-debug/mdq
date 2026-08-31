@@ -55,6 +55,7 @@ OPTIONAL_COLUMNS = (
     "netted_against",
     "related_bp_keys",
     "documents",
+    "records",
     "params",
     "finding_key",
 )
@@ -70,7 +71,7 @@ ID_COLUMNS = (
 )
 
 #: Spalten, die als JSON aus dem SQL kommen
-JSON_COLUMNS = ("options", "evidence", "related_bp_keys", "documents", "params")
+JSON_COLUMNS = ("options", "evidence", "related_bp_keys", "documents", "records", "params")
 
 #: Felder des Regelkopfes, in denen {params}-Platzhalter gefuellt werden
 TEMPLATED_FIELDS = ("title", "why", "if_wrong")
@@ -400,6 +401,12 @@ def _build_entity(
     documents = _decode_json(row.get("documents"), rule.id, "documents")
     if documents:
         entity["documents"] = documents
+    # Der Feld-fuer-Feld-Vergleich mehrerer Konten (D-069 Punkt 3). Angelegt fuer
+    # Dubletten, aber ausdruecklich nicht darauf eingeschraenkt: AP-CON-001 ist
+    # `consistency` und braucht denselben Vergleich (D-069 Punkt 4).
+    records = _decode_json(row.get("records"), rule.id, "records")
+    if records:
+        entity["records"] = records
     return entity
 
 

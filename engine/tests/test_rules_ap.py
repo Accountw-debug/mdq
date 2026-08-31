@@ -174,7 +174,7 @@ def test_ap_val_003_bleibt_stufe_c_ohne_soll(regression_run) -> None:
 #: ("NL130921080B80"), und ein Formmuster kann beide nicht trennen. Waechst die Liste um
 #: eine Regel, die Bankdaten traegt, gehoert sie hier hinein - `test_bankdatenregeln_sind_
 #: vollstaendig` haelt fest, dass keine vergessen wird.
-BANKDATENREGELN = ("AR-VAL-003", "AP-VAL-003")
+BANKDATENREGELN = ("AR-VAL-003", "AP-VAL-003", "AP-CON-001")
 
 
 def test_bankdatenregeln_zeigen_nirgends_eine_vollstaendige_iban(regression_run) -> None:
@@ -183,7 +183,7 @@ def test_bankdatenregeln_zeigen_nirgends_eine_vollstaendige_iban(regression_run)
     Geprueft wird **jede Zeichenkette jedes Findings** dieser Regeln - `current`,
     `evidence`, `records`, `source_summary`, `params`, `title` -, nicht nur die Felder,
     an die man beim Schreiben der Regel denkt. D-105 hat den Test fuer AR-VAL-003
-    eingefuehrt; AP-VAL-003 laeuft jetzt mit, AP-CON-001 kommt mit seiner Regel dazu.
+    eingefuehrt; AP-VAL-003 und AP-CON-001 laufen jetzt mit.
     """
     for rule_id in BANKDATENREGELN:
         findings = findings_of(regression_run, rule_id)
@@ -306,3 +306,83 @@ def test_ap_com_003_trifft_nur_kreditoren(regression_run) -> None:
         assert finding["entity"]["role"] == "VENDOR"
         assert finding["current"]["source_table"] == "LFB1"
         assert finding["current"]["value"] is None
+
+
+# --- AP-CON-001 – dieselbe Bankverbindung bei mehreren Kreditoren --------------------
+
+
+def test_ap_con_001_liefert_ein_finding_je_cluster(regression_run) -> None:
+    """Vier Cluster, vier Findings – der Anker ist der kleinste bp_key des Clusters."""
+    findings = findings_of(regression_run, "AP-CON-001")
+    assert sorted(f["entity"]["bp_key"] for f in findings) == [
+        "V:0000200193",
+        "V:0000200195",
+        "V:0000200199",
+        "V:0000200204",
+    ]
+
+
+def test_ap_con_001_nennt_die_uebrigen_konten_als_verwandt(regression_run) -> None:
+    """Die zweiten Konten tragen kein eigenes Finding, sie stehen im Finding des Ankers."""
+    verwandt = {
+        key
+        for finding in findings_of(regression_run, "AP-CON-001")
+        for key in finding["entity"]["related_bp_keys"]
+    }
+    assert verwandt == {"V:0000200194", "V:0000200197", "V:0000200203", "V:0000200214"}
+    anker = {f["entity"]["bp_key"] for f in findings_of(regression_run, "AP-CON-001")}
+    assert not anker & verwandt
+
+
+def test_ap_con_001_traegt_beide_konten_als_records(regression_run) -> None:
+    """Die Referenzform fuer Sprint 4: je beteiligtem Konto ein Vergleichsdatensatz
+    (D-069 Punkt 3 und 4). Der Anker steht mit darin – sonst fehlte in der Tabelle
+    genau die Zeile, gegen die verglichen wird."""
+    findings = findings_of(regression_run, "AP-CON-001")
+    assert findings, "ohne Findings prueft dieser Test nichts"
+    for finding in findings:
+        records = finding["entity"]["records"]
+        assert len(records) == 2
+        keys = [record["bp_key"] for record in records]
+        assert keys == sorted(keys)
+        assert finding["entity"]["bp_key"] in keys
+        for record in records:
+            felder = record["fields"]
+            assert felder["name"]
+            assert felder["currency"] == "EUR"
+            # Beide Konten teilen sich dieselbe Bankverbindung - das ist der Befund
+            assert felder["iban_masked"] == finding["current"]["value"]
+
+
+def test_ap_con_001_bleibt_stufe_c_ohne_soll(regression_run) -> None:
+    """Welches Konto bleibt, ist eine Entscheidung mit Blick in die Beziehung (D-186)."""
+    findings = findings_of(regression_run, "AP-CON-001")
+    assert findings, "ohne Findings prueft dieser Test nichts"
+    for finding in findings:
+        assert finding["tier"] == "C"
+        assert finding["damage_class"] == 1
+        assert "proposed" not in finding
+        assert finding["remediation"]["mass_change_eligible"] is False
+
+
+def test_ap_con_001_belegt_den_regulierer_ausschluss(regression_run) -> None:
+    """Die zweite Evidenz haelt fest, dass nach einem Regulierer gesucht wurde.
+
+    Im Demo-Mandanten ist die Klausel nicht ausgeuebt – alle `central_payer`-Defekte
+    sind Debitoren, kein Kreditor traegt einen alt_payer_key (R2). Belegt ist damit
+    nicht die Wirkung der Klausel, sondern dass das Finding sie ausweist.
+    """
+    for finding in findings_of(regression_run, "AP-CON-001"):
+        gruende = [e["value"] for e in finding["evidence"]]
+        assert "kein Regulierer hinterlegt" in gruende
+
+
+def test_ap_con_001_meldet_keinen_zentralregulierer(regression_run) -> None:
+    """Gegenprobe auf der AR-Seite: die Regulierer-Cluster (DEF-0120 ff.) tauchen nirgends
+    auf – weder hier (falsche Seite) noch als zweites Konto eines Clusters."""
+    beteiligt = {
+        key
+        for finding in findings_of(regression_run, "AP-CON-001")
+        for key in [finding["entity"]["bp_key"], *finding["entity"]["related_bp_keys"]]
+    }
+    assert not any(key.startswith("C:") for key in beteiligt)

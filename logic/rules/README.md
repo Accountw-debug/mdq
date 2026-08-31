@@ -52,6 +52,7 @@ SELECT ... ;
 | `impact_amount`, `impact_currency`, `impact_formula`, `netted_against` | nein | Euro-Wirkung; `impact_amount` als DECIMAL(15,2) |
 | `related_bp_keys` | nein | JSON-Array weiterer BP-Schlüssel |
 | `documents` | nein | JSON-Array `[{company_code, fiscal_year, document_no, line_item}]` |
+| `records` | nein | JSON-Array `[{bp_key, fields}]` – je beteiligtem Konto ein Datensatz für den Feld-für-Feld-Vergleich (Cluster-Regeln); Beträge als String, IBAN nur maskiert |
 | `params` | nein | JSON-Objekt für Platzhalter in `title`, `why`, `if_wrong` |
 | `finding_key` | nein | Zusätzliches Unterscheidungsmerkmal für die `finding_id`, wenn `bp_key` + Feld + Ist nicht eindeutig sind (z. B. Belegpaar) |
 

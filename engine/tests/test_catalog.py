@@ -8,6 +8,7 @@ Die Bindung an `defects.yaml` steht bewusst hier und nicht im Loader: `mdq/rules
 `mdq/catalog.py` sind Produktcode und duerfen `testdata/` nicht kennen.
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -31,22 +32,31 @@ def _defect_rule_ids() -> set[str]:
     }
 
 
+#: Ein bp_key: Rollenpraefix und Nummer (`C:0000100234`, `V:0000200845`).
+BP_KEY_RE = re.compile(r"^[CV]:[0-9]+$")
+
+
 def _named_bp_keys() -> set[str]:
-    """Alle bp_keys, die `defects.yaml` namentlich nennt (`bp_key` oder `bp_keys`)."""
+    """Alle bp_keys, die `defects.yaml` namentlich nennt – an welcher Stelle auch immer.
+
+    Gesucht wird nach der **Form**, nicht nach dem Feldnamen: `bp_key` und `bp_keys` sind
+    die haeufigsten, aber `central_payer` nennt seine Konten als `payer`/`member` und
+    `customer_is_vendor` als `customer`/`vendor`. Ein Sammler, der nur zwei Feldnamen
+    kennt, haelt solche Konten faelschlich fuer unbekannt und verbietet sie als Testfall,
+    obwohl die Defektliste sie ausdruecklich nennt (aufgefallen bei AP-CON-001, dessen
+    Grenzfall ein Zentralregulierer ist).
+    """
     keys: set[str] = set()
 
     def walk(node) -> None:
         if isinstance(node, dict):
-            for key, value in node.items():
-                if key == "bp_key" and isinstance(value, str):
-                    keys.add(value)
-                elif key == "bp_keys" and isinstance(value, list):
-                    keys.update(entry for entry in value if isinstance(entry, str))
-                else:
-                    walk(value)
+            for value in node.values():
+                walk(value)
         elif isinstance(node, list):
             for entry in node:
                 walk(entry)
+        elif isinstance(node, str) and BP_KEY_RE.match(node):
+            keys.add(node)
 
     walk(yaml.safe_load(DEMO_DEFECTS.read_text(encoding="utf-8")))
     return keys
