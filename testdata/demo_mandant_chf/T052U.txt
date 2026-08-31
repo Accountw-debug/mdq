@@ -1,0 +1,6 @@
+MANDT	ZTERM	SPRAS	TEXT1
+100	ZB00	D	Sofort ohne Abzug
+100	ZB01	D	10 Tage 3 % Skonto, 30 Tage netto
+100	ZB02	D	14 Tage 2 % Skonto, 30 Tage netto
+100	ZB03	D	30 Tage netto
+100	ZB04	D	60 Tage netto

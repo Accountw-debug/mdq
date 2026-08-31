@@ -30,6 +30,8 @@ from mdq.demo import DEFAULT_SEED
 from mdq.demo.defects import write_expected
 from mdq.demo.generate import build_client
 from mdq.demo.generate import generate as generate_demo
+from mdq.demo.mini import MINI_COMPANY_CODE, MINI_CURRENCY, MINI_SEED
+from mdq.demo.mini import generate as generate_mini
 from mdq.dictionaries import DictionaryError
 from mdq.executor import ExecutionError
 from mdq.findings import (
@@ -57,6 +59,11 @@ from mdq.run import (
     parse_created_at,
 )
 from mdq.staging import StagingError, stage_all
+
+#: Profile von ``mdq demo generate``: der volle Demo-Mandant und der CHF-Mini-Mandant
+PROFILE_DEMO = "demo"
+PROFILE_CHF = "chf"
+PROFILES = (PROFILE_DEMO, PROFILE_CHF)
 
 #: Mindestens ein Finding ist ungueltig
 EXIT_INVALID = 1
@@ -355,9 +362,32 @@ def demo_generate(
             help="Eingebaute Fehler aus defects.yaml anwenden (Vorgabe) oder den reinen Basis-Mandanten schreiben.",
         ),
     ] = True,
+    profile: Annotated[
+        str,
+        typer.Option(
+            "--profile",
+            help="demo = der volle Mandant (EUR, zwei Buchungskreise); "
+            "chf = Mini-Mandant in Fremdwaehrung (ein Buchungskreis, CHF, 20 BPs).",
+        ),
+    ] = PROFILE_DEMO,
 ) -> None:
     """Erzeugt den synthetischen Demo-Mandanten (16 Dateien und manifest.json)."""
-    manifest = generate_demo(out, seed, None if defects else ())
+    if profile not in PROFILES:
+        err_console.print(
+            f"[bold red]Fehler:[/] --profile {profile!r} ist unbekannt; "
+            f"erlaubt sind {sorted(PROFILES)}."
+        )
+        raise typer.Exit(code=EXIT_INVALID)
+    if profile == PROFILE_CHF:
+        if not defects:
+            err_console.print(
+                "[bold red]Fehler:[/] --no-defects gilt nur fuer --profile demo; der "
+                "CHF-Mandant hat keine Defektschicht."
+            )
+            raise typer.Exit(code=EXIT_INVALID)
+        manifest = generate_mini(out, seed if seed != DEFAULT_SEED else MINI_SEED)
+    else:
+        manifest = generate_demo(out, seed, None if defects else ())
 
     table = Table(box=box.SIMPLE)
     for column in ("Tabelle", "Zeilen", "sha256"):
@@ -369,7 +399,12 @@ def demo_generate(
         f"\n{len(manifest['tables'])} Dateien, {_thousands(manifest['total_rows'])} Zeilen, "
         f"Seed {manifest['seed']}, Datenstand {manifest['data_as_of']} -> {out}"
     )
-    if not defects:
+    if profile == PROFILE_CHF:
+        console.print(
+            f"[yellow]Profil chf:[/] Mini-Mandant, Buchungskreis {MINI_COMPANY_CODE}, "
+            f"Hauswaehrung {MINI_CURRENCY}, ohne Defekte."
+        )
+    elif not defects:
         console.print("[yellow]Ohne Defekte:[/] reiner Basis-Mandant, auf dem keine Regel greifen darf.")
 
 

@@ -20,7 +20,6 @@ from mdq.demo import (
     ANCHOR_CUSTOMERS,
     ANCHOR_VENDORS,
     COMPANY_CODE_NAMES,
-    COMPANY_CODES,
     CUSTOMER_COUNT,
     CUSTOMER_RANGE,
     DATA_AS_OF,
@@ -289,21 +288,26 @@ def dunning_rows(items: list[FiItem]) -> list[dict[str, str]]:
     return rows
 
 
-def company_code_rows() -> list[dict[str, str]]:
+def company_code_rows(
+    names: dict[str, tuple[str, str]] = COMPANY_CODE_NAMES,
+    currency: str = LOCAL_CURRENCY,
+) -> list[dict[str, str]]:
     """T001 – die Buchungskreise des Mandanten mit ihrer Hauswährung.
 
-    V1 kennt genau eine Hauswährung (D-030); beide Buchungskreise führen deshalb EUR.
-    Der CHF-Mandant für den Abbruchtest ist ein eigener Mini-Mandant (Sprint 3, Aufgabe 9).
+    V1 kennt genau eine Hauswährung je Lauf (D-030); beide Buchungskreise des
+    Demo-Mandanten führen deshalb EUR. Die beiden Vorgabewerte machen den Mini-Mandanten
+    in Fremdwährung möglich (`mdq.demo.mini`, D-199), ohne dass der Demo-Mandant sich
+    ändert – dass er byte-identisch bleibt, hält `test_repo_copy_matches_the_generator`.
     """
     return [
         {
             "MANDT": MANDT,
             "BUKRS": code,
-            "BUTXT": COMPANY_CODE_NAMES[code][0],
-            "WAERS": LOCAL_CURRENCY,
-            "LAND1": COMPANY_CODE_NAMES[code][1],
+            "BUTXT": names[code][0],
+            "WAERS": currency,
+            "LAND1": names[code][1],
         }
-        for code in COMPANY_CODES
+        for code in names
     ]
 
 
@@ -332,7 +336,12 @@ def payment_terms_text_rows() -> list[dict[str, str]]:
     ]
 
 
-def item_rows(items: list[FiItem], key_column: str, with_po: bool) -> list[dict[str, str]]:
+def item_rows(
+    items: list[FiItem],
+    key_column: str,
+    with_po: bool,
+    currency: str = LOCAL_CURRENCY,
+) -> list[dict[str, str]]:
     """BSID/BSAD bzw. BSIK/BSAK – eine Zeile je Personenkontenposten."""
     rows = []
     for item in items:
@@ -350,7 +359,7 @@ def item_rows(items: list[FiItem], key_column: str, with_po: bool) -> list[dict[
             "BSCHL": item.posting_key,
             "SHKZG": item.debit_credit,
             "UMSKZ": "",
-            "WAERS": LOCAL_CURRENCY,
+            "WAERS": currency,
             # Beleg- und Hauswährung sind gleich: V1 kennt eine Währung (D-030)
             "WRBTR": fmt_amount(item.amount),
             "DMBTR": fmt_amount(item.amount),

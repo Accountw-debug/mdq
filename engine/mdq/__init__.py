@@ -48,6 +48,10 @@ TESTDATA_DIR = PROJECT_ROOT / "testdata"
 #: Ausgabeverzeichnis des Demo-Mandanten (16 SE16N-Dateien und manifest.json)
 DEMO_MANDANT_DIR = TESTDATA_DIR / "demo_mandant"
 
+#: Mini-Mandant in Fremdwaehrung (ein Buchungskreis, CHF, 20 BPs). Belegt den Lauf auf
+#: einem Nicht-EUR-Mandanten und liefert die zweite Hauswaehrung fuer D-030 (D-199).
+DEMO_MANDANT_CHF_DIR = TESTDATA_DIR / "demo_mandant_chf"
+
 #: Liste der eingebauten Fehler - Fehler sind Daten, nicht Code (SPRINT-2.md)
 DEMO_DEFECTS = DEMO_MANDANT_DIR / "defects.yaml"
 
@@ -58,6 +62,7 @@ __all__ = [
     "CANONICAL_SCHEMA",
     "CATALOG_MD",
     "DEMO_DEFECTS",
+    "DEMO_MANDANT_CHF_DIR",
     "DEMO_MANDANT_DIR",
     "DOCUMENT_TYPES",
     "EXPECTED_FINDINGS",

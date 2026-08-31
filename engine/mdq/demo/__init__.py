@@ -25,10 +25,11 @@ GENERATOR_VERSION = "0.1"
 DEFAULT_SEED = 20260830
 
 MANDT = "100"
-COMPANY_CODES = ("1000", "2000")
 
-#: Namen und Sitzland der Buchungskreise (T001). Der Mandant ist erfunden; das sind
-#: keine Geschäftspartnerdaten, sondern die eigenen Buchungskreise des Demo-Kunden.
+#: Buchungskreise des Demo-Mandanten mit Name und Sitzland (T001), in Schreibreihenfolge.
+#: Der Mandant ist erfunden; das sind keine Geschäftspartnerdaten, sondern die eigenen
+#: Buchungskreise des Demo-Kunden. Welcher Partner in welchem Kreis geführt wird, steht
+#: in COMPANY_CODE_SPLIT – eine zweite Liste der Nummern gäbe es sonst doppelt.
 COMPANY_CODE_NAMES = {
     "1000": ("MDQ Demo Industrie AG", "DE"),
     "2000": ("MDQ Demo Vertrieb GmbH", "DE"),
