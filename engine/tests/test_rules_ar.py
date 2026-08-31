@@ -6,6 +6,7 @@ Die Regression (`test_regression.py`) prueft, **welche** Findings entstehen. Hie
 """
 
 import re
+from datetime import date
 
 from .conftest import findings_of
 
@@ -96,6 +97,105 @@ def test_ar_val_003_schreibt_den_betrag_deutsch(regression_run) -> None:
         ganzzahl, _, rest = impact["amount"].partition(".")
         erwartet = f"{int(ganzzahl):,}".replace(",", ".") + "," + rest
         assert f"Offene Posten {erwartet} {impact['currency']}," in impact["formula"]
+
+
+# --- AR-LEA-001 – Unapplied Cash -----------------------------------------------------
+
+
+#: Die sechs Akontozahlungen aus DEF-0119: Konto -> (Buchungskreis, Beleg).
+AKONTO = {
+    "C:0000100293": ("1000", "1400003882"),
+    "C:0000100295": ("1000", "1400003883"),
+    "C:0000100298": ("2000", "1400001219"),
+    "C:0000100302": ("2000", "1400001220"),
+    "C:0000100303": ("1000", "1400003884"),
+    "C:0000100305": ("1000", "1400003885"),
+}
+
+
+def test_ar_lea_001_liefert_die_sechs_akontozahlungen(regression_run) -> None:
+    findings = findings_of(regression_run, "AR-LEA-001")
+    geliefert = {
+        f["entity"]["bp_key"]: (
+            f["entity"]["company_code"],
+            f["entity"]["documents"][0]["document_no"],
+        )
+        for f in findings
+    }
+    assert geliefert == AKONTO
+
+
+def test_ar_lea_001_ein_finding_je_beleg(regression_run) -> None:
+    """Der `finding_key` ist die Belegnummer: zwei unzugeordnete Zahlungen desselben
+    Kontos muessen zwei Findings ergeben, nicht eines. Im Demo-Mandanten traegt jedes
+    Konto genau eine - der Schluessel haelt trotzdem die `finding_id` auseinander."""
+    findings = findings_of(regression_run, "AR-LEA-001")
+    assert len({f["finding_id"] for f in findings}) == len(findings)
+    for finding in findings:
+        assert len(finding["entity"]["documents"]) == 1
+
+
+def test_ar_lea_001_zeigt_das_leere_feld_und_den_betrag(regression_run) -> None:
+    """Das Ist ist ein leeres XBLNR; was fehlt, sagt die Anzeige - mit dem Betrag
+    deutsch geschrieben (D-187) und dem Alter in Tagen."""
+    for finding in findings_of(regression_run, "AR-LEA-001"):
+        assert finding["current"]["source_table"] == "BSID"
+        assert finding["current"]["source_field"] == "XBLNR"
+        assert finding["current"]["value"] is None
+        beleg = finding["entity"]["documents"][0]
+        ganzzahl, _, rest = beleg["amount"].partition(".")
+        erwartet = f"{int(ganzzahl):,}".replace(",", ".") + "," + rest
+        assert f"Zahlungseingang über {erwartet} {beleg['currency']}" in finding["current"]["display"]
+        assert "ohne Rechnungsbezug und ohne Ausgleich" in finding["current"]["display"]
+        assert beleg["cleared_on"] is None and beleg["reference"] is None
+
+
+def test_ar_lea_001_ist_aelter_als_die_schwelle(regression_run) -> None:
+    """Grenzfall: gemessen wird gegen den Datenstand des Laufs, nie gegen heute (D-193).
+    Eine Zahlung, die am Datenstand 30 Tage oder juenger ist, ist kein Befund."""
+    findings = findings_of(regression_run, "AR-LEA-001")
+    assert findings, "ohne Findings prueft dieser Test nichts"
+    for finding in findings:
+        stichtag = date.fromisoformat(finding["data_as_of"])
+        gebucht = date.fromisoformat(finding["evidence"][0]["observed_at"])
+        assert (stichtag - gebucht).days > 30
+
+
+def test_ar_lea_001_schlaegt_eine_handlung_vor_und_zaehlt_die_kandidaten(regression_run) -> None:
+    """Stufe B braucht ein Soll; welche Rechnung gemeint ist, sagen die Daten nicht.
+    Das Soll ist deshalb eine Handlung - und welche, haengt daran, ob ueberhaupt eine
+    offene Rechnung auf dem Konto steht."""
+    for finding in findings_of(regression_run, "AR-LEA-001"):
+        assert finding["tier"] == "B"
+        assert finding["action_type"] == "review"
+        proposed = finding["proposed"]
+        assert proposed["value"] is None
+        kandidaten = finding["evidence"][1]
+        if kandidaten["agrees"]:
+            assert "zuordnen (F-32)" in proposed["display"]
+            assert "offene Rechnung" in kandidaten["value"]
+        else:
+            assert "Rückzahlung veranlassen" in proposed["display"]
+            assert kandidaten["value"] == "keine offene Rechnung"
+
+
+def test_ar_lea_001_traegt_keine_euro_wirkung(regression_run) -> None:
+    """Unapplied Cash ist gebundenes, nicht verlorenes Geld: der Betrag steht im Ist und
+    in `entity.documents`, aber nicht in der Schadenssumme (D-192)."""
+    findings = findings_of(regression_run, "AR-LEA-001")
+    assert findings, "ohne Findings prueft dieser Test nichts"
+    for finding in findings:
+        assert "impact_eur" not in finding
+        assert finding["entity"]["documents"][0]["amount"] is not None
+
+
+def test_ar_lea_001_bleibt_auf_der_debitorenseite(regression_run) -> None:
+    """Ein offener Zahlungsausgang an einen Kreditor hat dieselbe Form und gehoert nicht
+    hierher - ein fehlender Rollenfilter faellt hier auf."""
+    for finding in findings_of(regression_run, "AR-LEA-001"):
+        assert finding["side"] == "AR"
+        assert finding["entity"]["role"] == "CUSTOMER"
+        assert finding["entity"]["bp_key"].startswith("C:")
 
 
 # --- AR-COM-002 – Zahlungsbedingung im Buchungskreis leer ----------------------------

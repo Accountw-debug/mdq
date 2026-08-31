@@ -174,7 +174,6 @@ def demo_rows(path, table: str) -> list[dict[str, str]]:
 NOT_YET_BUILT = {
     "AP-DUP-001",
     "AR-DUP-001",
-    "AR-LEA-001",
 }
 
 

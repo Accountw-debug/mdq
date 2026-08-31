@@ -1312,7 +1312,11 @@ def _unapplied_cash(model: DemoModel, defect: Defect, rng) -> list[Hit]:
                 is_open=True,
             )
         ])
-        hits.append(Hit(bp_key, company_code, number))
+        # Der finding_key ist die Belegnummer: ein Konto kann mehrere unzugeordnete
+        # Zahlungen tragen, und AR-LEA-001 liefert je Beleg ein Finding (Spec
+        # SPRINT-3 Aufgabe 8). Ohne ihn haette die Erwartung keinen
+        # Vergleichsschluessel fuer den zweiten Beleg desselben Kontos.
+        hits.append(Hit(bp_key, company_code, number, number))
     return hits
 
 

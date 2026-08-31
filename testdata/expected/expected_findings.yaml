@@ -195,12 +195,12 @@ findings:
   - { rule_id: AR-HYG-001, bp_key: "C:0000100246", defect: "DEF-0069" }
   - { rule_id: AR-HYG-001, bp_key: "C:0000100247", defect: "DEF-0069" }
   - { rule_id: AR-HYG-001, bp_key: "C:0000100248", defect: "DEF-0069" }
-  - { rule_id: AR-LEA-001, bp_key: "C:0000100293", company_code: "1000", document_no: "1400003882", defect: "DEF-0119" }
-  - { rule_id: AR-LEA-001, bp_key: "C:0000100295", company_code: "1000", document_no: "1400003883", defect: "DEF-0119" }
-  - { rule_id: AR-LEA-001, bp_key: "C:0000100298", company_code: "2000", document_no: "1400001219", defect: "DEF-0119" }
-  - { rule_id: AR-LEA-001, bp_key: "C:0000100302", company_code: "2000", document_no: "1400001220", defect: "DEF-0119" }
-  - { rule_id: AR-LEA-001, bp_key: "C:0000100303", company_code: "1000", document_no: "1400003884", defect: "DEF-0119" }
-  - { rule_id: AR-LEA-001, bp_key: "C:0000100305", company_code: "1000", document_no: "1400003885", defect: "DEF-0119" }
+  - { rule_id: AR-LEA-001, bp_key: "C:0000100293", company_code: "1000", document_no: "1400003882", finding_key: "1400003882", defect: "DEF-0119" }
+  - { rule_id: AR-LEA-001, bp_key: "C:0000100295", company_code: "1000", document_no: "1400003883", finding_key: "1400003883", defect: "DEF-0119" }
+  - { rule_id: AR-LEA-001, bp_key: "C:0000100298", company_code: "2000", document_no: "1400001219", finding_key: "1400001219", defect: "DEF-0119" }
+  - { rule_id: AR-LEA-001, bp_key: "C:0000100302", company_code: "2000", document_no: "1400001220", finding_key: "1400001220", defect: "DEF-0119" }
+  - { rule_id: AR-LEA-001, bp_key: "C:0000100303", company_code: "1000", document_no: "1400003884", finding_key: "1400003884", defect: "DEF-0119" }
+  - { rule_id: AR-LEA-001, bp_key: "C:0000100305", company_code: "1000", document_no: "1400003885", finding_key: "1400003885", defect: "DEF-0119" }
   - { rule_id: AR-VAL-001, bp_key: "C:0000100014", defect: "DEF-0036" }
   - { rule_id: AR-VAL-001, bp_key: "C:0000100022", defect: "DEF-0036" }
   - { rule_id: AR-VAL-001, bp_key: "C:0000100030", defect: "DEF-0036" }
