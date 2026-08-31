@@ -31,7 +31,7 @@ die Policy hebt zur Laufzeit Stufe **und** Aktion gemeinsam an.
 | AR-CON-002 | Löschvormerkung/Sperre bei offenen Posten | consistency | high | 3 | decision | decision | business_partner, bp_company_code, fi_item | XD05/XD06 | impl | Defekt |
 | AR-CON-003 | IBAN-Land ≠ Sitzland (Hinweis, kein Fehler) | consistency | low | 1 | C | review | business_partner, bp_bank_account | – | draft | ohne Testfall |
 | AR-CON-004 | Gleiche IBAN bei mehreren Debitoren ohne Regulierer-Bezug | consistency | high | 2 | B | review | bp_bank_account, bp_partner_function | XD02 | draft | ohne Testfall |
-| AR-HYG-001 | Kein Posten im gesamten Postenfenster, Anlage vor Fensterbeginn, keine OP (Löschkandidat) | hygiene | low | 3 | decision (Policy kann zur Laufzeit auf A heben) | decision | business_partner, bp_relevance | XD06 | draft | Defekt |
+| AR-HYG-001 | Kein Posten im gesamten Postenfenster, Anlage vor Fensterbeginn, keine OP (Löschkandidat) | hygiene | low | 3 | decision (Policy kann zur Laufzeit auf A heben) | decision | business_partner, bp_relevance | XD06 | impl | Defekt |
 | AR-HYG-002 | Angelegt im Postenfenster, älter als 12 Monate, nie bebucht | hygiene | low | 3 | decision | decision | business_partner, bp_relevance | XD06 | draft | ohne Testfall |
 | AR-DUP-001 | Dubletten-Cluster (Name+Adresse normalisiert, USt-ID, IBAN) | duplicate | high | 2 | B | review | business_partner, bp_tax_id, bp_bank_account, bp_partner_function | XD05/XD06/FB05 | draft | Defekt |
 | AR-LEA-001 | Unapplied Cash: Zahlungseingänge ohne Rechnungsbezug (Akonto) älter 30 Tage | leakage | medium | 3 | B | review | fi_item | F-32 | draft | Defekt |

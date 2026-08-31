@@ -389,6 +389,12 @@ def _render_header(console: Console, report: RunReport) -> None:
             f"  Scope: Buchungskreise {codes} · Seite {report.scope.get('side')}"
             f"   Im Lauf: {', '.join(report.company_codes) or '–'}"
         )
+        fenster = report.scope.get("item_window_from_effective")
+        if fenster:
+            console.print(
+                f"  Postenfenster ab: {fenster} "
+                f"({report.scope.get('item_window_from_source')})"
+            )
     if report.versions:
         console.print(
             "  Versionen: "

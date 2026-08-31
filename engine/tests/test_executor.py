@@ -5,6 +5,7 @@ Alle Testdaten sind erfunden. Es stehen keine Geschaeftspartnerdaten in dieser D
 """
 
 import dataclasses
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -602,3 +603,19 @@ def test_vat_muster_werden_als_wertepaare_eingesetzt(run_context) -> None:
     sql = rule_sql(rule, run_context)
     assert "${" not in sql
     assert "('DE', '^DE\\d{9}$')" in sql
+
+
+def test_fensterbeginn_wird_eingesetzt(run_context) -> None:
+    """`${scope.item_window_from}` kommt aus dem Lauf, nicht aus der Regel (D-110)."""
+    ctx = dataclasses.replace(run_context, item_window_from=date(2024, 9, 2))
+    sql = rule_sql(RULES["AR-HYG-001"], ctx)
+    assert "${" not in sql
+    assert "DATE '2024-09-02'" in sql
+
+
+def test_fensterbeginn_ohne_posten_ist_ein_fehler_mit_namen(run_context) -> None:
+    """Ohne Posten gibt es kein Fenster – und 'angelegt vor Fensterbeginn' keine Antwort."""
+    with pytest.raises(ExecutionError) as excinfo:
+        rule_sql(RULES["AR-HYG-001"], run_context)
+    assert "item_window_from" in str(excinfo.value)
+    assert "keinen Posten" in str(excinfo.value)

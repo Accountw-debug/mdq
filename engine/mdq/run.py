@@ -401,10 +401,22 @@ def execute_run(options: RunOptions) -> RunResult:
         )
 
         report.versions = versions
+        # Der Fensterbeginn kommt aus dem Scope, sonst aus den Daten – und der Lauf sagt,
+        # woher (D-110, dieselbe Sorgfalt wie beim Datenstand in D-090).
+        window_from = options.scope.item_window_from or (
+            report.canonical.posting_date_from if report.canonical else None
+        )
+        window_source = (
+            "Scope (--item-window-from)"
+            if options.scope.item_window_from
+            else "frühestes Buchungsdatum der geladenen Posten"
+        )
         report.scope = {
             **options.scope.to_dict(),
             "decimal_notation": options.decimal_notation,
             "data_as_of_source": relevance.data_as_of_source,
+            "item_window_from_effective": window_from.isoformat() if window_from else None,
+            "item_window_from_source": window_source if window_from else "kein Posten im Lauf",
             "decisions_file": str(memory.path) if memory.path else None,
         }
         report.company_codes = tuple(
@@ -421,6 +433,7 @@ def execute_run(options: RunOptions) -> RunResult:
             data_as_of=relevance.data_as_of.isoformat(),
             created_at=created_at,
             decisions=memory,
+            item_window_from=window_from,
         )
         findings, finding_keys = _execute_rules(con, ctx, report, options.rules_dir)
         report.add_decisions(DecisionSummary.of(memory, rules_executed=True))

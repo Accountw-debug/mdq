@@ -108,6 +108,10 @@ class RunContext:
     #: Formatmuster der USt-IdNr. fuer ``${vat_patterns.rows}`` (D-101); ohne Angabe gilt
     #: ``logic/dictionaries/vat_id_patterns.yaml``.
     vat_patterns: VatPatterns | None = None
+    #: Beginn des Postenfensters fuer ``${scope.item_window_from}`` (D-110). Aus dem Scope,
+    #: sonst das fruehste Buchungsdatum der geladenen Posten; ``None``, wenn der Lauf keinen
+    #: Posten enthaelt – dann kann eine Regel, die das Fenster braucht, nicht laufen.
+    item_window_from: date | None = None
 
 
 def finding_id_for(rule_id: str, row: dict[str, Any]) -> str:
@@ -136,6 +140,9 @@ def _default_vat_patterns() -> VatPatterns:
 
 #: Benannte Schwelle aus dem Regelkopf: ``${params.min_invoices}`` (D-107)
 _PARAM_RE = re.compile(r"\$\{params\.([a-z][a-z0-9_]*)\}")
+
+#: Beginn des Postenfensters: ``${scope.item_window_from}`` (D-110)
+_WINDOW_RE = re.compile(r"\$\{scope\.item_window_from\}")
 
 
 def _substitute_parameters(rule: Rule) -> str:
@@ -168,6 +175,14 @@ def rule_sql(rule: Rule, ctx: RunContext) -> str:
     if "${" not in rule.sql:
         return rule.sql
     sql = _substitute_parameters(rule)
+    if _WINDOW_RE.search(sql):
+        if ctx.item_window_from is None:
+            raise ExecutionError(
+                f"{rule.id}: ${{scope.item_window_from}} steht im SQL, aber der Lauf kennt "
+                "keinen Fensterbeginn – er enthaelt keinen Posten. Ohne Fenster ist "
+                "'angelegt vor Fensterbeginn' nicht entscheidbar."
+            )
+        sql = _WINDOW_RE.sub(f"DATE '{ctx.item_window_from.isoformat()}'", sql)
     if VAT_PATTERN_PLACEHOLDER_RE.search(sql):
         patterns = ctx.vat_patterns or _default_vat_patterns()
         sql = VAT_PATTERN_PLACEHOLDER_RE.sub(lambda _: patterns.rows(), sql)

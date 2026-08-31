@@ -151,6 +151,9 @@ def test_run_json_traegt_scope_und_versionen(demo_run):
         "item_window_to": None,
         "decimal_notation": None,
         "data_as_of_source": "spaetestes Buchungs-/Ausgleichsdatum der Posten",
+        # Der Fensterbeginn, den die Regeln benutzen, samt Herkunft (D-110)
+        "item_window_from_effective": "2024-09-02",
+        "item_window_from_source": "frühestes Buchungsdatum der geladenen Posten",
         "decisions_file": None,
     }
     versions = run["versions"]

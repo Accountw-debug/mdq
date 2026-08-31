@@ -138,3 +138,29 @@ def test_ar_val_002_schlaegt_kein_soll_vor(regression_run) -> None:
     for finding in findings_of(regression_run, "AR-VAL-002"):
         assert finding["tier"] == "C"
         assert finding["proposed"]["value"] is None
+
+
+# --- AR-HYG-001 – Löschkandidaten ----------------------------------------------------
+
+
+def test_ar_hyg_001_liefert_die_vierzig_stillgelegten_konten(regression_run) -> None:
+    assert len(findings_of(regression_run, "AR-HYG-001")) == 40
+
+
+def test_ar_hyg_001_entscheidet_nicht_sondern_legt_optionen_vor(regression_run) -> None:
+    """Ob ein ruhendes Konto geloescht wird, haengt an Fristen, nicht an den Daten."""
+    for finding in findings_of(regression_run, "AR-HYG-001"):
+        assert finding["tier"] == "decision"
+        assert finding["action_type"] == "decision"
+        assert finding["proposed"]["value"] is None
+        assert len(finding["proposed"]["options"]) == 3
+        assert finding["remediation"]["mass_change_eligible"] is False
+
+
+def test_ar_hyg_001_nennt_den_fensterbeginn_des_laufs(regression_run) -> None:
+    """Der Fensterbeginn kommt vom Lauf, nicht aus der Regel (D-110)."""
+    fenster = regression_run.report.scope["item_window_from_effective"]
+    assert fenster == "2024-09-02"
+    for finding in findings_of(regression_run, "AR-HYG-001"):
+        assert fenster in finding["title"]
+        assert fenster in finding["proposed"]["source_summary"]

@@ -59,7 +59,7 @@ Akzeptanz: `mdq validate logic/examples/findings/` 6/6; ein Negativtest je neuem
 
 Reihenfolge innerhalb: Regel bauen → Klartext prüfen → `hits/no_hits/edge` aus defects.yaml → Regression laufen lassen.
 
-- **6 · AR-Stammdaten:** AR-COM-002 (Soll = dominante ZTERM aus Belegen, Stufe B), AR-VAL-002 (inkl. Hinweis „sieht wie deutsche Steuernummer aus – gehört in STCD1", D-058), AR-VAL-003 (IBAN-Prüfziffer, SK 1, Stufe C), AR-VAL-005 (Platzhalternamen), AR-HYG-001 (Fensterdefinition D-057).
+- **6 · AR-Stammdaten:** AR-COM-002 (Soll = dominante ZTERM aus Belegen, Stufe B), AR-VAL-002 (inkl. Hinweis „sieht wie deutsche Steuernummer aus – gehört in STCD1", D-058), AR-VAL-003 (IBAN-Prüfziffer, SK 1, Stufe C), AR-VAL-005 (Platzhalternamen), AR-HYG-001 (Fensterdefinition D-049, Aktualitätsbegriff D-086; die frühere Angabe „D-057" war falsch – das ist `decision.assigned_to`, korrigiert 2026-08-31).
 - **7 · AP-Seite:** AP-VAL-001, AP-VAL-002, AP-VAL-003, AP-CON-001 (gleiche IBAN, Regulierer-Ausschluss), AP-COM-003 (REPRF, Stufe A, mass_change), AP-HYG-001, AP-LEA-002 (Skontoverlust, process, Rechnung offen ausweisen).
 - **8 · Übergreifend:** CROSS-DUP-001 (gleiche USt-ID, deterministisch – kein Fuzzy nötig), AR-LEA-001 (Akontozahlungen, finding_key = Belegnummer).
 
