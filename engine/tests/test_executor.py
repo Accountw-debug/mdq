@@ -6,6 +6,7 @@ Alle Testdaten sind erfunden. Es stehen keine Geschaeftspartnerdaten in dieser D
 
 import dataclasses
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -21,6 +22,8 @@ from mdq.executor import (
 )
 from mdq.findings import validate_finding
 from mdq.rules import load_rules, parse_rule
+
+from .conftest import VALID_RULE_TEXT
 
 RULES = {rule.id: rule for rule in load_rules()}
 
@@ -568,3 +571,26 @@ def test_decimal_is_used_not_float() -> None:
 
     value = duckdb.connect().execute("SELECT CAST(1.5 AS DECIMAL(15,2))").fetchone()[0]
     assert isinstance(value, Decimal)
+
+
+# --- Benannte Schwellen aus dem Regelkopf (D-107) ------------------------------------
+
+
+def test_parameter_aus_dem_kopf_wird_eingesetzt(db, run_context) -> None:
+    """`${params.<name>}` kommt aus `parameters` im Regelkopf, nicht aus dem SQL."""
+    text = VALID_RULE_TEXT.replace(
+        "tests:", "parameters:\n  min_invoices: 3\ntests:"
+    ).replace("WHERE FALSE", "WHERE ${params.min_invoices} = 3")
+    rule = parse_rule(text, Path("AR-VAL-009.rule.sql"))
+    assert "${" not in rule_sql(rule, run_context)
+    assert "3 = 3" in rule_sql(rule, run_context)
+
+
+def test_parameter_ohne_eintrag_ist_ein_fehler_mit_namen(db, run_context) -> None:
+    """Ein Platzhalter ohne Eintrag ist kein stiller Vorgabewert (Regel 4)."""
+    text = VALID_RULE_TEXT.replace("WHERE FALSE", "WHERE ${params.min_invoices} = 3")
+    rule = parse_rule(text, Path("AR-VAL-009.rule.sql"))
+    with pytest.raises(ExecutionError) as excinfo:
+        rule_sql(rule, run_context)
+    assert "min_invoices" in str(excinfo.value)
+    assert "parameters" in str(excinfo.value)

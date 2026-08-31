@@ -33,9 +33,12 @@ REQUIRED_KEYS = (
     "tests",
 )
 
-#: Felder, die im Kopf stehen duerfen, aber nicht muessen. Derzeit keine: `title` ist
-#: seit der Schema-Aenderung Pflicht, weil jedes Finding einen Titel tragen muss.
-OPTIONAL_KEYS = ()
+#: Felder, die im Kopf stehen duerfen, aber nicht muessen. `title` ist seit der
+#: Schema-Aenderung Pflicht, weil jedes Finding einen Titel tragen muss.
+OPTIONAL_KEYS = ("parameters",)
+
+#: Name eines Regelparameters: `${params.<name>}` im SQL, `parameters.<name>` im Kopf
+_PARAMETER_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 SIDES = ("AR", "AP", "CROSS")
 SEVERITIES = ("low", "medium", "high", "critical")
@@ -94,6 +97,9 @@ class Rule:
     if_wrong: str
     remediation: dict[str, Any]
     tests: dict[str, tuple[str, ...]]
+    #: Benannte Schwellen der Regel, als `${params.<name>}` ins SQL eingesetzt (D-107).
+    #: Leer, wenn die Regel keine hat.
+    parameters: dict[str, int | float]
     title: str
     sql: str
     path: Path
@@ -144,6 +150,31 @@ def _check_tests(errors: list[str], head: dict) -> dict[str, tuple[str, ...]]:
             continue
         result[key] = tuple(entries)
     return result
+
+
+def _check_parameters(errors: list[str], head: dict) -> dict[str, int | float]:
+    """Prueft den optionalen Block `parameters` – benannte Schwellen der Regel (D-107).
+
+    Nur Zahlen: sie werden unveraendert als Literal ins SQL gesetzt, und eine Zeichenkette
+    braeuchte eine Quotierung, die niemand sieht. Braucht eine Regel spaeter einen Text,
+    wird das hier ausdruecklich erlaubt, nicht stillschweigend.
+    """
+    parameters = head.get("parameters")
+    if parameters is None:
+        return {}
+    if not isinstance(parameters, dict) or not parameters:
+        errors.append("parameters: muss ein nicht-leeres Objekt sein")
+        return {}
+    checked: dict[str, int | float] = {}
+    for name, value in parameters.items():
+        if not isinstance(name, str) or not _PARAMETER_NAME_RE.match(name):
+            errors.append(f"parameters: '{name}' ist kein gueltiger Name ([a-z][a-z0-9_]*)")
+            continue
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            errors.append(f"parameters.{name}: erwartet eine Zahl, nicht {type(value).__name__}")
+            continue
+        checked[name] = value
+    return checked
 
 
 def _check_remediation(errors: list[str], head: dict) -> dict[str, Any]:
@@ -257,6 +288,7 @@ def parse_rule(text: str, path: Path) -> Rule:
         errors.append("plain_logic: enthaelt noch den Platzhaltertext aus _TEMPLATE.rule.sql")
 
     remediation = _check_remediation(errors, head)
+    parameters = _check_parameters(errors, head)
     tests = _check_tests(errors, head)
     _check_invariants(errors, head, remediation)
 
@@ -282,6 +314,7 @@ def parse_rule(text: str, path: Path) -> Rule:
         if_wrong=head["if_wrong"].strip(),
         remediation=remediation,
         tests=tests,
+        parameters=parameters,
         title=head["title"].strip(),
         sql=sql,
         path=path,

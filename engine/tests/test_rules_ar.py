@@ -67,3 +67,36 @@ def test_ar_val_003_bleibt_stufe_c_ohne_soll(regression_run) -> None:
         assert finding["damage_class"] == 1
         assert finding["proposed"]["value"] is None
         assert finding["remediation"]["mass_change_eligible"] is False
+
+
+# --- AR-COM-002 – Zahlungsbedingung im Buchungskreis leer ----------------------------
+
+
+def test_ar_com_002_liefert_zwanzig_findings_je_buchungskreis(regression_run) -> None:
+    findings = findings_of(regression_run, "AR-COM-002")
+    assert len(findings) == 20
+    assert all(finding["entity"].get("company_code") for finding in findings)
+
+
+def test_ar_com_002_stufe_haengt_an_der_mehrheit(regression_run) -> None:
+    """Mehrheit auf den Belegen -> Stufe B mit Soll; ohne Mehrheit Stufe C ohne Soll.
+
+    Ein geratenes Soll waere schlimmer als keins: die Zahlungsbedingung verschiebt die
+    Faelligkeit jeder kuenftigen Rechnung.
+    """
+    for finding in findings_of(regression_run, "AR-COM-002"):
+        soll = finding["proposed"]["value"]
+        if finding["tier"] == "B":
+            assert soll, finding["entity"]["bp_key"]
+            assert finding["proposed"]["display"], "Stufe B nennt den Klartext aus T052U"
+        else:
+            assert finding["tier"] == "C"
+            assert soll is None
+            assert "kein soll" in finding["proposed"]["source_summary"].lower()
+
+
+def test_ar_com_002_zaehlt_wie_die_belege_es_hergeben(regression_run) -> None:
+    """Die Quellenlage nennt Zaehler und Nenner – 15 mit Mehrheit, 5 ohne (DEF-0047..0066)."""
+    findings = findings_of(regression_run, "AR-COM-002")
+    stufen = {tier: sum(1 for f in findings if f["tier"] == tier) for tier in ("B", "C")}
+    assert stufen == {"B": 15, "C": 5}

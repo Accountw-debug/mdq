@@ -8,6 +8,7 @@ validiert (CLAUDE.md, Regel 6).
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -116,17 +117,45 @@ def _default_doc_types() -> DocumentTypes:
     return load_document_types()
 
 
-def rule_sql(rule: Rule, ctx: RunContext) -> str:
-    """Das auszufuehrende SQL: Belegartenlisten eingesetzt, sonst unveraendert (D-084).
+#: Benannte Schwelle aus dem Regelkopf: ``${params.min_invoices}`` (D-107)
+_PARAM_RE = re.compile(r"\$\{params\.([a-z][a-z0-9_]*)\}")
 
-    Die Regel liest damit weiterhin nur das kanonische Schema; die Liste kommt als
-    Parameter von der Engine und steht nicht zweimal im Repo (Regel 5).
+
+def _substitute_parameters(rule: Rule) -> str:
+    """Setzt ``${params.<name>}`` aus dem Regelkopf ein (D-107).
+
+    Eine Schwelle als Zahl im SQL waere nicht auffindbar und stuende in keinem Klartext;
+    im Kopf hat sie einen Namen und faellt beim Lesen der Regel auf. Ein Platzhalter ohne
+    Eintrag ist ein Fehler mit Namen, kein stiller Vorgabewert (Regel 4).
+    """
+
+    def replace(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name not in rule.parameters:
+            known = sorted(rule.parameters) or "keine"
+            raise ExecutionError(
+                f"{rule.id}: {match.group(0)} steht im SQL, aber nicht unter 'parameters' "
+                f"im Regelkopf (dort steht: {known})."
+            )
+        return repr(rule.parameters[name])
+
+    return _PARAM_RE.sub(replace, rule.sql)
+
+
+def rule_sql(rule: Rule, ctx: RunContext) -> str:
+    """Das auszufuehrende SQL: Schwellen und Belegartenlisten eingesetzt (D-084, D-107).
+
+    Die Regel liest damit weiterhin nur das kanonische Schema; Liste und Schwelle kommen
+    als Parameter, die Liste von der Engine, die Schwelle aus dem eigenen Kopf (Regel 5).
     """
     if "${" not in rule.sql:
         return rule.sql
+    sql = _substitute_parameters(rule)
+    if "${" not in sql:
+        return sql
     types = ctx.doc_types or _default_doc_types()
     try:
-        return substitute(rule.sql, types, rule.id)
+        return substitute(sql, types, rule.id)
     except DictionaryError as exc:
         raise ExecutionError(str(exc)) from exc
 

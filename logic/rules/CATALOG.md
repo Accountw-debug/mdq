@@ -19,7 +19,7 @@ die Policy hebt zur Laufzeit Stufe **und** Aktion gemeinsam an.
 | ID | Titel | Kategorie | Schwere | SK | Stufe | Aktion | Tabellen | SAP | Status | Testdaten |
 |---|---|---|---|---|---|---|---|---|---|---|
 | AR-COM-001 | USt-ID fehlt bei EU-B2B-Debitor (Land ≠ DE oder Kontengruppe B2B) | completeness | high | 2 | C | review | business_partner, bp_tax_id | XD02 Steuerung | draft | ohne Testfall |
-| AR-COM-002 | Zahlungsbedingung im Buchungskreis leer | completeness | medium | 2 | B (Soll = meistgenutzte ZTERM aus Belegen) | review | bp_company_code, fi_item, payment_terms | XD02 Zahlungsverkehr | draft | Defekt |
+| AR-COM-002 | Zahlungsbedingung im Buchungskreis leer | completeness | medium | 2 | B mit Mehrheit auf den Belegen, sonst C | review | bp_company_code, fi_item, payment_terms | XD02 Zahlungsverkehr | impl | Defekt |
 | AR-COM-003 | Bankverbindung fehlt bei Zahlweg Lastschrift | completeness | high | 1 | C | review | bp_company_code, bp_bank_account | XD02 Zahlungsverkehr | draft | ohne Testfall |
 | AR-COM-004 | Mahnverfahren leer bei aktivem Debitor | completeness | medium | 3 | A (Soll = Standardverfahren laut Policy) | mass_change | bp_company_code, bp_relevance | XD02 Korrespondenz | draft | ohne Testfall |
 | AR-VAL-001 | USt-ID-Präfix passt nicht zum Sitzland | validity | high | 2 | B | review | business_partner, bp_tax_id | XD02 | impl | Defekt |
