@@ -282,3 +282,44 @@ def parse_flag(text: str | None) -> bool | None:
     if body.upper() == FLAG_TRUE:
         return True
     raise ParseError(f'Kennzeichen ist weder leer noch "{FLAG_TRUE}"')
+
+
+def format_amount(value: Decimal | str | None, currency: str | None = None) -> str | None:
+    """Betrag als deutscher Freitext: ``42.100,00 EUR`` (D-187).
+
+    Der einzige Ort, an dem ein Betrag zu Text wird – in Regeltiteln, in
+    ``source_summary`` und im Run-Report. Ohne ``locale``: dieselbe Zeichenkette auf jedem
+    Rechner (Regel 9). Ohne ``float``: gerechnet wird nichts, die Ziffern werden gruppiert
+    (Regel 2). Die Waehrung steht neben dem Betrag, sobald sie bekannt ist; ohne sie kommt
+    nur die Zahl zurueck – ein Betrag ohne Waehrung ist keine Zahl, aber manchmal steht die
+    Waehrung schon im Satz davor.
+
+    ``None`` bleibt ``None``. Mehr als zwei Nachkommastellen sind ein Fehler mit Namen:
+    Runden gehoert in die Regel, nicht in die Darstellung.
+    """
+    if value is None:
+        return None
+    if isinstance(value, float):
+        raise TypeError("format_amount: Betraege sind nie float (Regel 2).")
+    text = f"{value:f}" if isinstance(value, Decimal) else str(value).strip()
+    if not re.fullmatch(r"-?\d+(\.\d+)?", text):
+        raise ValueError(f"format_amount: {text!r} ist kein Betrag (erwartet -?123.45).")
+
+    negativ = text.startswith("-")
+    ganz, _, rest = text.lstrip("-").partition(".")
+    if len(rest) > 2:
+        raise ValueError(
+            f"format_amount: {text!r} hat mehr als zwei Nachkommastellen. "
+            "Runden gehoert in die Regel, nicht in die Darstellung."
+        )
+    nachkomma = rest.ljust(2, "0")
+
+    gruppen = []
+    while len(ganz) > 3:
+        gruppen.insert(0, ganz[-3:])
+        ganz = ganz[:-3]
+    gruppen.insert(0, ganz)
+
+    zahl = ("-" if negativ else "") + ".".join(gruppen) + "," + nachkomma
+    return f"{zahl} {currency}" if currency else zahl
+

@@ -235,3 +235,31 @@ def test_jedes_proposed_traegt_ein_soll(regression_run) -> None:
             or proposed.get("options")
             or proposed.get("display") is not None
         ), finding["finding_id"]
+
+
+# --- Betraege im Freitext (D-187) ----------------------------------------------------
+
+
+def test_betraege_in_titeln_sind_deutsch_geschrieben(regression_run) -> None:
+    """Kein `42100.00 EUR` mehr im Titel – der Betrag steht wie ueberall sonst (D-187).
+
+    Geprueft ueber alle Findings: eine Ziffernfolge mit Punkt und genau zwei Stellen
+    danach ist die englische Schreibweise und darf in keinem Titel und keiner
+    Quellenlage mehr vorkommen.
+    """
+    englisch = re.compile(r"\d+\.\d{2}(?!\d)")
+    for finding in regression_run.findings:
+        texte = [finding["title"], finding["current"].get("display") or ""]
+        proposed = finding.get("proposed") or {}
+        texte.append(proposed.get("source_summary") or "")
+        texte.append(proposed.get("display") or "")
+        for text in texte:
+            # Datumsangaben und Belegnummern enthalten keinen Punkt vor zwei Ziffern
+            assert not englisch.search(text), (finding["finding_id"], text)
+
+
+def test_ap_lea_001_nennt_den_betrag_einmal(regression_run) -> None:
+    """Der Titel trug Betrag und Waehrung getrennt; jetzt kommt beides aus `mdq_money`."""
+    for finding in findings_of(regression_run, "AP-LEA-001"):
+        assert "32.000,00 EUR" in finding["title"] or "EUR" in finding["title"]
+        assert " EUR EUR" not in finding["title"]

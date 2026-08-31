@@ -62,7 +62,8 @@ SELECT
     NULL                                          AS proposed_value,
     NULL                                          AS proposed_display,
     'Kein Posten seit Fensterbeginn ' || ${scope.item_window_from}::VARCHAR
-        || '; Anlage davor; offene Posten 0,00 ' || r.currency  AS source_summary,
+        || '; Anlage davor; offene Posten ' || mdq_money(r.open_items_local, r.currency)
+                                                  AS source_summary,
     to_json([
         {'label': 'Löschvormerkung setzen und archivieren',
          'consequence': 'Konto verschwindet aus Auswahllisten; Historie bleibt bis zum Archivlauf'},

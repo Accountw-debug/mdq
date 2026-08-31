@@ -1,7 +1,7 @@
 /* ---
 id: AR-CON-002
 version: "1.0"
-title: "Löschvormerkung/Buchungssperre bei Debitor mit offenen Posten ({open_items} {currency})"
+title: "Löschvormerkung/Buchungssperre bei Debitor mit offenen Posten ({open_items})"
 side: AR
 category: consistency
 severity: high
@@ -69,7 +69,7 @@ SELECT
     END                                                                         AS current_display,
     NULL                                                                        AS proposed_value,
     NULL                                                                        AS proposed_display,
-    'Offene Posten ' || CAST(o.open_local AS VARCHAR) || ' ' || o.currency
+    'Offene Posten ' || mdq_money(o.open_local, o.currency)
         || ' bei gesetzter Sperre/Löschvormerkung'                              AS source_summary,
     to_json([
         {'label': 'Sperre/Löschvormerkung aufheben',
@@ -88,7 +88,7 @@ SELECT
     o.open_local                                                                AS impact_amount,
     o.currency                                                                  AS impact_currency,
     'Summe offener Posten im Buchungskreis ' || cc.company_code                 AS impact_formula,
-    to_json({'open_items': CAST(o.open_local AS VARCHAR), 'currency': o.currency})  AS params
+    to_json({'open_items': mdq_money(o.open_local, o.currency), 'currency': o.currency})  AS params
 FROM business_partner bp
 JOIN bp_company_code cc ON cc.bp_key = bp.bp_key
 JOIN open_sum o         ON o.bp_key = bp.bp_key AND o.company_code = cc.company_code

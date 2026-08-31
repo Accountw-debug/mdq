@@ -19,6 +19,7 @@ from rich.table import Table
 
 from mdq.canonical import CanonicalResult
 from mdq.decisions import DecisionMemory
+from mdq.formats import format_amount
 from mdq.loader import LoadResult
 from mdq.relevance import RelevanceResult
 from mdq.rules import Rule
@@ -489,7 +490,9 @@ def _render_stages(console: Console, report: RunReport) -> None:
                 table_name,
                 total.company_code or "–",
                 total.currency or "–",
-                total.amount,
+                # Deutsch geschrieben wie in jedem Findingtext; die Waehrung steht in der
+                # Spalte daneben und deshalb nicht noch einmal am Betrag (D-187).
+                format_amount(total.amount),
             )
         console.print(sums)
 

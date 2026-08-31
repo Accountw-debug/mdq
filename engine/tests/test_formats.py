@@ -3,11 +3,14 @@
 from datetime import date
 from decimal import Decimal
 
+import duckdb
 import pytest
 
+from mdq import RULE_MACROS
 from mdq.formats import (
     ParseError,
     detect_notation,
+    format_amount,
     parse_amount,
     parse_date,
     parse_flag,
@@ -274,3 +277,70 @@ def test_new_parsers_never_quote_the_value() -> None:
         with pytest.raises(ParseError) as excinfo:
             parser(text)
         assert text not in str(excinfo.value), parser.__name__
+
+
+# --- Betragsformatierer fuer Freitext (D-187) ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("wert", "waehrung", "erwartet"),
+    [
+        ("42100.00", "EUR", "42.100,00 EUR"),
+        ("0.00", "EUR", "0,00 EUR"),
+        ("999.99", "EUR", "999,99 EUR"),
+        ("1000.00", "EUR", "1.000,00 EUR"),
+        ("1234567.89", "CHF", "1.234.567,89 CHF"),
+        ("-1092.32", "EUR", "-1.092,32 EUR"),
+        ("9999999999999.99", "EUR", "9.999.999.999.999,99 EUR"),
+        ("42100.00", None, "42.100,00"),
+        ("7", "EUR", "7,00 EUR"),
+        (None, "EUR", None),
+    ],
+)
+def test_format_amount(wert, waehrung, erwartet) -> None:
+    assert format_amount(wert, waehrung) == erwartet
+
+
+def test_format_amount_nimmt_decimal() -> None:
+    assert format_amount(Decimal("42100.00"), "EUR") == "42.100,00 EUR"
+    assert format_amount(Decimal("-0.05"), "EUR") == "-0,05 EUR"
+
+
+def test_format_amount_lehnt_float_ab() -> None:
+    """Regel 2 endet nicht an der Darstellung."""
+    with pytest.raises(TypeError):
+        format_amount(42100.0, "EUR")
+
+
+def test_format_amount_rundet_nicht() -> None:
+    """Runden gehoert in die Regel, nicht in die Darstellung."""
+    with pytest.raises(ValueError, match="Nachkommastellen"):
+        format_amount("1.005", "EUR")
+
+
+def test_format_amount_lehnt_unsinn_ab() -> None:
+    with pytest.raises(ValueError, match="kein Betrag"):
+        format_amount("42.100,00", "EUR")
+
+
+def test_makro_und_python_sind_gleich() -> None:
+    """`mdq_money` im SQL und `format_amount` in Python schreiben denselben Text.
+
+    Sonst stuende im Titel eines Findings eine andere Schreibweise als im Run-Report –
+    derselbe Betrag, zwei Bilder.
+    """
+    werte = [
+        "0.00", "0.01", "0.99", "1.00", "9.99", "10.00", "99.99", "100.00", "999.99",
+        "1000.00", "1000.01", "9999.99", "10000.00", "123456.78", "1234567.89",
+        "999999999.99", "9999999999999.99", "-0.01", "-1092.32", "-1234567.89",
+    ]
+    con = duckdb.connect(":memory:")
+    try:
+        con.execute(RULE_MACROS.read_text(encoding="utf-8"))
+        for wert in werte:
+            aus_sql = con.execute(
+                "SELECT mdq_money(CAST(? AS DECIMAL(15,2)), 'EUR')", [wert]
+            ).fetchone()[0]
+            assert aus_sql == format_amount(wert, "EUR"), wert
+    finally:
+        con.close()

@@ -17,6 +17,7 @@ from typing import Any
 
 import duckdb
 
+from mdq import RULE_MACROS
 from mdq.decisions import DecisionMemory, apply_decision
 from mdq.dictionaries import (
     PLACEHOLDER_TERMS_RE,
@@ -130,6 +131,23 @@ def finding_id_for(rule_id: str, row: dict[str, Any]) -> str:
     parts.extend("" if row.get(column) is None else str(row[column]) for column in ID_COLUMNS)
     digest = hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()
     return f"F-{digest[:12]}"
+
+
+@cache
+def _rule_macro_sql() -> str:
+    """Die Darstellungshilfen fuer Regel-SQL – einmal gelesen (D-187)."""
+    return RULE_MACROS.read_text(encoding="utf-8")
+
+
+def ensure_rule_macros(con: duckdb.DuckDBPyConnection) -> None:
+    """Legt ``mdq_money`` und Helfer in der Verbindung an.
+
+    Bewusst hier und nicht im kanonischen Schema: es sind Darstellungshilfen, keine
+    Tabellen – und sie muessen ueberall dort stehen, wo eine Regel laeuft, auch in einem
+    Test, der nur das kanonische Schema geladen hat. ``CREATE OR REPLACE`` macht den
+    wiederholten Aufruf billig und die Reihenfolge egal.
+    """
+    con.execute(_rule_macro_sql())
 
 
 @cache
@@ -509,6 +527,7 @@ def execute_rule_rows(
     if absent:
         raise ExecutionError(f"{rule.id}: benoetigte Tabellen fehlen: {absent}")
 
+    ensure_rule_macros(con)
     try:
         cursor = con.execute(rule_sql(rule, ctx))
     except duckdb.Error as exc:

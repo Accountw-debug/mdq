@@ -20,6 +20,7 @@ CANONICAL_SCHEMA = LOGIC_DIR / "schema" / "canonical.sql"
 
 #: Staging-Makros (Typisierung raw -> staged), die ausgefuehrte Fassung von formats.py
 STAGING_MACROS = LOGIC_DIR / "schema" / "staging.sql"
+RULE_MACROS = LOGIC_DIR / "schema" / "rule_macros.sql"
 
 #: JSON-Schema, gegen das jedes Finding validiert wird
 FINDING_SCHEMA = LOGIC_DIR / "finding.schema.json"
@@ -66,6 +67,7 @@ __all__ = [
     "PLACEHOLDER_TERMS",
     "PROJECT_ROOT",
     "RULES_DIR",
+    "RULE_MACROS",
     "SAP_MAPPING",
     "STAGING_MACROS",
     "TESTDATA_DIR",

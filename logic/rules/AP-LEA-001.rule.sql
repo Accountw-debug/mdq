@@ -13,7 +13,7 @@ id: AP-LEA-001
 # wird sie dort eingetragen und hier zu ${doc_types.AP.credit_memo+reversal} erweitert -
 # ohne Aenderung an dieser Datei waere es eine zweite Liste.
 version: "1.0"
-title: "Mögliche Doppelzahlung: {amount} {currency} an Kreditor, Referenz {ref_a} / {ref_b}"
+title: "Mögliche Doppelzahlung: {amount} an Kreditor, Referenz {ref_a} / {ref_b}"
 side: AP
 category: leakage
 severity: critical
@@ -110,7 +110,7 @@ SELECT
     'BSAK'                                              AS source_table,
     'XBLNR'                                             AS source_field,
     p.ref_a || ' | ' || p.ref_b                         AS current_value,
-    'Zwei bezahlte Rechnungen über ' || CAST(p.amount_doc AS VARCHAR) || ' ' || p.currency  AS current_display,
+    'Zwei bezahlte Rechnungen über ' || mdq_money(p.amount_doc, p.currency)  AS current_display,
     NULL                                                AS proposed_value,
     'Rückforderung oder Verrechnung'                    AS proposed_display,
     'Belegpaar ' || p.doc_a || ' / ' || p.doc_b || ': gleicher Betrag, Referenz '
@@ -131,7 +131,7 @@ SELECT
         {'company_code': p.company_code, 'fiscal_year': p.year_a, 'document_no': p.doc_a, 'line_item': NULL},
         {'company_code': p.company_code, 'fiscal_year': p.year_b, 'document_no': p.doc_b, 'line_item': NULL}
     ])                                                  AS documents,
-    to_json({'amount': CAST(p.amount_doc AS VARCHAR), 'currency': p.currency,
+    to_json({'amount': mdq_money(p.amount_doc, p.currency), 'currency': p.currency,
              'ref_a': p.ref_a, 'ref_b': p.ref_b})       AS params,
     p.doc_a || '|' || p.doc_b                           AS finding_key
 FROM pairs p
