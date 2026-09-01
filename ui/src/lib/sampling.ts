@@ -17,7 +17,7 @@
 
 import { sumByCurrency, type MoneyTotal } from '@/lib/dashboard'
 import { createDecision, isOpen } from '@/lib/review'
-import { impactCents } from '@/lib/select-findings'
+import { NO_COMPANY_CODE, companyCodeOptions, impactCents } from '@/lib/select-findings'
 import type { DecisionsState } from '@/state/decisions'
 import type { DecisionRecord } from '@/types/decision'
 import type { SampleReview } from '@/types/decisions-file'
@@ -29,8 +29,12 @@ export const SAMPLE_SIZE = 10
 export interface RuleGroup {
   rule_id: string
   rule_version: string
-  /** Titel des ersten Findings – innerhalb einer Regel ist er derselbe Satz. */
-  title: string
+  /**
+   * Buchungskreise der Gruppe: eindeutig, sortiert, `NO_COMPANY_CODE` am Ende.
+   * Nicht der Titel des ersten Findings – die Gruppe wird in einem Klick
+   * freigegeben und muss deshalb sagen, worüber sie reicht.
+   */
+  companyCodes: string[]
   /** Stufe der Gruppe; bei gemischten Stufen die des ersten Findings. */
   tier: Tier
   mixedTier: boolean
@@ -43,6 +47,21 @@ export interface RuleGroup {
   /** Schadensklasse 1 in der Gruppe. Wird genannt, nie mitfreigegeben (Regel 11). */
   bankData: number
   totals: MoneyTotal[]
+}
+
+/**
+ * Die Buchungskreise einer Gruppe als Satzteil für den Gruppenkopf.
+ *
+ * Der Kopf stand vorher auf dem Titel des ersten Findings; nennt der einen
+ * Buchungskreis, dann verspricht er ihn für die ganze Gruppe – auch wenn die
+ * zwei umfasst und in einem Klick freigegeben wird (Beobachtung Victor,
+ * 2026-09-01).
+ */
+export function describeCompanyCodes(codes: readonly string[]): string {
+  const named = codes.filter((code) => code !== NO_COMPANY_CODE)
+  if (named.length === 0) return 'ohne Buchungskreis'
+  const parts = named.length < codes.length ? [...named, 'ohne Buchungskreis'] : named
+  return `${parts.length === 1 ? 'Buchungskreis' : 'Buchungskreise'} ${parts.join(', ')}`
 }
 
 /** Darf dieses Finding über eine Gruppenfreigabe entschieden werden? */
@@ -89,7 +108,7 @@ export function groupByRule(findings: readonly Finding[]): RuleGroup[] {
       return {
         rule_id: ruleId,
         rule_version: first.rule_version,
-        title: first.title,
+        companyCodes: companyCodeOptions(group),
         tier: first.tier,
         mixedTier: group.some((finding) => finding.tier !== first.tier),
         findings: group,

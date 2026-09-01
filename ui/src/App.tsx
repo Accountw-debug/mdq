@@ -13,6 +13,7 @@ import {
   type ImportReport,
 } from '@/lib/decisions-io'
 import { buildCleanupCsv, cleanupFileName, cleanupFindings } from '@/lib/cleanup-csv'
+import { startTab } from '@/lib/select-findings'
 import { NO_DECISIONS, applyDecisions, decisionsReducer, type DecisionsState } from '@/state/decisions'
 import { NO_SAMPLES, samplesReducer, type SamplesState } from '@/state/samples'
 import { INITIAL_EXPLORER_STATE, explorerReducer } from '@/state/explorer'
@@ -122,6 +123,9 @@ function App() {
         setLoaded({ source, run })
         setLoadError(null)
         dispatch({ type: 'reset_filters' })
+        // Der Lauf bestimmt, womit die Liste öffnet – sonst bleiben die
+        // Stufe-A-Gruppen hinter dem Standardtab „Review" liegen.
+        dispatch({ type: 'set_tab', tab: startTab(run.findings) })
         // Entscheidungen gehören zu einem Lauf; ein neuer Lauf beginnt ohne sie –
         // und ohne den Bericht des Imports, der zum alten Lauf gehörte.
         dispatchDecisions({ type: 'reset' })

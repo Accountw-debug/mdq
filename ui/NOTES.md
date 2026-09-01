@@ -551,7 +551,8 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   Werte `document`, `master_field`, `policy`, `statement`); `proposed.golden_record`
   bleibt in allen 208 leer. Damit ist der Durchgang nicht mehr theoretisch – er hat
   Daten. Sechs benannte Arbeiten – 1 bis 4 aus der Schlusshandprobe, 5 und 6 aus der
-  Tab-1-Handprobe am selben Lauf:
+  Tab-1-Handprobe am selben Lauf; **5 und 6 sind am 2026-09-02 erledigt**, 1 bis 4
+  gehören weiter dem Verdrahtungsdurchgang:
   1. **Der Dubletten-Vergleich muss `entity.records` lesen statt `current.value` zu
      zerlegen.** Heute verlangt `buildDuplicateComparison` ein Segment je Konto in
      `current.value` (`A | B`); CROSS-DUP-001 schreibt dort nur die USt-IdNr., also
@@ -592,6 +593,12 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
      Review → Entscheidung → Prozess setzen, statt auf einen festen Wert. Dann führt ein
      Lauf ohne Stufe A weiterhin nach „Review", und ein Lauf mit Stufe A beginnt dort,
      wo die Arbeit am schnellsten fertig ist.
+     **Erledigt am 2026-09-02.** `startTab(findings)` in `src/lib/select-findings.ts`
+     nimmt den ersten Aktionstyp aus `ACTION_TYPES`, zu dem es mindestens ein Finding
+     gibt; gezählt wird ungefiltert, ein leerer Lauf bleibt bei „Review". `App.tsx`
+     schickt das Ergebnis nach jedem erfolgreichen Laden hinter `reset_filters` als
+     `set_tab`. `INITIAL_EXPLORER_STATE.tab` steht weiter auf `'review'` – solange kein
+     Lauf geladen ist, gibt es nichts zu zählen.
   6. **Der Gruppenkopf nennt einen Buchungskreis, obwohl die Gruppe zwei umfasst.**
      `groupByRule` übernimmt als Gruppentitel den Titel des ersten Findings
      (`src/lib/sampling.ts:92`, `title: first.title`). Bei AP-COM-003 lautet der
@@ -605,6 +612,15 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
      zählen – „AP-COM-003 · 30 Findings · Buchungskreise 1000, 2000". Ein Titel je
      Gruppe wäre erst wieder tragfähig, wenn der Regelkatalog ihn liefert (siehe 4.);
      bis dahin ist die Aufzählung ehrlicher als ein geliehener Satz.
+     **Erledigt am 2026-09-02.** `RuleGroup` hat `title` verloren und trägt jetzt
+     `companyCodes` – `companyCodeOptions(group)`, also eindeutig, sortiert und der Fall
+     ohne Buchungskreis am Ende. `describeCompanyCodes` (rein, in `src/lib/sampling.ts`,
+     nicht in der Komponente) macht daraus den Satzteil: „Buchungskreis 1000",
+     „Buchungskreise 1000, 2000", „ohne Buchungskreis", gemischt „Buchungskreise 1000,
+     ohne Buchungskreis". Der Kopf steht damit auf Regel-ID, Version, Stufe und
+     Buchungskreisen. Einziger Leser von `group.title` war `RuleGroups.tsx` – weder der
+     Freigabe-Dialog noch die Bereinigungsliste haben ihn angefasst. Ein eigener Titel je
+     Gruppe bleibt offen, bis der Regelkatalog ihn liefert (siehe 4.).
 
   Beim Umbau bleibt der Fließtext überall als Rückfall stehen – ein Lauf mit alten
   Findings muss lesbar bleiben.
@@ -781,3 +797,12 @@ Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
   Satz wird jetzt ganz in den Plural gesetzt, mit einem Test je Form.
   314 Tests grün, `npm run lint` und `npm run build` ohne Befund.
   Nächster Schritt: Pause bis zum Verdrahtungsdurchgang.
+- **2026-09-02 · Mini-Commit nach Absturz neu gebaut.** Die zwei Punkte aus der
+  Tab-1-Handprobe waren umgesetzt, aber nicht auf der Platte: Arbeitsverzeichnis sauber,
+  kein Stash, nichts unpushed. Also neu gebaut, nach Victors geprüfter Fassung:
+  `startTab` in `select-findings.ts` plus `set_tab` nach dem Laden in `App.tsx`, und
+  `RuleGroup.title` → `companyCodes` mit `describeCompanyCodes` für den Gruppenkopf.
+  324 Tests grün (vorher 314; neu: drei zu `startTab`, drei zu `companyCodes` in
+  `groupByRule`, drei zu `describeCompanyCodes`, einer im Rauchtest der Regelgruppen),
+  `tsc -b` und `oxlint` ohne Befund. Nächster Schritt: unverändert der
+  Verdrahtungsdurchgang mit den Arbeiten 1 bis 4.

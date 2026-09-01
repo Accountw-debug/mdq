@@ -7,10 +7,12 @@
  */
 import { describe, expect, it } from 'vitest'
 import { statusForDecision } from '@/lib/review'
+import { NO_COMPANY_CODE } from '@/lib/select-findings'
 import {
   SAMPLE_SIZE,
   buildGroupBlock,
   buildGroupRelease,
+  describeCompanyCodes,
   drawSample,
   groupByRule,
   nextSampleStep,
@@ -110,9 +112,52 @@ describe('groupByRule', () => {
     ])
   })
 
+  it('nennt die Buchungskreise der Gruppe, eindeutig und sortiert', () => {
+    const [group] = groupByRule([
+      finding('F-1', { entity: { bp_key: 'C:1', role: 'CUSTOMER', company_code: '2000' } }),
+      finding('F-2', { entity: { bp_key: 'C:2', role: 'CUSTOMER', company_code: '1000' } }),
+      finding('F-3', { entity: { bp_key: 'C:3', role: 'CUSTOMER', company_code: '1000' } }),
+    ])
+    expect(group.companyCodes).toEqual(['1000', '2000'])
+  })
+
+  it('nennt bei einer reinen Gruppe genau einen Buchungskreis', () => {
+    const [group] = groupByRule([
+      finding('F-1', { entity: { bp_key: 'C:1', role: 'CUSTOMER', company_code: '1000' } }),
+      finding('F-2', { entity: { bp_key: 'C:2', role: 'CUSTOMER', company_code: '1000' } }),
+    ])
+    expect(group.companyCodes).toEqual(['1000'])
+  })
+
+  it('verschweigt ein Finding ohne Buchungskreis nicht', () => {
+    const [group] = groupByRule([
+      finding('F-1', { entity: { bp_key: 'C:1', role: 'CUSTOMER', company_code: '1000' } }),
+      finding('F-2', { entity: { bp_key: 'C:2', role: 'CUSTOMER' } }),
+    ])
+    expect(group.companyCodes).toEqual(['1000', NO_COMPANY_CODE])
+  })
+
   it('meldet gemischte Stufen, statt eine davon zu verschweigen', () => {
     const [group] = groupByRule([finding('F-1'), finding('F-2', { tier: 'B' })])
     expect(group.mixedTier).toBe(true)
+  })
+})
+
+describe('describeCompanyCodes', () => {
+  it('setzt den Satzteil in die Zahl, die die Gruppe umfasst', () => {
+    expect(describeCompanyCodes(['1000'])).toBe('Buchungskreis 1000')
+    expect(describeCompanyCodes(['1000', '2000'])).toBe('Buchungskreise 1000, 2000')
+  })
+
+  it('sagt „ohne Buchungskreis", wenn keiner benannt ist', () => {
+    expect(describeCompanyCodes([])).toBe('ohne Buchungskreis')
+    expect(describeCompanyCodes([NO_COMPANY_CODE])).toBe('ohne Buchungskreis')
+  })
+
+  it('hängt den Fall ohne Buchungskreis hinten an, statt ihn zu schlucken', () => {
+    expect(describeCompanyCodes(['1000', NO_COMPANY_CODE])).toBe(
+      'Buchungskreise 1000, ohne Buchungskreis',
+    )
   })
 })
 

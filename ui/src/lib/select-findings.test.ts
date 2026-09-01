@@ -21,6 +21,7 @@ import {
   indexOfId,
   selectVisibleFindings,
   sortFindings,
+  startTab,
 } from '@/lib/select-findings'
 import type { Filters } from '@/lib/select-findings'
 import type { Finding } from '@/types/finding'
@@ -258,6 +259,31 @@ describe('Tab-Zähler', () => {
     ]
     expect(countByActionType(findings, withFilters({ side: 'AP' }), '').review).toBe(1)
     expect(countByActionType(findings, EMPTY_FILTERS, 'gibtesnicht').review).toBe(0)
+  })
+})
+
+describe('startTab', () => {
+  it('öffnet auf Review, solange der Lauf keine Massenänderung hat', () => {
+    const findings = [
+      makeFinding({ finding_id: 'F-1', action_type: 'review' }),
+      makeFinding({ finding_id: 'F-2', action_type: 'decision' }),
+    ]
+    expect(startTab(findings)).toBe('review')
+    // Auch an den sechs Beispielen: sie enthalten keine Stufe A.
+    expect(startTab(examples)).toBe('review')
+  })
+
+  it('öffnet auf Massenänderung, sobald der Lauf eine Stufe-A-Gruppe hat', () => {
+    const findings = [
+      makeFinding({ finding_id: 'F-1', action_type: 'review' }),
+      makeFinding({ finding_id: 'F-2', action_type: 'process' }),
+      makeFinding({ finding_id: 'F-3', tier: 'A', action_type: 'mass_change' }),
+    ]
+    expect(startTab(findings)).toBe('mass_change')
+  })
+
+  it('öffnet einen leeren Lauf auf Review', () => {
+    expect(startTab([])).toBe('review')
   })
 })
 

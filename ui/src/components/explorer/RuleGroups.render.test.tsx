@@ -40,7 +40,7 @@ function massChange(id: string, overrides: Partial<Finding> = {}): Finding {
     tier: 'A',
     action_type: 'mass_change',
     title: 'Zahlungsbedingung fehlt',
-    entity: { bp_key: `C:${id}`, role: 'CUSTOMER' },
+    entity: { bp_key: `C:${id}`, role: 'CUSTOMER', company_code: '1000' },
     current: { source_table: 'KNA1', source_field: 'ZTERM', value: null },
     impact_eur: { amount: '1000.00', currency: 'EUR', formula: '1 × 1.000,00 € offener Posten' },
     why: 'Grund für den Test.',
@@ -96,12 +96,22 @@ describe('Regelgruppen im Browser-Markup', () => {
       massChange('F-99', { damage_class: 1 }),
     ])
     expect(html).toContain('AR-CMP-001')
-    expect(html).toContain('Zahlungsbedingung fehlt')
+    // Der Kopf nennt den Buchungskreis der Gruppe, nicht den Titel des ersten Findings.
+    expect(html).toContain('Buchungskreis 1000')
+    expect(html).not.toContain('Zahlungsbedingung fehlt')
     expect(html).toContain('13.000,00 €')
     expect(html).toContain('Schadensklasse 1')
     expect(html).toContain('Stichprobe prüfen')
     // Zwölf freigebbare Findings, höchstens zehn davon werden geprüft.
     expect(html).toContain('(10 von 12)')
+  })
+
+  it('nennt beide Buchungskreise, wenn die Gruppe über zwei reicht', () => {
+    const html = render([
+      massChange('F-1'),
+      massChange('F-2', { entity: { bp_key: 'C:F-2', role: 'CUSTOMER', company_code: '2000' } }),
+    ])
+    expect(html).toContain('Buchungskreise 1000, 2000')
   })
 
   it('sperrt den Knopf ohne Bearbeiter', () => {

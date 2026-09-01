@@ -223,6 +223,21 @@ export function countByActionType(
 }
 
 /**
+ * Tab, mit dem ein frisch geladener Lauf öffnet: der erste Aktionstyp in der
+ * Reihenfolge von `ACTION_TYPES`, zu dem der Lauf mindestens ein Finding hat.
+ * Massenänderung steht dort vorn, und genau darum geht es – wer den Lauf öffnet,
+ * soll die Stufe-A-Gruppen sehen und nicht erst danach suchen (Beobachtung
+ * Victor, 2026-09-01).
+ *
+ * Gezählt wird ungefiltert: die Startansicht beschreibt den Lauf, nicht eine
+ * Filterung. Ein Lauf ohne Findings öffnet auf `review`.
+ */
+export function startTab(findings: readonly Finding[]): ActionType {
+  const present = new Set(findings.map((finding) => finding.action_type))
+  return ACTION_TYPES.find((type) => present.has(type)) ?? 'review'
+}
+
+/**
  * Auswahlliste des Buchungskreis-Filters: eindeutig und sortiert, mit eigenem
  * Eintrag für Findings ohne Buchungskreis. Basis sind alle Findings, damit die
  * Liste beim Filtern nicht springt.
