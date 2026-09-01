@@ -421,8 +421,8 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   (`title ?? '—'`, `title ?? rule_id`, `title ?? ''`) sind ersatzlos weg. Grund: eine
   Datei ohne `title` ist gegen Schema 1.1 ungültig, und eine leere Zelle wäre genau das
   stille Verschlucken, das Regel 4 verbietet. Verworfen: den Typ optional zu lassen und
-  die Fallbacks stehenzulassen – dann bleibt offen, ob eine leere Titelspalte ein Datenoder
-  ein Anzeigefehler ist.
+  die Fallbacks stehenzulassen – dann bleibt offen, ob eine leere Titelspalte ein Daten-
+  oder ein Anzeigefehler ist.
 - **2026-08-31 · Der Lauf-Kopf kommt aus `run.json`, nicht aus den Findings.** Bis Sprint 3
   gab es nur `findings.json`, und `deriveRun` hat den Kopf daraus abgeleitet. Seit
   `mdq run` liegt `runs/<run_id>/run.json` daneben und ist die Quelle: `tables_loaded` ist
@@ -453,6 +453,22 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   `in_progress`. Korrigiert wurde die Spec, nicht der Code: die Freigabe ist eine
   Entscheidung, keine Umsetzung – `done` gehört an die Rückmeldung aus SAP, nicht an den
   Klick im UI. Dieselbe Begründung trägt schon die Einzelentscheidung „Übernehmen".
+- **2026-09-01 · `impact_eur` bekommt in Sprint 4 eine Art: `loss` oder `exposure`.**
+  *(Entscheid Victor, aus der Schlusshandprobe.)* Die Top-10 nach Euro-Wirkung wird
+  heute von einem AR-VAL-003-Finding angeführt (IBAN mit ungültiger Prüfziffer,
+  **862.561,72 €**) und schiebt die tatsächlichen Doppelzahlungen auf Platz 6 und
+  tiefer. Beide Zahlen stehen zu Recht in `impact_eur`, meinen aber Verschiedenes: bei
+  der Doppelzahlung sind 32.000,00 € **abgeflossen**, bei der falschen IBAN sind
+  862.561,72 € **gefährdet** – offene Posten, die über eine unbrauchbare Bankverbindung
+  laufen sollen. Heute unterscheidet sie nur `impact_eur.formula`, also Freitext, den
+  keine Rangliste lesen kann. In Sprint 4 bekommt `impact_eur` deshalb ein Feld für die
+  Art (`loss` = eingetretener Abfluss, `exposure` = gefährdetes Volumen). Das UI
+  summiert und sortiert danach getrennt und mischt die beiden nicht mehr in eine
+  Rangliste. Verworfen: die Gewichtung im UI aus der Kategorie zu raten (`leakage` =
+  Verlust, alles andere = Exposure) – das wäre eine Fachaussage, die kein Feld deckt;
+  verworfen auch, das Feld einfach wegzulassen und weiter alles gemeinsam zu ranken,
+  weil eine Rangliste, die einen Hinweis über einen Geldabfluss stellt, die Reihenfolge
+  der Arbeit falsch vorgibt. Schemaänderung: Engine-Session, Sprint 4.
 
 ## Offene Fragen an die Engine-Session (`main`)
 
@@ -466,21 +482,19 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
 - **`entity.company_code` ist optional** – F-7b2e8c1d9a3f (Dublette) hat keinen. Das UI
   führt dafür den Filterwert „ohne Buchungskreis". Falls Dubletten-Findings künftig einen
   Buchungskreis bekommen sollen, sag Bescheid; erfunden wird hier keiner.
-- **Der Titel aus dem Regelkopf trägt den Betrag unformatiert.** *(2026-08-31, aus der
-  Handprobe am Lauf `2026-08-28-702323b8`.)* In der Liste und in der Top-10 steht
-  „Mögliche Doppelzahlung: 42100.00 EUR an Kreditor …" bzw. „… mit offenen Posten
-  (92715.49 EUR)". Der Titel ist Freitext aus dem Regelkopf; das UI zeigt ihn wörtlich und
-  formatiert ihn bewusst nicht – ein Betrag mitten im Satz wäre nur durch Raten vom
-  übrigen Text zu trennen. In derselben Zeile steht die Euro-Wirkung daneben korrekt als
-  „42.100,00 €", was den Unterschied sichtbar macht. Vorschlag: den Betrag im Titel
-  weglassen (er steht strukturiert in `impact_eur` und `relevance`) oder ihn im Regelkopf
-  schon deutsch schreiben. Kein Blocker, aber es sieht auf jedem Screenshot nach zwei
-  verschiedenen Ständen aus.
-- **`entity.display_name` ist im ganzen Lauf leer.** *(2026-08-31, aus der Handprobe.)*
-  Alle 30 Findings lassen das Feld weg; Liste und Top-10 zeigen dort „—". Das ist mit
-  Regel 8 verträglich und deshalb kein Fehler – die Frage ist nur, ob das Feld für den
-  Betrieb gedacht ist (Name aus dem Mandanten, dann nie in Logs) oder ersatzlos entfallen
-  kann. Bis zur Antwort bleibt die Spalte mit „—" stehen.
+- **`entity.documents` bleibt bei AP-LEA-001 auf den Schlüsselfeldern stehen.**
+  *(2026-09-01, aus der Schlusshandprobe am Lauf `2026-08-28-702323b8`.)* Die acht
+  Doppelzahlungen tragen je zwei Belege, aber nur `company_code`/`fiscal_year`/
+  `document_no`; `reference`, `document_date`, `cleared_on` und `amount` sind `null`.
+  Die Belegkarten füllen sich deshalb weiter aus dem Evidenztext, der inzwischen nur
+  noch die nackte Referenz enthält („RE-4711") – aus „RE-4711" lassen sich Belegdatum
+  und Zahldatum nicht mehr zerlegen, also steht der Platzhalter „Referenz, Belegdatum,
+  Betrag je Beleg steht nicht strukturiert im Finding" auf jeder dieser Karten.
+  AR-LEA-001 füllt die Felder bereits vollständig, AP-LEA-001 also als einziges nicht.
+  **Verabredet für Sprint 4 (AP-LEA-001 v1.1):** die vier Felder je Beleg füllen; das
+  UI liest sie dann im Verdrahtungsdurchgang. Der Platzhaltersatz ist bis dahin
+  außerdem schief formuliert – er sagt „kommt mit `entity.documents`", dabei ist das
+  Feld längst da und nur nicht gefüllt; er wird im selben Durchgang umgeschrieben.
 
 ### Beantwortet
 
@@ -511,21 +525,62 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   `runs/<run_id>/run.json` ist mit Sprint 3, Aufgabe 4 da und im UI angebunden. Die
   Handprobe am Lauf `2026-08-28-702323b8` zeigt „16 Tabellen" und die Buchungskreise des
   Laufs im Banner; `tables_loaded` ist damit echt statt 0.
+- **2026-09-01 · Der unformatierte Betrag im Titel – erledigt.** Der Lauf vom 31.08.
+  schreibt die Beträge im Titel deutsch („Mögliche Doppelzahlung: 42.100,00 EUR an
+  Kreditor …"). Über alle 208 Findings und alle Freitextfelder – Titel, `display`,
+  `source_summary`, Evidenzwerte und -notizen, Behebungsschritte – steht kein
+  unformatierter Betrag und kein ISO-Datum mehr; umgekehrt bleiben die Datenfelder
+  kanonisch (`-?\d+\.\d{2}` bzw. `JJJJ-MM-TT`), und im ganzen JSON steht kein einziger
+  Float. Die Trennung „Freitext deutsch, Datenfelder ISO" trägt damit nachweislich.
+- **2026-09-01 · `entity.display_name` – erledigt.** Im Lauf vom 31.08. ist das Feld in
+  allen 208 Findings gefüllt („Hartmann Logistik e.K., Bremen"); die Spalte zeigt kein
+  „—" mehr. Damit ist auch beantwortet, dass das Feld für den Betrieb gedacht ist. Regel 8
+  bleibt davon unberührt: der Name steht im Finding und auf dem Bildschirm, nie in einem
+  Log oder in einem Test.
 
 ## Offene Punkte im UI (keine Schema-Frage)
 
-- **Die Karte rechnet die neuen Felder noch aus Fließtext zurück.** *(2026-08-31,
-  Freigabe Victor: eigener Durchgang.)* Schema 1.1 liefert seit D-069 `entity.records`,
+- **Verdrahtungsdurchgang: die Karte rechnet die neuen Felder noch aus Fließtext zurück.**
+  *(2026-08-31 aufgenommen, 2026-09-01 nach der Schlusshandprobe präzisiert. Freigabe
+  Victor: eigener Durchgang.)* Schema 1.1 liefert seit D-069 `entity.records`,
   `proposed.golden_record`, die Beleg-Erweiterungen und `evidence[].reference_kind`;
   `src/types/finding.ts` kennt sie, aber `src/lib/duplicate.ts`, `src/lib/documents.ts`
   und `EvidencePanel` lesen weiter `current.display`, `proposed.display` und die
-  Evidenz-`note`. Verabredet ist: **verdrahtet wird nach den Sprint-3-Regelpaketen,
-  sobald die Engine die Felder füllt**; bis dahin bleibt der Fließtext der Rückfall, und
-  die Vergleichstabelle benennt die sechs fehlenden Zeilen weiter als Platzhalter. Der
-  Lauf `2026-08-28-702323b8` bestätigt den Grund: keins der vier Felder ist dort gefüllt
-  (nur `relevance` steht auf den neuen Namen), geprüft werden könnte der Umbau heute also
-  ausschließlich gegen `logic/examples` F-002 und F-003. Beim Umbau bleibt der Fließtext
-  als Rückfall stehen – ein Lauf mit alten Findings muss lesbar bleiben.
+  Evidenz-`note`. Der Lauf `2026-08-28-702323b8` füllt inzwischen `entity.records` (9
+  Findings), `entity.documents` (14) und `evidence[].reference_kind` (160 Einträge,
+  Werte `document`, `master_field`, `policy`, `statement`); `proposed.golden_record`
+  bleibt in allen 208 leer. Damit ist der Durchgang nicht mehr theoretisch – er hat
+  Daten. Vier benannte Arbeiten:
+  1. **Der Dubletten-Vergleich muss `entity.records` lesen statt `current.value` zu
+     zerlegen.** Heute verlangt `buildDuplicateComparison` ein Segment je Konto in
+     `current.value` (`A | B`); CROSS-DUP-001 schreibt dort nur die USt-IdNr., also
+     bricht der Aufbau ab und die Karte zeigt den gewohnten Ist|Soll-Block. Ergebnis:
+     das zweite Konto (`related_bp_keys`, in `records` mit allen neun Feldern) steht
+     nirgends auf der Karte, obwohl das Finding es mitliefert. Mit `records` entfällt
+     das Zerlegen, und die sechs Platzhalterzeilen werden zu echten Zeilen.
+  2. **Der Vergleich darf nicht länger an `category === 'duplicate'` hängen.**
+     AP-CON-001 (dieselbe Bankverbindung bei zwei Kreditoren) liefert `records` für
+     beide Konten, ist aber `consistency` und kommt deshalb nie an die Tabelle – während
+     der eigene Behebungsschritt des Findings sagt „die Vergleichsfelder stehen im
+     Finding". Künftige Bedingung: **`entity.records` vorhanden und mindestens zwei
+     Einträge**, unabhängig von der Kategorie.
+  3. **Die Belegkarte muss auch bei einem einzelnen Beleg erscheinen.** `buildDocumentPair`
+     verlangt zwei Belege; AR-LEA-001 (Unapplied Cash) hat genau einen – vollständig
+     gefüllt mit `document_date`, `amount` und `currency`. Der Beleg taucht deshalb nur
+     als Referenz in der Evidenz auf. „Belegpaar" wird zu „Beleg(e)": eine Karte ab dem
+     ersten Beleg, die Paar-Überschrift bleibt der Sonderfall bei zweien.
+  4. **Die Ansicht „Regeln" wird aus `run.json` gefüllt.** `run.json` trägt unter `rules`
+     je Regel `rule_id`, `status`, `findings` und `reason`; `run.json.totals` nennt
+     `rules_executed`/`rules_skipped`/`rules_failed`. Damit ist die Verteilung je Regel
+     ohne Regelkatalog anzeigbar – heute ist die Ansicht ein Platzhalter, und die
+     Verteilung lässt sich nur zählen, indem man jede Regel-ID einzeln in die Suche
+     tippt. Dafür braucht `RunInfo` das Feld `rules` (optional, wie alles aus `run.json`)
+     und `checkRun` seine Prüfung. Eine übersprungene oder fehlgeschlagene Regel gehört
+     mit ihrem `reason` sichtbar auf den Schirm – ein Lauf, der eine Regel still auslässt,
+     ist genau das, was Regel 4 verbietet.
+
+  Beim Umbau bleibt der Fließtext überall als Rückfall stehen – ein Lauf mit alten
+  Findings muss lesbar bleiben.
 - **Lauf-Auswahl gehört in einen eigenen Vertrag, nicht in `FindingsSource`.** *(2026-08-30,
   aus Aufgabe 5b.)* Ein Backend kann mehrere Läufe anbieten; „welche Läufe gibt es" ist aber
   eine andere Frage als „lade diesen Lauf". Vorschlag für später: `FindingsCatalog` mit
@@ -676,3 +731,23 @@ Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
   (AR-VAL-001 15, AR-CON-002 7, AP-LEA-001 8), C:0000101502 mit Volumen 12 Monate
   8.930,00 €, keine Konsolenfehler. Nächster Schritt: die Karte auf die Felder aus D-069
   verdrahten, sobald die Engine sie füllt – bis dahin bleibt der Fließtext der Rückfall.
+- **2026-09-01 · Schlusshandprobe Sprint 3 am 208er-Lauf.** Derselbe Lauf-Ordner
+  `2026-08-28-702323b8`, aber der Stand vom 31.08.: 208 Findings aus 17 Regeln statt 30
+  aus 3. Über „Findings-Datei laden" `findings.json` + `run.json` geladen, nichts
+  angepasst. Es stimmt: Banner „16 Tabellen" und Buchungskreise 1000/2000; 208 Findings
+  in den Tabs 30/98/72/8; die Verteilung je Regel deckt sich in **allen 17** Regeln mit
+  `run.json`/`report.txt` (AR-HYG-001 40, AP-COM-003 30, AP-HYG-001 25, AR-COM-002 20 …);
+  `entity.display_name` überall gefüllt; C:0000101502 mit Volumen 12 Monate 8.930,00 €;
+  AP-COM-003 als Stufe A mit „Massenänderung" und Chip „massenänderungsfähig";
+  CROSS-DUP-001 mit beiden Konten in `entity.records`; AR-LEA-001 mit dem Beleg in
+  `entity.documents`; Freitext durchgehend deutsch, Datenfelder ISO, kein Float im JSON;
+  Stufen A 30 / B 59 / C 47 / E 72, Schadensklasse 1 nie Stufe A; keine Konsolenfehler
+  über sechs geöffnete Karten und drei Ansichten. Gemeldet statt gefixt: die vier
+  Arbeiten des Verdrahtungsdurchgangs (Vergleich aus `records` statt aus `current.value`,
+  Bedingung `records` statt `category`, Belegkarte auch für einen Beleg, Regeln-Ansicht
+  aus `run.json.rules`), die Engine-Abhängigkeit AP-LEA-001 v1.1 und der Sprint-4-Entscheid
+  zu `impact_eur`. Gefixt wurde nur ein Anzeigefehler: bei mehreren widersprechenden
+  Evidenzeinträgen stand „2 Einträge widersprechen dem Soll und **steht** zuerst" – der
+  Satz wird jetzt ganz in den Plural gesetzt, mit einem Test je Form.
+  314 Tests grün, `npm run lint` und `npm run build` ohne Befund.
+  Nächster Schritt: Pause bis zum Verdrahtungsdurchgang.

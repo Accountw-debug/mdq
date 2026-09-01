@@ -25,8 +25,9 @@ export function EvidencePanel({ finding }: { finding: Finding }) {
     <Section title={`Evidenz (${sorted.length})`}>
       {contradictions > 0 && (
         <p className="mb-2 text-xs text-muted-foreground">
-          {contradictions === 1 ? 'Ein Eintrag widerspricht' : `${contradictions} Einträge widersprechen`} dem
-          Soll und steht zuerst.
+          {contradictions === 1
+            ? 'Ein Eintrag widerspricht dem Soll und steht zuerst.'
+            : `${contradictions} Einträge widersprechen dem Soll und stehen zuerst.`}
         </p>
       )}
       <ul className="flex flex-col gap-2">
