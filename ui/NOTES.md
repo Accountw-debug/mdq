@@ -550,7 +550,8 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   Findings), `entity.documents` (14) und `evidence[].reference_kind` (160 Einträge,
   Werte `document`, `master_field`, `policy`, `statement`); `proposed.golden_record`
   bleibt in allen 208 leer. Damit ist der Durchgang nicht mehr theoretisch – er hat
-  Daten. Vier benannte Arbeiten:
+  Daten. Sechs benannte Arbeiten – 1 bis 4 aus der Schlusshandprobe, 5 und 6 aus der
+  Tab-1-Handprobe am selben Lauf:
   1. **Der Dubletten-Vergleich muss `entity.records` lesen statt `current.value` zu
      zerlegen.** Heute verlangt `buildDuplicateComparison` ein Segment je Konto in
      `current.value` (`A | B`); CROSS-DUP-001 schreibt dort nur die USt-IdNr., also
@@ -578,6 +579,32 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
      und `checkRun` seine Prüfung. Eine übersprungene oder fehlgeschlagene Regel gehört
      mit ihrem `reason` sichtbar auf den Schirm – ein Lauf, der eine Regel still auslässt,
      ist genau das, was Regel 4 verbietet.
+
+  5. **Die Startansicht öffnet auf „Review" und versteckt damit die Stufe A.**
+     `INITIAL_EXPLORER_STATE.tab` steht auf `'review'` (`src/state/explorer.ts:45`) –
+     eine Festlegung aus der Zeit der sechs Beispiele, als es überhaupt kein
+     Stufe-A-Finding gab. Im Lauf `2026-08-28-702323b8` heißt das: wer das UI öffnet,
+     sieht 98 von 208 Findings, und die 30 Stufe-A-Findings – die automatisierbaren, die
+     als einzige über eine Gruppenfreigabe in einem Zug erledigt werden – liegen in einem
+     Tab, den niemand angeklickt hat. Die Reihenfolge der Arbeit ist damit falsch
+     vorgegeben: der teuerste Weg steht vorn, der billigste versteckt. Vorschlag: die
+     Startansicht auf den ersten **nicht leeren** Tab in der Reihenfolge Massenänderung →
+     Review → Entscheidung → Prozess setzen, statt auf einen festen Wert. Dann führt ein
+     Lauf ohne Stufe A weiterhin nach „Review", und ein Lauf mit Stufe A beginnt dort,
+     wo die Arbeit am schnellsten fertig ist.
+  6. **Der Gruppenkopf nennt einen Buchungskreis, obwohl die Gruppe zwei umfasst.**
+     `groupByRule` übernimmt als Gruppentitel den Titel des ersten Findings
+     (`src/lib/sampling.ts:92`, `title: first.title`). Bei AP-COM-003 lautet der
+     „Prüfung auf doppelte Rechnung nicht gesetzt (Buchungskreis 1000)" – die Gruppe
+     enthält aber 23 Findings aus 1000 **und 7 aus 2000**. Freigegeben werden mit einem
+     Klick alle 30. Das ist kein Schönheitsfehler: der Kopf sagt etwas anderes als die
+     Freigabe tut, und der Grund ist, dass ein Freitexttitel als Beschriftung für eine
+     Menge benutzt wird, die er nie beschrieben hat. Der Titel gehört zum einzelnen
+     Finding, nicht zur Gruppe. Vorschlag für den Durchgang: den Gruppenkopf aus der
+     Regel bilden (Regel-ID, Stufe, Anzahl) und die Buchungskreise der Gruppe daneben
+     zählen – „AP-COM-003 · 30 Findings · Buchungskreise 1000, 2000". Ein Titel je
+     Gruppe wäre erst wieder tragfähig, wenn der Regelkatalog ihn liefert (siehe 4.);
+     bis dahin ist die Aufzählung ehrlicher als ein geliehener Satz.
 
   Beim Umbau bleibt der Fließtext überall als Rückfall stehen – ein Lauf mit alten
   Findings muss lesbar bleiben.
@@ -746,7 +773,10 @@ Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
   Arbeiten des Verdrahtungsdurchgangs (Vergleich aus `records` statt aus `current.value`,
   Bedingung `records` statt `category`, Belegkarte auch für einen Beleg, Regeln-Ansicht
   aus `run.json.rules`), die Engine-Abhängigkeit AP-LEA-001 v1.1 und der Sprint-4-Entscheid
-  zu `impact_eur`. Gefixt wurde nur ein Anzeigefehler: bei mehreren widersprechenden
+  zu `impact_eur`. Aus Victors eigenem Durchgang in Tab 1 kamen zwei weitere Punkte dazu:
+  die Startansicht öffnet auf „Review" und lässt die 30 Stufe-A-Findings ungesehen, und
+  der Gruppenkopf im Tab Massenänderung nennt einen Buchungskreis für eine Gruppe, die
+  zwei umfasst und in einem Klick freigegeben wird. Gefixt wurde nur ein Anzeigefehler: bei mehreren widersprechenden
   Evidenzeinträgen stand „2 Einträge widersprechen dem Soll und **steht** zuerst" – der
   Satz wird jetzt ganz in den Plural gesetzt, mit einem Test je Form.
   314 Tests grün, `npm run lint` und `npm run build` ohne Befund.
