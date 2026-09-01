@@ -19,6 +19,8 @@ from mdq.findings import (
 )
 from mdq.rules import load_rules
 
+from .conftest import NOT_YET_BUILT
+
 runner = CliRunner()
 
 EXAMPLE_FILES = sorted((LOGIC_DIR / "examples" / "findings").glob("*.yaml"))
@@ -51,7 +53,14 @@ def test_example_finding_matches_its_rule_version(path) -> None:
     versions = {rule.id: rule.version for rule in load_rules(RULES_DIR)}
     rule_id = finding["rule_id"]
     if rule_id not in versions:
-        pytest.skip(f"{rule_id} ist noch nicht gebaut")
+        # Kein `skip`: eine fehlende Regel ist eine **benannte** Erwartung (D-100) und
+        # kein Sonderfall, den der Test stumm uebergeht. Steht die ID nicht in
+        # NOT_YET_BUILT, ist eine Regeldatei verschwunden – das faellt hier auf.
+        assert rule_id in NOT_YET_BUILT, (
+            f"{path.name}: {rule_id} hat keine Regeldatei und steht auch nicht in "
+            "NOT_YET_BUILT – entweder ist die Datei weg oder die Liste veraltet."
+        )
+        return
     assert finding["rule_version"] == versions[rule_id], (
         f"{path.name}: Beispiel nennt {finding['rule_version']}, "
         f"{rule_id} steht auf {versions[rule_id]}"

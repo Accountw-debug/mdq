@@ -74,10 +74,20 @@ Reihenfolge innerhalb: Regel bauen → Klartext prüfen → `hits/no_hits/edge` 
 - Katalog: Status `spec → impl` wandert automatisch über die Tests; offene Katalogfragen von Sprint 2 beantworten, falls noch offen.
 
 ## Definition of Done Sprint 3
-Regression exakt im Endbild von Aufgabe 5 · `mdq run` unter 60 s, Exit-Codes wie definiert ·
-`runs/<id>/run.json` + `findings.json` laden im UI über „Findings-Datei laden" (Handprobe) ·
-alle neuen Regeln mit Testfällen, Katalog konsistent · DECISIONS je Aufgabe · keine
-Geschäftspartnerdaten in Logs · Läufe deterministisch: mit festem `--created-at` byte-identisch; ohne ihn identisch bis auf `created_at` in `run.json` und Findings (präzisiert 2026-08-31, D-092).
+
+**Abgeschlossen am 2026-09-01.** Jeder Punkt geprüft:
+
+- [x] **Regression exakt im Endbild von Aufgabe 5** – 0 fehlend, 0 unerwartet, 0 abweichend; Hinweise: 2 bekannt offen (AP-LEA-001 v1.1), 20 „Regel fehlt" (AR-DUP-001 12, AP-DUP-001 8). *(2026-09-01)*
+- [x] **`mdq run` unter 60 s, Exit-Codes wie definiert** – 208 Findings in 7,7–10,6 s auf dem Demo-Mandanten. Exit 0 sauber, Exit 1 bei Auffälligkeiten, Exit 2 bei Abbruch; der Abbruch nach D-030 ist seit Aufgabe 9 Ende-zu-Ende über die CLI belegt. *(2026-09-01)*
+- [x] **`runs/<id>/run.json` + `findings.json` laden im UI über „Findings-Datei laden"** – Handprobe am 2026-09-01 mit dem Lauf `2026-08-28-702323b8`: alle 208 Findings geladen, Banner mit Lauf-ID, Buchungskreisen und „16 Tabellen", Dashboard, alle vier Gruppen, Review-Karte je Regelfamilie, Belegpaar-Ansicht und Stichprobe durchgegangen; kein Konsolenfehler. Acht Beobachtungen in `ui/NOTES.md`, Abschnitt „Handprobe 2026-09-01". *(2026-09-01)*
+- [x] **Alle neuen Regeln mit Testfällen, Katalog konsistent** – 17 Regeldateien mit `hits`/`no_hits`/`edge`, Katalogstatus über die Tests geführt. *(2026-09-01)*
+- [x] **DECISIONS je Aufgabe** – D-085 bis D-202 in diesem Sprint. *(2026-09-01)*
+- [x] **Keine Geschäftspartnerdaten in Logs** – der Regel-8-Test läuft gegen die Namen, die der Lauf tatsächlich in seine Findings schreibt, und sucht jeden davon in `report.txt` und `run.json` (D-185). *(2026-09-01)*
+- [x] **Läufe deterministisch** – mit festem `--created-at` byte-identisch; ohne ihn identisch bis auf `created_at` in `run.json` und Findings (präzisiert 2026-08-31, D-092). *(2026-09-01)*
+
+Zusätzlich zur Definition of Done erfüllt: `uv run pytest` **1.018 passed, 0 skipped**,
+`uv run ruff check .` sauber, `mdq validate` 6/6, in `ui/` `npm test` **313 passed**,
+`npm run build` erfolgreich.
 
 ## Nicht in Sprint 3
 Dubletten mit Fuzzy (Sprint 4), Euro-Wirkung Doppelzahlung über Konten (v1.1, Sprint 4),

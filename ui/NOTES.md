@@ -560,6 +560,74 @@ Format wie dort: `Datum · Entscheidung · Grund · Verworfene Alternativen`
   UI Produktcode bleibt, ist eine Interaktionsebene (Testing Library oder Playwright) die
   nächste sinnvolle Investition – erst entscheiden, dann nachrüsten.
 
+## Handprobe 2026-09-01 – Sprint-3-Abschluss
+
+Gegenstand: der Prüfpunkt „`runs/<id>/run.json` + `findings.json` laden im UI" aus der
+Definition of Done von Sprint 3. Geladen wurde über **„Findings-Datei laden"** im
+Datenstand-Banner, beide Dateien zugleich, aus dem Lauf `2026-08-28-702323b8`
+(`--created-at 2026-09-01T08:00:00Z`, 208 Findings, 0 Rejects, Exit 0). Durchgegangen:
+Datenstand-Banner, Dashboard, Findings-Liste mit allen vier Gruppen, Review-Karte je
+Regelfamilie (AP-LEA-001, AP-COM-003, CROSS-DUP-001, AR-LEA-001, AR-HYG-001),
+Belegpaar-Ansicht, Regelgruppen und Stichprobe. **Kein Konsolenfehler, kein
+`pageerror`, keine fehlgeschlagene Anfrage.** `npm test` 313 passed in 20 Dateien,
+`npm run build` erfolgreich (457 kB JS, 62 kB CSS).
+
+Acht Beobachtungen:
+
+1. **Der Lauf lädt vollständig, und der Kopf stimmt.** Das Banner zeigt „Stand
+   28.08.2026 · Lauf `2026-08-28-702323b8` · Engine 0.1.0 · Regelpaket 0.1 ·
+   Buchungskreise 1000, 2000 · 16 Tabellen · Quelle: `findings.json + run.json`".
+   `tables_loaded` ist echt statt `0` – die Zusage aus der Handprobe vom 2026-08-31 ist
+   eingelöst. **Der Prüfpunkt der Definition of Done ist damit erfüllt.**
+2. **Alle 208 Findings sind da, aber auf vier Gruppen verteilt:** Massenänderung 30,
+   Review 98, Entscheidung 72, Prozess 8 (Summe 208). Die Liste steht beim Öffnen auf
+   „Review" und zeigt deshalb 98 Zeilen, während das Dashboard 208 nennt. Kein Fehler –
+   die Gruppen sind der `action_type` –, aber wer die 208 sucht, zählt erst einmal
+   falsch. Vorschlag für Sprint 4: die aktive Gruppe über der Tabelle benennen
+   („Review · 98 von 208").
+3. **`impact_eur` addiert zwei verschiedene Dinge zu einer Summe.** „Euro-Wirkung
+   gesamt 1.439.817,80 €" enthält realisierten Abfluss (AP-LEA-001, Doppelzahlung
+   42.100,00 €) **und** Risikobetrag (AR-/AP-VAL-003: offene Posten, die über eine
+   falsche IBAN liefen). Platz 1 der Top-10 ist mit 862.561,72 € eine IBAN-Prüfziffer,
+   und die Kategorie „Validität" führt die Rangliste mit 1.120.691,57 € an, ohne dass
+   ein Cent geflossen ist. Das UI kann die beiden nicht trennen: das Feld sagt nicht,
+   welcher Art der Betrag ist. **Das ist der stärkste Befund dieser Handprobe** und der
+   Grund für den Sprint-4-Punkt „`impact_eur` bekommt eine Art (`loss` / `exposure`),
+   Schema 1.2"; die Kacheln summieren dann getrennt.
+4. **Die Belegpaar-Ansicht zeigt weiter ihren Platzhaltersatz:** „Referenz, Belegdatum,
+   Betrag je Beleg steht nicht strukturiert im Finding – kommt mit `entity.documents`."
+   AP-LEA-001 steht auf v1.0 und füllt die Beleg-Erweiterungen aus D-069 nicht; die
+   Ansicht rechnet Belegnummer und Referenz aus dem Fließtext zurück. Sprint-4-Punkt:
+   **AP-LEA-001 v1.1 mit `entity.documents`.**
+5. **Im Lauf steht keine echte Dublette.** Die Kategorie „Dublette 5" sind ausschließlich
+   CROSS-DUP-001-Findings, und die rendern als gewöhnliche Ist/Soll-Karte. Der
+   Dubletten-Vergleich (`DuplicateCompare`, `entity.records`, `proposed.golden_record`)
+   bekommt erst mit AR-DUP-001/AP-DUP-001 echte Daten zu sehen und ist bis dahin nur
+   gegen `logic/examples/F-002` geprüft. Ebenso ungeprüft an echten Daten: die
+   Cluster-Relevanz (welche Zahl steht auf einer Karte, die zwei Konten betrifft).
+6. **Der Kopf einer Regelgruppe nennt einen Buchungskreis, die Gruppe umfasst zwei.**
+   „AP-COM-003 v1.0 – Prüfung auf doppelte Rechnung nicht gesetzt (Buchungskreis 2000),
+   30 Findings · 30 offen"; in der Tabelle darunter stehen Zeilen mit 1000 **und** 2000.
+   Der Gruppentitel übernimmt den Titel des ersten Findings. Die Stichprobe („10 von
+   30") zieht richtig über beide – nur die Überschrift führt in die Irre. UI-Punkt, kein
+   Schema-Thema.
+7. **Beträge und Daten stehen überall deutsch.** „Mögliche Doppelzahlung: 42.100,00 EUR
+   …", „Zahlungseingang über 2.640,00 EUR **vom 17.03.2026**", „Beobachtet 01.09.2025",
+   „Letzte Aktivität 27.08.2026". Die Doppelschreibweise aus der Handprobe vom
+   2026-08-31 („42100.00 EUR" im Titel neben „42.100,00 €" in der Wirkung) ist weg –
+   D-187 und D-201 sind in der Oberfläche angekommen. `entity.display_name` ist in jeder
+   Zeile gefüllt (D-185); die Spalte zeigt nirgends mehr „—".
+8. **Die IBAN erscheint ausschließlich maskiert** – „IBAN mit ungültiger Prüfziffer
+   (DE24 … 8226)" in Liste, Top-10 und Karte –, und alle SK1-Findings tragen Stufe C.
+   Regel 11 und D-105 halten bis in die Oberfläche, auch in der Rangliste, wo die
+   Beträge am größten sind.
+
+Nicht Teil dieser Handprobe und weiterhin offen: die Klickstrecke des
+Stichproben-Durchgangs ist nur in ihren Teilen getestet (siehe „Offene Punkte im UI").
+Die Freigabe- und Entscheidungsaktionen bleiben erwartungsgemäß gesperrt, solange oben
+kein Bearbeiter eingetragen ist – „Erst oben im Datenstand-Banner den Bearbeiter
+eintragen."
+
 ## Session-Notizen
 
 Format: `Datum · Ziel · Ergebnis · Nächster Schritt`
