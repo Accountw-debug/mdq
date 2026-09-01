@@ -38,10 +38,16 @@ CREATE OR REPLACE MACRO mdq_body(v) AS (
 
 -- Ziffern und Trenner ohne Leerzeichen; NULL, sobald ein unerlaubtes Zeichen vorkommt.
 -- Leerzeichen sind als Tausendertrenner erlaubt und werden entfernt.
+--
+-- Mindestens eine Ziffer muss da sein: '.', ',' oder '...' sind kein Betrag von null,
+-- sondern kein Betrag. Ohne diese Bedingung baute `mdq_literal` aus dem leeren Vorkomma-
+-- teil eine '0' und der Wert wurde stillschweigend zu 0,00 (Regel 4, D-204). Ein fehlender
+-- Vorkommateil allein bleibt erlaubt: ',56' ist 0,56.
 CREATE OR REPLACE MACRO mdq_clean(v) AS (
     CASE
         WHEN v IS NULL OR trim(v) = '' THEN NULL
         WHEN NOT regexp_matches(mdq_body(v), '^[0-9., ]+$') THEN NULL
+        WHEN NOT regexp_matches(mdq_body(v), '[0-9]') THEN NULL
         ELSE replace(mdq_body(v), ' ', '')
     END
 );

@@ -449,8 +449,36 @@ def test_datenfelder_bleiben_iso(regression_run) -> None:
                 assert not deutsch.fullmatch(beobachtet), (finding["finding_id"], beobachtet)
 
 
+#: Der Titel von AP-LEA-001, aus dem Regelkopf abgeleitet und nicht aus dem Lauf:
+#: `"Mögliche Doppelzahlung: {amount} an Kreditor, Referenz {ref_a} / {ref_b}"`, wobei
+#: `{amount}` aus `mdq_money()` kommt – deutsch gruppiert, Waehrung daneben (D-187).
+AP_LEA_001_TITEL = re.compile(
+    r"^Mögliche Doppelzahlung: "
+    r"-?\d{1,3}(\.\d{3})*,\d{2} [A-Z]{3}"
+    r" an Kreditor, Referenz .+ / .+$"
+)
+
+
 def test_ap_lea_001_nennt_den_betrag_einmal(regression_run) -> None:
-    """Der Titel trug Betrag und Waehrung getrennt; jetzt kommt beides aus `mdq_money`."""
-    for finding in findings_of(regression_run, "AP-LEA-001"):
-        assert "32.000,00 EUR" in finding["title"] or "EUR" in finding["title"]
+    """Der Titel trug Betrag und Waehrung getrennt; jetzt kommt beides aus `mdq_money`.
+
+    Bis D-204 stand hier `… or "EUR" in title` – die zweite Haelfte trifft auf jeden
+    Titel dieser Regel zu und machte die erste wirkungslos. Geprueft wird jetzt das
+    Muster, das der Regelkopf zusagt, ueber alle Findings der Regel.
+    """
+    findings = findings_of(regression_run, "AP-LEA-001")
+    assert findings, "AP-LEA-001 liefert im Demo-Mandanten Findings"
+    for finding in findings:
+        assert AP_LEA_001_TITEL.match(finding["title"]), finding["title"]
         assert " EUR EUR" not in finding["title"]
+
+
+def test_ap_lea_001_ankerfall_traegt_den_betrag_aus_f003(regression_run) -> None:
+    """Der Ankerfall aus F-003: zweimal 32.000,00 EUR auf V:0000200845 (DEF-0004)."""
+    anker = [
+        finding
+        for finding in findings_of(regression_run, "AP-LEA-001")
+        if finding["entity"]["bp_key"] == "V:0000200845"
+    ]
+    assert len(anker) == 1, [f["entity"]["bp_key"] for f in anker]
+    assert "32.000,00 EUR" in anker[0]["title"], anker[0]["title"]

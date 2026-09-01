@@ -22,8 +22,17 @@ CREATE OR REPLACE MACRO mdq_group_digits(digits) AS (
 
 -- Betrag als deutscher Freitext, Währung daneben: 42100.00, 'EUR' -> '42.100,00 EUR'.
 -- NULL bleibt NULL. Eine Währung, die NULL ist, lässt die Zahl allein stehen.
+--
+-- Mehr als zwei Nachkommastellen sind ein Fehler mit Namen, kein Rundungsfall: bis D-204
+-- schnitt der Cast nach DECIMAL(15,2) die dritte Stelle still ab (1.234 -> '1,23 EUR'),
+-- während `format_amount` in Python für denselben Wert einen Fehler wirft. Runden gehört
+-- in die Regel, nicht in die Darstellung – dort steht auch die Währung dazu.
 CREATE OR REPLACE MACRO mdq_money(amount, currency) AS (
-    CASE WHEN amount IS NULL THEN NULL ELSE
+    CASE WHEN amount IS NULL THEN NULL
+         WHEN CAST(amount AS DECIMAL(15,2)) <> amount
+             THEN error('mdq_money: Betrag hat mehr als zwei Nachkommastellen. '
+                        || 'Runden gehoert in die Regel, nicht in die Darstellung.')
+         ELSE
         CASE WHEN amount < 0 THEN '-' ELSE '' END
         || mdq_group_digits(split_part(replace(CAST(abs(CAST(amount AS DECIMAL(15,2))) AS VARCHAR), '-', ''), '.', 1))
         || ','

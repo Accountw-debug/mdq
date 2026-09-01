@@ -8,6 +8,8 @@ import pytest
 
 from mdq import RULE_MACROS
 from mdq.formats import (
+    INT_MAX,
+    INT_MIN,
     ParseError,
     detect_notation,
     format_amount,
@@ -18,6 +20,18 @@ from mdq.formats import (
     parse_integer,
     parse_percent,
 )
+
+
+@pytest.fixture
+def macros_connection():
+    """Verbindung mit den Darstellungshilfen aus `logic/schema/rule_macros.sql`."""
+    con = duckdb.connect(":memory:")
+    try:
+        con.execute(RULE_MACROS.read_text(encoding="utf-8"))
+        yield con
+    finally:
+        con.close()
+
 
 # --- Beträge -------------------------------------------------------------------------
 
@@ -257,6 +271,51 @@ def test_integer_with_separator_raises(text) -> None:
         parse_integer(text)
 
 
+def test_integer_haelt_die_grenzen_der_zielspalte() -> None:
+    """Die Zielspalte ist INTEGER; darueber ist es ein Fehler, kein gekappter Wert (D-204)."""
+    assert parse_integer(str(INT_MAX)) == INT_MAX
+    assert parse_integer(str(INT_MIN)) == INT_MIN
+    for text in (str(INT_MAX + 1), str(INT_MIN - 1), "99999999999999999999"):
+        with pytest.raises(ParseError, match="INTEGER"):
+            parse_integer(text)
+
+
+@pytest.mark.parametrize("text", [".", ",", "...", " . ", "-.", "+.", ".-"])
+def test_nur_trennzeichen_ist_kein_betrag(text) -> None:
+    """`.` ist kein Betrag von null, sondern kein Betrag (D-204).
+
+    Beide Parser lehnen ab; **warum**, darf sich unterscheiden: `parse_percent` faellt bei
+    `...` schon ueber „denselben Trenner mehrfach", weil ein Prozentsatz nie einen
+    Tausendertrenner traegt (D-048). Der Reject ist derselbe, die Auskunft die genauere.
+    """
+    with pytest.raises(ParseError):
+        parse_amount(text)
+    with pytest.raises(ParseError):
+        parse_percent(text)
+
+
+@pytest.mark.parametrize("text", [".", ",", " . ", "-.", "+.", ".-"])
+def test_ein_einzelner_trenner_nennt_die_fehlende_ziffer(text) -> None:
+    """Wo die fehlende Ziffer der Grund ist, sagt die Meldung genau das.
+
+    Regel 8 haengt hier nicht dran und wird auch nicht behauptet: die Meldung nennt die
+    **Form** („keine Ziffer, nur Trennzeichen"), und ob ein einzelnes Komma darin steht,
+    ist eine Frage der Zeichensetzung und keine der Geschaeftspartnerdaten. Die
+    Regel-8-Zusicherung traegt `test_new_parsers_never_quote_the_value` mit Werten, die
+    einen Wert darstellen.
+    """
+    for parser in (parse_amount, parse_percent):
+        with pytest.raises(ParseError, match="keine Ziffer"):
+            parser(text)
+
+
+def test_fehlender_vorkommateil_bleibt_erlaubt() -> None:
+    """Gegenprobe: die Schaerfung trifft nur den Wert ganz ohne Ziffer."""
+    assert parse_amount(",56") == Decimal("0.56")
+    assert parse_amount("1.") == Decimal(1)
+    assert parse_percent(",56") == Decimal("0.56")
+
+
 @pytest.mark.parametrize(
     ("text", "expected"),
     [("X", True), ("x", True), (" X ", True), ("", None), ("   ", None), (None, None)],
@@ -329,22 +388,46 @@ def test_makro_und_python_sind_gleich() -> None:
 
     Sonst stuende im Titel eines Findings eine andere Schreibweise als im Run-Report –
     derselbe Betrag, zwei Bilder.
+
+    **Ohne vorgeschalteten Cast** (D-204): bis hierher schleuste der Test jeden Wert durch
+    `CAST(? AS DECIMAL(15,2))` und rundete damit selbst weg, was er pruefen sollte – das
+    Makro schnitt eine dritte Nachkommastelle still ab, waehrend Python dafuer einen
+    Fehler warf. Jetzt geht der Wert mit seiner eigenen Skala hinein, und es wird
+    verlangt, dass **beide Seiten gleich scheitern**.
     """
     werte = [
         "0.00", "0.01", "0.99", "1.00", "9.99", "10.00", "99.99", "100.00", "999.99",
         "1000.00", "1000.01", "9999.99", "10000.00", "123456.78", "1234567.89",
         "999999999.99", "9999999999999.99", "-0.01", "-1092.32", "-1234567.89",
+        # mehr als zwei Nachkommastellen: Fehler hier wie dort, kein gerundeter Betrag
+        "1.234", "-1.005", "0.001", "42100.999",
     ]
     con = duckdb.connect(":memory:")
     try:
         con.execute(RULE_MACROS.read_text(encoding="utf-8"))
         for wert in werte:
-            aus_sql = con.execute(
-                "SELECT mdq_money(CAST(? AS DECIMAL(15,2)), 'EUR')", [wert]
-            ).fetchone()[0]
-            assert aus_sql == format_amount(wert, "EUR"), wert
+            try:
+                erwartet = format_amount(wert, "EUR")
+            except ValueError:
+                with pytest.raises(duckdb.Error, match="Nachkommastellen"):
+                    con.execute("SELECT mdq_money(?, 'EUR')", [Decimal(wert)]).fetchone()
+                continue
+            aus_sql = con.execute("SELECT mdq_money(?, 'EUR')", [Decimal(wert)]).fetchone()[0]
+            assert aus_sql == erwartet, wert
     finally:
         con.close()
+
+
+def test_makro_rundet_nicht(macros_connection) -> None:
+    """Die Gegenprobe einzeln: `1.234` ist im Makro ein Fehler mit Namen, keine `1,23`."""
+    with pytest.raises(duckdb.Error) as excinfo:
+        macros_connection.execute(
+            "SELECT mdq_money(?, 'EUR')", [Decimal("1.234")]
+        ).fetchone()
+    meldung = str(excinfo.value)
+    assert "mdq_money" in meldung and "Nachkommastellen" in meldung
+    # Und der Betrag selbst steht nicht in der Meldung (Regel 8).
+    assert "1.234" not in meldung and "1,234" not in meldung
 
 
 # --- Datum als Freitext (D-201) --------------------------------------------------------

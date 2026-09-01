@@ -14,7 +14,10 @@ import pytest
 
 from mdq import CANONICAL_SCHEMA
 from mdq.formats import (
+    INT_MAX,
+    INT_MIN,
     ParseError,
+    fits_decimal,
     parse_amount,
     parse_date,
     parse_flag,
@@ -33,35 +36,28 @@ from mdq.staging import (
     stage_table,
 )
 
-#: Grenzen von INTEGER (int32) – darüber ist ein Ganzzahlfeld nicht mehr darstellbar
-INT_MIN, INT_MAX = -(2**31), 2**31 - 1
-
-
-def _fits(value: Decimal | None, type_class: str) -> bool:
-    """Python-Gegenstück zu `mdq_fits`: passt der Wert verlustfrei in die Zielspalte?"""
-    if value is None:
-        return True
-    total, decimals = DECIMAL_PRECISION[type_class]
-    digits = value.as_tuple()
-    if -digits.exponent > decimals:
-        return False
-    return len(digits.digits) + digits.exponent <= total - decimals
-
 
 def reference(value: str | None, type_class: str, notation: str | None = None):
-    """Was eine getypte Spalte enthalten muss: `formats.py` plus Breite der Zielspalte."""
+    """Was eine getypte Spalte enthalten muss – ausschliesslich aus `formats.py`.
+
+    Bis D-204 ergaenzte diese Funktion zwei Grenzen still selbst: den INTEGER-Bereich und
+    die Breite der Zielspalte. Damit prueft ein Aequivalenztest nicht mehr die Zusage aus
+    D-071, sondern seine eigene Nachbildung. Beide Grenzen stehen jetzt in der Referenz –
+    `parse_integer` meldet den Bereich, `formats.fits_decimal` ist das benannte
+    Gegenstueck zu `mdq_fits`. Hier wird nur noch uebersetzt, was das Staging ohnehin tut:
+    ein nicht lesbarer Wert wird im SQL NULL und danach ein Reject.
+    """
     try:
         if type_class == "date":
             return parse_date(value)
         if type_class == "flag":
             return parse_flag(value)
         if type_class == "integer":
-            parsed = parse_integer(value)
-            return parsed if parsed is None or INT_MIN <= parsed <= INT_MAX else None
+            return parse_integer(value)
         parsed = parse_amount(value, notation) if type_class == "amount" else parse_percent(value)
     except ParseError:
         return None
-    return parsed if _fits(parsed, type_class) else None
+    return parsed if fits_decimal(parsed, *DECIMAL_PRECISION[type_class]) else None
 
 
 @pytest.fixture
@@ -99,7 +95,9 @@ AMOUNT_CASES = [
     # Vorzeichen, vorangestellt und nachgestellt
     "1.234,56-", "-1.234,56", "+1.234,56", "1.234,56+", "-0,00", "0,00-",
     # SAP-Initialwerte und Randformen
-    "", "   ", None, "0,00", "0", "1.", ",56", ".", ",",
+    "", "   ", None, "0,00", "0", "1.", ",56",
+    # nur Trennzeichen, auch mit Vorzeichen: kein Betrag von null, sondern kein Betrag
+    ".", ",", "...", " . ", "-.", "+.", ".-",
     # nicht lesbar
     "x", "12x34", "1.2.3,4,5", "-", "+", "1,2.3,4",
     # zu breit oder zu genau fuer DECIMAL(15,2)
@@ -110,6 +108,8 @@ PERCENT_CASES = [
     "2,000", "2.000", "0,000", "3", "2,5", "99,999",
     # ueber die SAP-Domaene PRZ23 hinaus: DECIMAL(5,3) faellt bei 100,000
     "100,000", "1.234,56", "2,0,0", "2x", "", None, "0",
+    # nur Trennzeichen und blosse Vorzeichen – dieselbe Linie wie beim Betrag
+    ".", ",", "...", " . ", "-", "+", "-.", "+.",
 ]
 
 DATE_CASES = [
@@ -121,7 +121,8 @@ DATE_CASES = [
 ]
 
 INTEGER_CASES = ["30", "00", "0", "007", "-5", "+7", "", None, "2,5", "2.5", "x",
-                 "2147483647", "2147483648"]
+                 # die Grenzen der INTEGER-Spalte, je einen Schritt davor und dahinter
+                 "2147483647", "2147483648", "-2147483648", "-2147483649"]
 
 FLAG_CASES = ["X", "x", " X ", "", "   ", None, "Y", "0", "1", "XX"]
 
@@ -167,6 +168,76 @@ def test_amount_with_three_decimals_is_not_rounded(macros) -> None:
     """Runden waere ein stumm verworfener Unterschied (Regel 4)."""
     assert parse_values(macros, ["1,234"], "amount", "de") == [None]
     assert reference("1,234", "amount", "de") is None
+
+
+@pytest.mark.parametrize("wert", [".", ",", "...", " . ", "-.", "+.", ".-"])
+def test_nur_trennzeichen_ist_kein_nullbetrag(macros, wert) -> None:
+    """Beide Seiten lehnen ab – und zwar ab, nicht auf null (D-204).
+
+    Der Aequivalenztest allein wuerde diesen Fall nicht sichern: er verlangt nur, dass
+    Makro und Python **dasselbe** sagen, und bis hierher sagten beide einstimmig 0,00.
+    Deshalb steht hier ausdruecklich, was herauskommen muss.
+    """
+    assert parse_values(macros, [wert], "amount") == [None]
+    with pytest.raises(ParseError):
+        parse_amount(wert)
+    assert parse_values(macros, [wert], "percent") == [None]
+    with pytest.raises(ParseError):
+        parse_percent(wert)
+
+
+def test_leerer_wert_bleibt_ein_initialwert(macros) -> None:
+    """Gegenprobe zur Schaerfung: leer ist weiterhin NULL und kein Reject (D-035)."""
+    assert parse_values(macros, ["", "   ", None], "amount") == [None, None, None]
+    assert [parse_amount(wert) for wert in ("", "   ", None)] == [None, None, None]
+    # Und der fehlende Vorkommateil bleibt erlaubt: ",56" ist 0,56, nicht "keine Ziffer".
+    assert parse_values(macros, [",56"], "amount") == [Decimal("0.56")]
+    assert parse_amount(",56") == Decimal("0.56")
+
+
+@pytest.mark.parametrize(
+    ("wert", "erwartet"),
+    [
+        (str(INT_MAX), INT_MAX),
+        (str(INT_MAX + 1), None),
+        (str(INT_MIN), INT_MIN),
+        (str(INT_MIN - 1), None),
+    ],
+)
+def test_ganzzahl_haelt_die_grenzen_der_zielspalte(macros, wert, erwartet) -> None:
+    """Was nicht in die INTEGER-Spalte passt, ist ein Reject – auf beiden Seiten (D-204).
+
+    Bis hierher kappte nur das Makro; `parse_integer` lieferte die Zahl unbegrenzt weiter,
+    und der Test glich das still aus.
+    """
+    assert parse_values(macros, [wert], "integer") == [erwartet]
+    assert reference(wert, "integer") == erwartet
+    if erwartet is None:
+        with pytest.raises(ParseError, match="INTEGER"):
+            parse_integer(wert)
+
+
+def test_fits_decimal_ist_das_gegenstueck_zu_mdq_fits(macros) -> None:
+    """Die Breite der Zielspalte gehoert zur Referenz, nicht in den Testcode (D-204)."""
+    fuer_spalte = [
+        (Decimal("1.234"), False),   # drei Nachkommastellen passen nicht in DECIMAL(15,2)
+        (Decimal("1.23"), True),
+        (Decimal("9999999999999.99"), True),
+        (Decimal("99999999999999.99"), False),  # 14 Vorkommastellen sind zu viel
+    ]
+    for wert, erwartet in fuer_spalte:
+        assert fits_decimal(wert, 15, 2) is erwartet, wert
+        aus_sql = macros.execute(f"SELECT mdq_fits('{wert}', 15, 2)").fetchone()[0]
+        assert bool(aus_sql) is erwartet, wert
+
+    # Der fehlende Wert ist der eine Fall, in dem die beiden verschieden **aussehen** und
+    # dasselbe **tun**: `mdq_fits` prueft das Literal und sagt zu NULL FALSE, weil da
+    # nichts zu passen ist; `fits_decimal` prueft den geparsten Wert und sagt True, weil
+    # nichts da ist, das scheitern koennte. In der Spalte steht danach beide Male NULL.
+    assert fits_decimal(None, 15, 2) is True
+    assert macros.execute("SELECT mdq_fits(NULL, 15, 2)").fetchone()[0] is False
+    assert parse_values(macros, [None], "amount") == [None]
+    assert reference(None, "amount") is None
 
 
 # --- Äquivalenz (b): jeder Wert des Demo-Mandanten -------------------------------------

@@ -7,6 +7,18 @@ still zu NULL (Regel 4).
 Fehlermeldungen beschreiben die **Form** des Wertes, nie den Wert selbst: ein Betrag oder
 Datum kann zu einem Geschäftspartner gehören und darf nicht in Logs stehen (Regel 8).
 Der Rohwert gehört ausschließlich in ``reject.raw_excerpt``.
+
+**Dieses Modul ist die Referenz-Implementierung der Staging-Makros aus
+``logic/schema/staging.sql`` (D-071), und die Zusage lautet: Wert für Wert dasselbe.**
+Dazu gehören auch die Grenzen der Zielspalte – sie standen bis D-204 nur im SQL, und der
+Äquivalenztest ergänzte sie still auf der Python-Seite. Jetzt stehen sie hier:
+
+* :data:`INT_MIN` / :data:`INT_MAX` – ein Ganzzahlfeld landet in einer ``INTEGER``-Spalte;
+  was nicht hineinpasst, ist ein ``ParseError`` und kein gekappter Wert
+  (``TRY_CAST(… AS INTEGER)`` im Makro liefert dort NULL).
+* :func:`fits_decimal` – das Gegenstück zu ``mdq_fits``: passt das Ergebnis verlustfrei in
+  ``DECIMAL(15,2)`` bzw. ``DECIMAL(5,3)``? Die Breite hängt an der **Zielspalte** und nicht
+  am Wert, deshalb prüft sie der Aufrufer (das Staging) und nicht :func:`parse_amount`.
 """
 
 import re
@@ -25,6 +37,11 @@ _NOTATION_BY_DECIMAL = {",": "de", ".": "iso"}
 
 #: SAP schreibt "X" für gesetzt; leer heisst nicht gesetzt
 FLAG_TRUE = "X"
+
+#: Grenzen der kanonischen ``INTEGER``-Spalte (int32). Das Staging-Makro castet nach
+#: INTEGER und liefert darüber NULL; ``parse_integer`` meldet denselben Fall als Fehler,
+#: damit beide Seiten dieselbe Auskunft geben (D-071, D-204).
+INT_MIN, INT_MAX = -(2**31), 2**31 - 1
 
 _DIGITS_ONLY = re.compile(r"\A[0-9]+\Z")
 _AMOUNT_ALLOWED = re.compile(r"\A[0-9., ]+\Z")
@@ -169,6 +186,10 @@ def parse_amount(text: str | None, notation: str | None = None) -> Decimal | Non
         thousands = "," if separator == "." else "."
         digits, _, fraction = body.replace(thousands, "").partition(separator)
 
+    # Mindestens eine Ziffer: "." oder ",," sind keine Null, sondern kein Betrag. Der
+    # fehlende Vorkommateil allein ist erlaubt (",56" -> 0,56), beides zusammen nicht.
+    if not digits and not fraction:
+        raise ParseError("Betrag enthält keine Ziffer, nur Trennzeichen")
     if not _DIGITS_ONLY.match(digits or "0") or (fraction and not _DIGITS_ONLY.match(fraction)):
         raise ParseError("Betrag hat kein gültiges Ziffernmuster")
 
@@ -238,6 +259,9 @@ def parse_percent(text: str | None) -> Decimal | None:
         raise ParseError("Prozentsatz hat denselben Trenner mehrfach")
 
     digits, fraction = (body, "") if single is None else body.split(single[0])
+    # Wie beim Betrag: ein Trenner ohne Ziffer ist kein Prozentsatz von null.
+    if not digits and not fraction:
+        raise ParseError("Prozentsatz enthält keine Ziffer, nur Trennzeichen")
     if not _DIGITS_ONLY.match(digits or "0") or (fraction and not _DIGITS_ONLY.match(fraction)):
         raise ParseError("Prozentsatz hat kein gültiges Ziffernmuster")
 
@@ -254,6 +278,10 @@ def parse_integer(text: str | None) -> int | None:
     Leerer Wert -> ``None``. Ein Trenner ist hier ein Fehler: ein Zahlungsziel in Tagen
     hat keine Nachkommastelle, und stillschweigend zu runden wäre ein verworfener
     Unterschied (Regel 4).
+
+    Die Zielspalte ist ``INTEGER``; was nicht hineinpasst, ist ein Fehler und kein
+    gekappter Wert. Das Makro ``mdq_parse_integer`` liefert für denselben Fall NULL und
+    damit einen Reject – beide Seiten sagen dasselbe (D-204).
     """
     if text is None:
         return None
@@ -264,7 +292,40 @@ def parse_integer(text: str | None) -> int | None:
     body, sign = _strip_sign(body)
     if not _DIGITS_ONLY.match(body):
         raise ParseError("Ganzzahl enthält andere Zeichen als Ziffern")
-    return int(body) * sign
+    value = int(body) * sign
+    if not INT_MIN <= value <= INT_MAX:
+        raise ParseError(
+            f"Ganzzahl liegt ausserhalb der INTEGER-Spalte ({INT_MIN} bis {INT_MAX})"
+        )
+    return value
+
+
+def fits_decimal(value: Decimal | None, total_digits: int, decimals: int) -> bool:
+    """Passt der Wert verlustfrei in ``DECIMAL(total_digits, decimals)``?
+
+    Das Python-Gegenstück zu ``mdq_fits`` in ``logic/schema/staging.sql``. Es steht hier
+    und nicht im Testcode, weil es zur Referenz-Implementierung gehört: die Zusage aus
+    D-071 lautet „Wert für Wert dasselbe", und ein Test, der die Grenze still selbst
+    ergänzt, prüft dann nicht mehr die Zusage, sondern seine eigene Nachbildung (D-204).
+
+    Geprüft wird nicht im Parser, sondern beim Aufrufer: wie breit die Zielspalte ist,
+    weiss die Stufe, die schreibt – nicht der Wert, der gelesen wird.
+
+    ``None`` passt immer: es ist kein Betrag, sondern keiner, und nichts daran kann
+    scheitern. Das SQL-Makro sagt zu ``NULL`` das Gegenteil (``lit IS NOT NULL AND …``),
+    weil es das **Literal** prüft und nicht den geparsten Wert – in der Spalte steht
+    danach beide Male NULL. Ein Test hält diesen einen Unterschied fest, damit er nicht
+    für eine Abweichung gehalten wird.
+
+    ``1,234`` in einer ``DECIMAL(15,2)``-Spalte ist deshalb ``False`` und nicht ``1,23``:
+    Runden wäre ein stumm verworfener Unterschied (Regel 4).
+    """
+    if value is None:
+        return True
+    digits = value.as_tuple()
+    if -digits.exponent > decimals:
+        return False
+    return len(digits.digits) + digits.exponent <= total_digits - decimals
 
 
 def parse_flag(text: str | None) -> bool | None:
