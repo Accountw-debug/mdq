@@ -113,6 +113,36 @@ def default_table_name(path: Path) -> str:
     return stem
 
 
+def check_table_names(paths: list[Path]) -> None:
+    """Zwei Dateien mit demselben abgeleiteten Tabellennamen sind ein Abbruch.
+
+    ``load_table`` schreibt nach ``raw_<TABELLE>`` mit ``CREATE OR REPLACE``: fielen
+    ``KNA1.txt`` und ``KNA1_alt.txt`` auf denselben Namen, überschriebe die zweite Datei
+    die erste, und das Staging sähe nie, dass es zwei gab – ein stumm verworfener Teil
+    des Mandanten (Regel 4). Geprüft wird deshalb **vor** dem ersten Import, über alle
+    Dateien des Verzeichnisses.
+
+    Der Name kommt aus :func:`default_table_name` und nirgendwo sonst: eine zweite
+    Ableitung liefe von der ersten weg, und die Meldung meinte dann etwas anderes als
+    der Import.
+
+    Genannt werden Dateinamen und Tabellenname, nie ein Zellinhalt (Regel 8).
+    """
+    by_table: dict[str, list[str]] = {}
+    for path in paths:
+        by_table.setdefault(default_table_name(path), []).append(path.name)
+    collisions = {table: sorted(names) for table, names in by_table.items() if len(names) > 1}
+    if not collisions:
+        return
+    named = "; ".join(
+        f"{table}: {', '.join(names)}" for table, names in sorted(collisions.items())
+    )
+    raise LoaderError(
+        f"Mehrere Dateien fallen auf denselben Tabellennamen ({named}). "
+        "Eine Datei je Tabelle – mehrere Exporte derselben Tabelle vorher zusammenführen."
+    )
+
+
 def header_columns(header_line: str, delimiter: str) -> list[str]:
     """Spaltennamen der Kopfzeile, Anführungszeichen entfernt."""
     return next(csv.reader([header_line], delimiter=delimiter, quotechar='"'), [])
@@ -156,7 +186,8 @@ def load_table(
     except UnicodeDecodeError as exc:  # pragma: no cover – cp1252 ist total
         raise LoaderError(f"{path.name}: Dekodieren als {encoding} fehlgeschlagen ({exc.reason}).")
 
-    header_line = text.splitlines()[0] if text.splitlines() else ""
+    lines = text.splitlines()
+    header_line = lines[0] if lines else ""
     delimiter, delimiter_label = detect_delimiter(header_line, path)
 
     _check_columns(header_columns(header_line, delimiter), path)

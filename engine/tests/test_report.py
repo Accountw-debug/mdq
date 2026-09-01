@@ -2,13 +2,14 @@
 
 import io
 import json
+import re
 from pathlib import Path
 
 import pytest
 from rich.console import Console
 from typer.testing import CliRunner
 
-from mdq import PROJECT_ROOT
+from mdq import DEMO_MANDANT_DIR, PROJECT_ROOT
 from mdq.cli import EXIT_INVALID, EXIT_NO_INPUT, app
 from mdq.loader import LoadResult, load_table, record_reject
 from mdq.report import (
@@ -211,17 +212,67 @@ def test_technical_values_are_not_truncated_at_80_columns(report) -> None:
 # --- CLI: mdq load -------------------------------------------------------------------
 
 
-def test_cli_load_reports_the_samples() -> None:
+def test_cli_load_bricht_bei_kollidierenden_dateinamen_ab() -> None:
+    """`testdata/encoding_samples/` ist kein Mandant, sondern viermal dieselbe Tabelle.
+
+    Bis zur Härtung von Befund 7 lief dieser Aufruf durch und meldete „6 Dateien,
+    25 Zeilen", obwohl die Datenbank danach drei Rohtabellen und in `raw_KNA1` genau
+    fünf Zeilen hielt – drei der vier KNA1-Dateien hatten einander überschrieben. Der
+    Abbruch ist der Befund, nicht sein Nebeneffekt (D-203).
+    """
     result = runner.invoke(app, ["load", "--input", str(SAMPLES)])
-    assert result.exit_code == 0
-    assert "6 Dateien" in result.stdout
-    assert "KNA1" in result.stdout and "BSID" in result.stdout
-    assert "CP1252" in result.stdout
+    assert result.exit_code == EXIT_INVALID
+    # Alle vier Dateien der Gruppe, sortiert – bei n > 2 zählt die Meldung auf.
+    namen = sorted(path.name for path in SAMPLES.glob("KNA1_*.txt"))
+    assert len(namen) == 4
+    stelle = -1
+    for name in namen:
+        gefunden = result.output.find(name)
+        assert gefunden > stelle, name
+        stelle = gefunden
+    assert "KNA1" in result.output
+    assert "zusammenführen" in result.output
 
 
-def test_cli_load_marks_itself_as_interim() -> None:
-    result = runner.invoke(app, ["load", "--input", str(SAMPLES)])
-    assert "Zwischenstand" in result.stdout
+@pytest.fixture(scope="module")
+def geladener_demo_mandant():
+    """`mdq load` auf dem ausgelieferten Mandanten – einmal je Modul."""
+    return runner.invoke(app, ["load", "--input", str(DEMO_MANDANT_DIR)])
+
+
+def test_cli_load_zaehlt_nur_was_wirklich_geladen_wurde(
+    geladener_demo_mandant, canonical_db
+) -> None:
+    """Die gemeldeten Zahlen müssen den Rohtabellen entsprechen, die wirklich entstanden.
+
+    Diese Zusicherung hatte der alte Rauchtest nicht: er lief auf einem Verzeichnis, in
+    dem vier Dateien auf eine Rohtabelle fielen, und bestätigte die Summe der Dateien
+    statt den Inhalt der Datenbank (Befund 7).
+    """
+    result = geladener_demo_mandant
+    assert result.exit_code == 0, result.output
+    treffer = re.search(r"(\d+) Dateien, ([\d.]+) Zeilen", result.stdout)
+    assert treffer, result.stdout
+    gemeldete_dateien = int(treffer.group(1))
+    gemeldete_zeilen = int(treffer.group(2).replace(".", ""))
+
+    # Gegenprobe über den echten Loader: so viele Rohtabellen, so viele Zeilen.
+    dateien = sorted(DEMO_MANDANT_DIR.glob("*.txt"))
+    zeilen = sum(load_table(canonical_db, path).rows for path in dateien)
+    tabellen = canonical_db.execute(
+        "SELECT count(*) FROM duckdb_tables() WHERE table_name LIKE 'raw_%'"
+    ).fetchone()[0]
+    wirklich = canonical_db.execute(
+        "SELECT sum(estimated_size) FROM duckdb_tables() WHERE table_name LIKE 'raw_%'"
+    ).fetchone()[0]
+
+    assert gemeldete_dateien == len(dateien) == tabellen
+    assert gemeldete_zeilen == zeilen == wirklich
+
+
+def test_cli_load_weist_sich_als_zwischenstand_aus(geladener_demo_mandant) -> None:
+    """Der Zwischenstand sagt selbst, dass die Regeln erst mit `mdq run` laufen (D-040)."""
+    assert "Zwischenstand" in geladener_demo_mandant.stdout
 
 
 def test_cli_load_missing_directory(tmp_path) -> None:

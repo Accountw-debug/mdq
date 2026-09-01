@@ -509,6 +509,37 @@ def test_missing_column_is_a_hint_not_a_stop(canonical_db, mapping, tmp_path) ->
     assert "BUDAT" in columns
 
 
+def test_missing_total_column_is_named(canonical_db, mapping, tmp_path) -> None:
+    """Ohne BUKRS oder WAERS gibt es keine Kontrollsumme – und einen Fehler mit Namen.
+
+    Frueher lief die Abfrage ungeprueft und endete in einem nackten DuckDB-Fehler ohne
+    Tabellen- oder Spaltennamen; die Waehrung neben dem Betrag ist aber Regel 2, und ihr
+    Fehlen gehoert benannt (Regel 4).
+    """
+    path = _export(tmp_path, mapping, "BSID", [BSID_ROW])
+    lines = path.read_text(encoding="utf-8").splitlines()
+    header = lines[0].split("\t")
+    keep = [index for index, name in enumerate(header) if name != "WAERS"]
+    path.write_text(
+        "\n".join("\t".join(line.split("\t")[index] for index in keep) for line in lines) + "\n",
+        encoding="utf-8",
+    )
+    load_table(canonical_db, path)
+    install_macros(canonical_db)
+    with pytest.raises(StagingError) as excinfo:
+        stage_table(canonical_db, mapping, "BSID", "test-run")
+    message = str(excinfo.value)
+    assert "BSID" in message and "WAERS" in message
+
+
+def test_totals_still_come_with_both_columns(canonical_db, mapping, tmp_path) -> None:
+    """Gegenprobe: mit beiden Spalten steht die Summe wie bisher neben ihrer Waehrung."""
+    result = _stage_rows(canonical_db, mapping, tmp_path, "BSID", [BSID_ROW])
+    assert [total.to_dict() for total in result.totals] == [
+        {"company_code": "1000", "currency": "EUR", "amount": "100.00"}
+    ]
+
+
 def test_missing_raw_table_is_named(canonical_db, mapping) -> None:
     install_macros(canonical_db)
     with pytest.raises(StagingError, match="raw_BSID"):

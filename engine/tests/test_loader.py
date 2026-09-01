@@ -8,11 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from mdq import PROJECT_ROOT
+from mdq import DEMO_MANDANT_DIR, PROJECT_ROOT
 from mdq.loader import (
     RAW_EXCERPT_LIMIT,
     ROW_NO_COLUMN,
     LoaderError,
+    check_table_names,
     default_table_name,
     detect_delimiter,
     detect_encoding,
@@ -226,6 +227,68 @@ def test_detect_encoding_falls_back_to_cp1252() -> None:
 def test_default_table_name() -> None:
     assert default_table_name(Path("KNA1_utf8_tab.txt")) == "KNA1"
     assert default_table_name(Path("BSID.txt")) == "BSID"
+
+
+# --- Kollidierende Tabellennamen -------------------------------------------------------
+
+
+def test_colliding_table_names_are_refused() -> None:
+    """Trifft: zwei Dateien, ein Tabellenname – die zweite wuerde die erste ueberschreiben."""
+    with pytest.raises(LoaderError) as excinfo:
+        check_table_names([Path("in/KNA1.txt"), Path("in/KNA1_alt.txt")])
+    message = str(excinfo.value)
+    assert "KNA1" in message
+    assert "KNA1.txt" in message and "KNA1_alt.txt" in message
+    # Die Meldung nennt den Ausweg, nicht nur das Problem.
+    assert "zusammenführen" in message
+
+
+def test_colliding_table_names_report_every_pair() -> None:
+    """Alle Kollisionen gemeinsam – eine Datei soll in einem Durchgang zu klaeren sein."""
+    with pytest.raises(LoaderError) as excinfo:
+        check_table_names(
+            [
+                Path("in/KNA1.txt"),
+                Path("in/KNA1_alt.txt"),
+                Path("in/BSID.txt"),
+                Path("in/BSID_2024.txt"),
+            ]
+        )
+    message = str(excinfo.value)
+    assert "KNA1_alt.txt" in message and "BSID_2024.txt" in message
+
+
+def test_collision_message_lists_every_file_of_the_group() -> None:
+    """Bei mehr als zwei Dateien zaehlt die Meldung auf, sortiert – nicht nur die ersten.
+
+    Der Fall aus dem eigenen Repo: vier KNA1-Fassungen in `testdata/encoding_samples/`.
+    Wer nur zwei Namen liest, sucht die uebrigen von Hand.
+    """
+    namen = [
+        "KNA1_utf8bom_tab_quoted.txt",
+        "KNA1_cp1252_semicolon.txt",
+        "KNA1_utf16_tab.txt",
+        "KNA1_utf8_tab.txt",
+    ]
+    with pytest.raises(LoaderError) as excinfo:
+        check_table_names([Path("in") / name for name in namen])
+    message = str(excinfo.value)
+    stelle = -1
+    for name in sorted(namen):
+        gefunden = message.find(name)
+        assert gefunden > stelle, f"{name} fehlt oder steht unsortiert: {message}"
+        stelle = gefunden
+
+
+def test_the_demo_client_has_no_colliding_names() -> None:
+    """Gegenprobe: die 16 Dateien des ausgelieferten Mandanten fallen auf 16 Namen."""
+    files = sorted(DEMO_MANDANT_DIR.glob("*.txt"))
+    assert len(files) == 16
+    check_table_names(files)  # keine Ausnahme
+
+
+def test_distinct_table_names_pass() -> None:
+    check_table_names([Path("in/KNA1.txt"), Path("in/KNB1.txt")])
 
 
 # --- Rejects --------------------------------------------------------------------------

@@ -43,7 +43,7 @@ from mdq.executor import (
     missing_tables,
 )
 from mdq.findings import schema_version
-from mdq.loader import load_table
+from mdq.loader import check_table_names, load_table
 from mdq.mapping import load_mapping
 from mdq.pack import load_pack
 from mdq.relevance import build_relevance
@@ -116,6 +116,10 @@ class RunResult:
     #: Nicht Teil von ``findings.json``: der Schluessel gehoert nicht ins Finding-Schema,
     #: sondern ist der Vergleichsschluessel der Regression (D-068).
     finding_keys: dict[str, str | None] = field(default_factory=dict)
+    #: Hinweis, wenn die Sicherung eines abgebrochenen Laufs wiederhergestellt wurde.
+    #: Steht wie ``replaced`` **nicht** in den Dateien: sonst waere der zweite Lauf nicht
+    #: mehr byte-identisch mit dem ersten (D-092).
+    recovered: str | None = None
 
     @property
     def finding_rows(self) -> list[tuple[dict[str, Any], str | None]]:
@@ -158,6 +162,9 @@ def input_files(input_dir: Path) -> list[Path]:
         raise RunError(
             f"Keine Exportdateien ({', '.join(EXPORT_SUFFIXES)}) unter {input_dir} gefunden."
         )
+    # Vor dem ersten Import: zwei Dateien mit demselben Tabellennamen wuerden einander
+    # ueberschreiben, und die erste verschwaende ohne Reject (Regel 4).
+    check_table_names(files)
     return files
 
 
@@ -321,6 +328,30 @@ def _replacement_note(target: Path, versions: dict[str, str]) -> str:
     return f"Lauf {target.name} ersetzt ({inner})."
 
 
+def _recover_interrupted(target: Path) -> str | None:
+    """Stellt einen Lauf wieder her, dessen Tausch abgebrochen wurde (D-093).
+
+    ``_write_atomically`` benennt ein vorhandenes Laufverzeichnis nach
+    ``.replaced-<run_id>`` um und tauscht danach das neue an seine Stelle. Bricht der
+    Prozess genau dazwischen ab, gibt es das Laufverzeichnis nicht mehr und nur noch die
+    Sicherung – und der naechste Lauf loeschte sie bisher ungesehen. Liegt die Sicherung
+    ohne ihr Ziel da, wird sie deshalb zurueckbenannt, bevor irgendetwas geschrieben wird.
+
+    **Nur fuer die ``run_id`` dieses Laufs.** Eine verwaiste Sicherung eines *anderen*
+    Laufs bleibt liegen: sie wird weder geloescht noch wiederhergestellt. Ein laufweiter
+    Blick ueber alle ``.replaced-*`` waere ein Aufraeumdienst, den niemand bestellt hat,
+    und er raeumte Verzeichnisse an, ueber die dieser Lauf nichts weiss.
+    """
+    backup = target.parent / f".replaced-{target.name}"
+    if not backup.is_dir() or target.exists():
+        return None
+    backup.rename(target)
+    return (
+        f"Lauf {target.name}: ein abgebrochener Schreibvorgang hatte nur die Sicherung "
+        f"{backup.name} hinterlassen; sie ist wiederhergestellt worden."
+    )
+
+
 def _write_atomically(target: Path, files: dict[str, str]) -> str | None:
     """Schreibt die Dateien in ein temporaeres Verzeichnis und tauscht dann (D-093)."""
     out_dir = target.parent
@@ -444,6 +475,9 @@ def execute_run(options: RunOptions) -> RunResult:
         con.close()
 
     target = options.out_dir / report.run_id
+    # Erst wiederherstellen, dann den Ersetzt-Vermerk bilden: sonst faende
+    # `_replacement_note` das Verzeichnis nicht, das der abgebrochene Lauf hinterlassen hat.
+    recovered = _recover_interrupted(target)
     replaced = None
     if target.exists():
         replaced = _replacement_note(target, versions)
@@ -460,4 +494,5 @@ def execute_run(options: RunOptions) -> RunResult:
         exit_code=report.exit_code,
         replaced=replaced,
         finding_keys=finding_keys,
+        recovered=recovered,
     )

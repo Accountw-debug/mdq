@@ -21,6 +21,7 @@ from typer.testing import CliRunner
 from mdq import DEMO_MANDANT_DIR, __version__
 from mdq.canonical import Scope
 from mdq.cli import app
+from mdq.loader import LoaderError
 from mdq.relevance import RelevanceError
 from mdq.rules import load_rules
 from mdq.run import (
@@ -32,6 +33,7 @@ from mdq.run import (
     RUN_FILE,
     RunError,
     RunOptions,
+    _recover_interrupted,
     execute_run,
     parse_created_at,
     run_id_for,
@@ -348,6 +350,98 @@ def test_ein_abbruch_laesst_den_vorhandenen_lauf_unberuehrt(tmp_path):
     assert (erster.directory / RUN_FILE).read_bytes() == vorher
     reste = [p.name for p in (tmp_path / "runs").iterdir() if p.name.startswith(".")]
     assert reste == []
+
+
+def test_kollidierende_dateinamen_brechen_vor_dem_import_ab(tmp_path):
+    """Zwei Dateien, ein Tabellenname: Abbruch mit Namen statt stillem Ueberschreiben."""
+    quelle = schreibe(tmp_path / "input", KLEIN)
+    (quelle / "KNA1_alt.txt").write_text(KNA1, encoding="utf-8")
+    with pytest.raises(LoaderError) as excinfo:
+        execute_run(
+            RunOptions(input_dir=quelle, out_dir=tmp_path / "runs", created_at=CREATED_AT)
+        )
+    message = str(excinfo.value)
+    assert "KNA1.txt" in message and "KNA1_alt.txt" in message
+    # Vor dem ersten Import: es entsteht kein Laufverzeichnis.
+    assert not (tmp_path / "runs").exists()
+
+
+def test_cli_run_meldet_kollidierende_dateinamen(tmp_path):
+    quelle = schreibe(tmp_path / "input", KLEIN)
+    (quelle / "BSID_2024.txt").write_text(BSID, encoding="utf-8")
+    result = runner.invoke(
+        app, ["run", "--input", str(quelle), "--out", str(tmp_path / "runs")]
+    )
+    assert result.exit_code == EXIT_ABORTED
+    assert "BSID_2024.txt" in result.output
+
+
+# --- Wiederanlauf nach abgebrochenem Tausch (D-093) ------------------------------------
+
+
+def test_abgebrochener_tausch_wird_wiederhergestellt(tmp_path):
+    """Nur die Sicherung da, das Ziel fehlt: der alte Lauf kommt zurueck.
+
+    Genau dieser Zustand entsteht, wenn der Prozess zwischen `target.rename(backup)` und
+    `staging.rename(target)` stirbt. Bis hierher loeschte der naechste Lauf die Sicherung
+    ungesehen.
+    """
+    erster = lauf(tmp_path)
+    inhalt = (erster.directory / RUN_FILE).read_bytes()
+    sicherung = erster.directory.parent / f".replaced-{erster.directory.name}"
+    erster.directory.rename(sicherung)
+
+    hinweis = _recover_interrupted(erster.directory)
+    assert hinweis is not None
+    assert erster.directory.name in hinweis and ".replaced-" in hinweis
+    assert (erster.directory / RUN_FILE).read_bytes() == inhalt
+    assert not sicherung.exists()
+
+
+def test_wiederanlauf_ohne_abbruch_fasst_nichts_an(tmp_path):
+    """Gegenprobe: liegt das Ziel da, ist die Sicherung ein Rest und kein Wiederanlauf."""
+    erster = lauf(tmp_path)
+    sicherung = erster.directory.parent / f".replaced-{erster.directory.name}"
+    sicherung.mkdir()
+    (sicherung / RUN_FILE).write_text("alt", encoding="utf-8")
+    assert _recover_interrupted(erster.directory) is None
+    assert (sicherung / RUN_FILE).read_text(encoding="utf-8") == "alt"
+
+
+def test_lauf_nach_abbruch_stellt_her_und_vermerkt_das_ersetzen(tmp_path):
+    """Ende-zu-Ende: der naechste Lauf findet den alten Stand vor, statt ihn zu verlieren."""
+    erster = lauf(tmp_path)
+    alt = gelesen(erster.directory, RUN_FILE)
+    alt["engine_version"] = "0.0.9"
+    alt["pack_version"] = "0.0"
+    alt["versions"]["pack_hash"] = "0" * 64
+    (erster.directory / RUN_FILE).write_text(json.dumps(alt, indent=2), encoding="utf-8")
+    sicherung = erster.directory.parent / f".replaced-{erster.directory.name}"
+    erster.directory.rename(sicherung)
+
+    zweiter = lauf(tmp_path)
+    assert zweiter.recovered is not None
+    # Der wiederhergestellte Lauf wird danach regulaer ersetzt – und das steht auch da.
+    assert zweiter.replaced is not None
+    assert "vorher engine 0.0.9/pack 0.0" in zweiter.replaced
+    assert zweiter.directory.exists()
+    reste = [p.name for p in (tmp_path / "runs").iterdir() if p.name.startswith(".")]
+    assert reste == []
+
+
+def test_verwaiste_sicherung_eines_anderen_laufs_bleibt_liegen(tmp_path):
+    """Die Grenze aus D-203: dieser Lauf raeumt nur seine eigene Sicherung auf.
+
+    Ein `.replaced-` eines fremden Laufs wird weder geloescht noch wiederhergestellt –
+    ein laufweiter Aufraeumdienst waere ein Eingriff, den niemand bestellt hat.
+    """
+    erster = lauf(tmp_path)
+    fremd = erster.directory.parent / ".replaced-2020-01-01-deadbeef"
+    fremd.mkdir()
+    (fremd / RUN_FILE).write_text("fremd", encoding="utf-8")
+
+    lauf(tmp_path)
+    assert (fremd / RUN_FILE).read_text(encoding="utf-8") == "fremd"
 
 
 def test_ersetzen_nennt_beide_versionen(tmp_path):

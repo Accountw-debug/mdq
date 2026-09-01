@@ -460,22 +460,40 @@ def stage_table(
         rejected=rows_raw - rows_staged,
         notation=used,
         notation_source=source,
-        totals=amount_totals(con, table.name, derived),
+        totals=amount_totals(con, table.name, derived, columns),
         warnings=tuple(warnings),
     )
 
 
+#: Quellspalten der Kontrollsumme: Buchungskreis und Belegwährung neben dem Betrag
+TOTAL_COLUMNS = ("BUKRS", "WAERS")
+
+
 def amount_totals(
-    con: duckdb.DuckDBPyConnection, table_name: str, derived: list[tuple[str, str]]
+    con: duckdb.DuckDBPyConnection,
+    table_name: str,
+    derived: list[tuple[str, str]],
+    columns: tuple[str, ...],
 ) -> tuple[AmountTotal, ...]:
     """Summe ``amount_signed_local`` je Buchungskreis und Währung – R-4.
 
     Die Währung steht neben dem Betrag (Regel 2): ohne sie wäre die Summe eines Mandanten
     mit zwei Hauswährungen eine falsch etikettierte Zahl. Die Hauswährungsprüfung selbst
     kommt in Aufgabe 3 (D-030).
+
+    ``columns`` sind die gelieferten gemappten Spalten der Tabelle. Fehlt eine der beiden
+    Quellspalten, endet die Stufe mit Tabellen- und Spaltennamen statt mit einem nackten
+    DuckDB-Fehler ohne Auskunft (Regel 4): eine Kontrollsumme ohne Buchungskreis oder
+    ohne Währung ist keine.
     """
     if not any(name == "amount_signed_local" for name, _ in derived):
         return ()
+    absent = [name for name in TOTAL_COLUMNS if name not in columns]
+    if absent:
+        raise StagingError(
+            f"{table_name}: die Kontrollsumme über amount_signed_local braucht {absent}, "
+            f"die Spalten fehlen in staged_{table_name}. Export vervollständigen."
+        )
     rows = con.execute(
         f'SELECT "BUKRS", "WAERS", sum("amount_signed_local") FROM "staged_{table_name}" '
         "GROUP BY 1, 2 ORDER BY 1, 2"

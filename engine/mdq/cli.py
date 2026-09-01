@@ -42,7 +42,7 @@ from mdq.findings import (
     validate_finding,
 )
 from mdq.formats import NOTATIONS
-from mdq.loader import LoaderError, load_table
+from mdq.loader import LoaderError, check_table_names, load_table
 from mdq.mapping import MappingError, load_mapping
 from mdq.pack import PackError
 from mdq.relevance import RelevanceError, build_relevance
@@ -282,6 +282,14 @@ def load(
     if not files:
         err_console.print(f"[bold red]Fehler:[/] keine Exportdateien unter {input_dir} gefunden.")
         raise typer.Exit(code=EXIT_NO_INPUT)
+
+    try:
+        # Vor dem ersten Import, wie in `mdq run`: zwei Dateien mit demselben
+        # Tabellennamen wuerden einander stillschweigend ueberschreiben (Regel 4).
+        check_table_names(files)
+    except LoaderError as exc:
+        err_console.print(f"[bold red]Fehler:[/] {exc}")
+        raise typer.Exit(code=EXIT_INVALID) from exc
 
     con = duckdb.connect(":memory:")
     con.execute(CANONICAL_SCHEMA.read_text(encoding="utf-8"))
@@ -556,6 +564,8 @@ def run(
 
     seconds = time.perf_counter() - started
     render(result.report, console)
+    if result.recovered:
+        console.print(f"\n[yellow]HINWEIS[/] {result.recovered}")
     if result.replaced:
         console.print(f"\n[yellow]HINWEIS[/] {result.replaced}")
     console.print(
