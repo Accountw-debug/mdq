@@ -165,3 +165,22 @@ Format je Session: Datum · Ziel · Ergebnis · Offen/Nächster Schritt (max. 3 
   ```
   Keine Zeile darüber hinaus. Der Hash **muss** sich ändern, weil `logic/` sich geändert hat (D-096); `pack_version` bleibt `0.1` (D-204).
   Nächster Schritt: Triage der übrigen 30 V-2-Befunde (**nicht** von selbst starten, Freigabe abwarten).
+
+- **2026-09-02 · V-2-Nacharbeit, Paket F3: AR-CON-002 Währung (Befunde 1 + 2).** Zwei Befunde, ein Wurzelfehler, ein Commit. `open_sum` gruppierte nach der **Beleg**währung und summierte `amount_signed_local`, also einen **Hauswährungs**betrag – das Etikett in `source_summary`, `evidence[].value`, `impact_eur` und `params` war bei jeder Fremdwährungsrechnung falsch (Regel 2), und weil die Belegwährung im `GROUP BY` stand, zerfiel ein Konto mit zwei Belegwährungen im selben Buchungskreis in zwei Zeilen mit identischer Identität – `finding_id`-Kollision, Regel fehlgeschlagen (D-027). Der Fix sitzt allein in der CTE: Join auf `company_code` (T001), Etikett `cc.currency`, Gruppierung ohne Belegwährung; die SELECT-Liste bleibt unangetastet. Vorbild AP-LEA-002, das sich an derselben Stelle seit jeher an `cc.currency` bindet. Nachgezogen aus der eigenen Änderung: `requires_tables` und die Tabellen-Spalte der Katalogzeile um `company_code`, `plain_logic` um die Währungsaussage (Regel 10). Version bleibt 1.0 – A0 hebt mit `kind` ohnehin auf 1.1 (E-8), und auf AR-CON-002 steht keine `from_rule_version`-Erwartung. Entscheidung: D-205.
+  **Vorabprüfung, gemessen statt angenommen:** der Demo-Mandant ist durchgehend einwährig – 39.130 AR- und 19.897 AP-Posten, alle `WAERS = EUR` bei Hauswährung EUR, **0** offene AR-Posten mit abweichender Belegwährung, **0** Konten mit offenen Posten in zwei Belegwährungen; der CHF-Mandant ebenso (CHF/CHF). Der Befund ist rein latent, die Wirkung auf die Erwartung damit vorhersagbar null.
+  Sechs neue Tests auf handgebauten Konten: zwei Belegwährungen ergeben ein Finding (heute ein Abbruch), die Summe ist die der `amount_signed_local` (320,00 statt 350,00), das Etikett die Hauswährung, `USD` steht nirgends im ganzen Finding, ein CHF-Buchungskreis führt zu CHF, und `company_code` steht in `requires_tables`. Zwei bestehende Testblöcke haben eine T001-Zeile bekommen – Vorbedingung der Regel, keine angepasste Erwartung.
+  Ergebnis: `uv run pytest` **1068 passed** (vorher 1062), `uv run ruff check .` sauber, Regression **0/0/0**, 208 Findings, davon 7 AR-CON-002. `diff -r` beider Läufe, `--created-at 2026-08-31T08:00:00Z` – `findings.json` byte-identisch in **beiden** Mandanten, sonst wörtlich nur:
+  ```
+  diff -r v3_demo/2026-08-28-702323b8/report.txt n3_demo/2026-08-28-702323b8/report.txt
+  7c7
+  <   Paket-Hash: 2eeac17f
+  ---
+  >   Paket-Hash: edc1fa14
+  diff -r v3_demo/2026-08-28-702323b8/run.json n3_demo/2026-08-28-702323b8/run.json
+  18c18
+  <     "pack_hash": "2eeac17f479988d1f78d7c60417713d7b22badddfd0a3dcc64ed648a6f2eebef",
+  ---
+  >     "pack_hash": "edc1fa1484e1a89134c84f5e0acc06a20b84081dd49d7604b24fc26c1a83628e",
+  ```
+  Der CHF-Lauf (`2026-08-28-9fc1c0e1`, 0 Findings) zeigt dieselben zwei Zeilen und keine weitere.
+  Nächster Schritt: Paket F4 – Fensterkonformität D-087 und AP-LEA-002 (Befunde 13, 14, 11).

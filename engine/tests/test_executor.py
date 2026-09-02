@@ -5,6 +5,7 @@ Alle Testdaten sind erfunden. Es stehen keine Geschaeftspartnerdaten in dieser D
 """
 
 import dataclasses
+import json
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -40,7 +41,12 @@ INSERT INTO bp_tax_id (bp_key, tax_id_type, country, value, value_norm)
 VALUES ('C:0000000001','VAT','DE','AT U12345678','ATU12345678');
 """
 
+#: `company_code` (T001) ist Vorbedingung, seit die Regel ihr Waehrungsetikett von dort
+#: nimmt und nicht mehr aus der Belegwaehrung der Posten (D-205) - keine Erwartung, die
+#: angepasst wurde, sondern eine Tabelle, die die Regel jetzt braucht.
 INSERT_AR_CON_002 = """
+INSERT INTO company_code (company_code, name, currency, country)
+VALUES ('1000','Demo Industrie AG','EUR','DE');
 INSERT INTO business_partner (bp_key, role, source_id, country, is_one_time, deletion_flag)
 VALUES ('C:0000000002','CUSTOMER','0000000002','DE',FALSE,TRUE);
 INSERT INTO bp_company_code (bp_key, company_code) VALUES ('C:0000000002','1000');
@@ -48,6 +54,25 @@ INSERT INTO fi_item (item_key,bp_key,company_code,fiscal_year,document_no,line_i
                      posting_date,currency,amount_doc,amount_local,amount_signed_local,is_open)
 VALUES ('1000|2026|1|1','C:0000000002','1000','2026','1','1',DATE '2026-01-05','EUR',
         100.00,100.00,100.00,TRUE);
+"""
+
+#: Derselbe Debitor, aber offene Posten in **zwei Belegwaehrungen** desselben
+#: Buchungskreises. Die Hauswaehrung ist EUR; die USD-Rechnung traegt ihren DMBTR-Betrag
+#: trotzdem in EUR (Glossar "Hauswaehrung"). Bis D-205 zerfiel das in zwei Zeilen mit
+#: derselben Identitaet und die finding_id kollidierte.
+INSERT_AR_CON_002_ZWEI_WAEHRUNGEN = """
+INSERT INTO company_code (company_code, name, currency, country)
+VALUES ('1000','Demo Industrie AG','EUR','DE');
+INSERT INTO business_partner (bp_key, role, source_id, country, is_one_time, deletion_flag)
+VALUES ('C:0000000002','CUSTOMER','0000000002','DE',FALSE,TRUE);
+INSERT INTO bp_company_code (bp_key, company_code) VALUES ('C:0000000002','1000');
+INSERT INTO fi_item (item_key,bp_key,company_code,fiscal_year,document_no,line_item,
+                     posting_date,currency,amount_doc,amount_local,amount_signed_local,is_open)
+VALUES
+ ('1000|2026|1|1','C:0000000002','1000','2026','1','1',DATE '2026-01-05','EUR',
+  100.00,100.00,100.00,TRUE),
+ ('1000|2026|2|1','C:0000000002','1000','2026','2','1',DATE '2026-02-05','USD',
+  250.00,220.00,220.00,TRUE);
 """
 
 INSERT_AP_LEA_001 = """
@@ -227,7 +252,12 @@ def test_null_and_empty_string_hash_alike() -> None:
 def test_company_code_separates_findings_per_company(db, run_context) -> None:
     """Ohne company_code im Hash wuerden die beiden Buchungskreise kollidieren (D-027)."""
     db.execute(INSERT_AR_CON_002)
+    # Der zweite Buchungskreis braucht seine T001-Zeile: das Waehrungsetikett kommt seit
+    # D-205 von dort. Vorbedingung, keine geaenderte Erwartung – geprueft wird weiterhin,
+    # dass zwei Buchungskreise zwei Findings ergeben.
     db.execute("""
+        INSERT INTO company_code (company_code, name, currency, country)
+        VALUES ('2000','Demo Vertrieb GmbH','EUR','DE');
         INSERT INTO bp_company_code (bp_key, company_code) VALUES ('C:0000000002','2000');
         INSERT INTO fi_item (item_key,bp_key,company_code,fiscal_year,document_no,line_item,
                              posting_date,currency,amount_doc,amount_local,amount_signed_local,is_open)
@@ -492,6 +522,64 @@ def test_relevance_currency_is_not_assumed_eur(db, run_context) -> None:
     relevance = execute_rule(db, RULES["AR-VAL-001"], run_context)[0]["relevance"]
     assert relevance["currency"] == "CHF"
     assert relevance["open_items"] == "45210.00"
+
+
+# --- AR-CON-002: Hauswaehrung statt Belegwaehrung (D-205) ----------------------------
+
+
+def test_ar_con_002_zwei_belegwaehrungen_ergeben_ein_finding(db, run_context) -> None:
+    """Ein Konto, ein Buchungskreis, zwei Belegwaehrungen – **ein** Finding.
+
+    Bis D-205 stand die Belegwaehrung im GROUP BY: der Lauf brach hier mit
+    „der Regel fehlt eine finding_key-Spalte" ab, weil beide Zeilen dieselbe Identitaet
+    trugen (D-027).
+    """
+    findings = _run(db, "AR-CON-002", INSERT_AR_CON_002_ZWEI_WAEHRUNGEN, run_context)
+    assert len(findings) == 1
+    assert findings[0]["entity"]["company_code"] == "1000"
+
+
+def test_ar_con_002_summiert_in_hauswaehrung(db, run_context) -> None:
+    """Summiert wird `amount_signed_local` – der DMBTR-Betrag, nicht der Belegbetrag."""
+    finding = _run(db, "AR-CON-002", INSERT_AR_CON_002_ZWEI_WAEHRUNGEN, run_context)[0]
+    # 100.00 (EUR-Beleg) + 220.00 (DMBTR der USD-Rechnung) - nicht 100.00 + 250.00
+    assert finding["impact_eur"]["amount"] == "320.00"
+
+
+def test_ar_con_002_etikettiert_mit_der_hauswaehrung(db, run_context) -> None:
+    """Neben dem Betrag steht die Waehrung des Buchungskreises, nie die des Belegs."""
+    finding = _run(db, "AR-CON-002", INSERT_AR_CON_002_ZWEI_WAEHRUNGEN, run_context)[0]
+    assert finding["impact_eur"]["currency"] == "EUR"
+    assert "320,00 EUR" in finding["proposed"]["source_summary"]
+    assert finding["evidence"][0]["value"] == "320,00 EUR"
+
+
+def test_ar_con_002_nennt_die_belegwaehrung_nirgends(db, run_context) -> None:
+    """Regel 2 andersherum: ein falsches Etikett ist schlimmer als keines.
+
+    Geprueft ueber das **ganze** Finding und nicht feldweise – ein Feld, an das beim
+    naechsten Umbau niemand denkt, faellt damit auf (Muster D-105).
+    """
+    finding = _run(db, "AR-CON-002", INSERT_AR_CON_002_ZWEI_WAEHRUNGEN, run_context)[0]
+    assert "USD" not in json.dumps(finding, ensure_ascii=False)
+
+
+def test_ar_con_002_folgt_der_hauswaehrung_des_mandanten(db, run_context) -> None:
+    """CHF-Buchungskreis: dasselbe Finding, anderes Etikett – kein EUR im Code."""
+    db.execute(
+        INSERT_AR_CON_002_ZWEI_WAEHRUNGEN.replace(
+            "VALUES ('1000','Demo Industrie AG','EUR','DE');",
+            "VALUES ('1000','Demo Suisse AG','CHF','CH');",
+        )
+    )
+    finding = execute_rule(db, RULES["AR-CON-002"], run_context)[0]
+    assert finding["impact_eur"]["currency"] == "CHF"
+    assert "320,00 CHF" in finding["proposed"]["source_summary"]
+
+
+def test_ar_con_002_braucht_den_buchungskreis_stammsatz(db, run_context) -> None:
+    """Ohne T001 gaebe es kein Waehrungsetikett – die Regel nennt die Tabelle deshalb."""
+    assert "company_code" in RULES["AR-CON-002"].requires_tables
 
 
 # --- Belegarten aus dem Woerterbuch (D-084) ------------------------------------------

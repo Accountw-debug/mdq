@@ -8,12 +8,17 @@ severity: high
 damage_class: 3
 default_tier: decision
 default_action_type: decision
-requires_tables: [business_partner, bp_company_code, fi_item]
+requires_tables: [business_partner, bp_company_code, company_code, fi_item]
 plain_logic: >
   Finding je Buchungskreis, wenn ein Debitor zentral oder im Buchungskreis zur Löschung
   vorgemerkt oder für Buchungen gesperrt ist und gleichzeitig offene Posten in diesem
   Buchungskreis hat. CpD-Konten ausgeschlossen. Keine automatische Empfehlung, weil beides
   legitim sein kann (Sperre wegen Insolvenz vs. vergessene Löschvormerkung).
+  Die Summe der offenen Posten steht in der **Hauswährung des Buchungskreises** (T001,
+  D-083) und nicht in der Belegwährung der Posten: summiert wird `amount_signed_local`
+  (DMBTR), und das ist ein Hauswährungsbetrag – die Belegwährung `WAERS` gehört zum
+  Beleg, nicht zu dieser Summe. Ein Konto mit offenen Posten in mehreren Belegwährungen
+  ergibt deshalb **ein** Finding je Buchungskreis, nicht eines je Währung.
 why: >
   Ein gesperrtes oder zur Löschung vorgemerktes Konto mit offenen Posten wird im Mahnlauf
   und in der Zahlungszuordnung inkonsistent behandelt; bei der S/4-Konvertierung blockiert
@@ -45,11 +50,20 @@ tests:
     - "C:0000100028"   # DEF-0007
 --- */
 WITH open_sum AS (
-    SELECT bp_key, company_code, currency,
-           SUM(amount_signed_local) AS open_local
-    FROM fi_item
-    WHERE is_open = TRUE
-    GROUP BY bp_key, company_code, currency
+    -- Der Betrag steht in der Hauswaehrung des Buchungskreises, und das Etikett kommt
+    -- aus T001 (D-083). `amount_signed_local` ist DMBTR; `fi_item.currency` ist die
+    -- Belegwaehrung und gehoert nicht neben diese Summe (Regel 2, Glossar
+    -- "Hauswaehrung"). Die Belegwaehrung stand hier bis D-205 im GROUP BY: ein Konto mit
+    -- offenen Posten in zwei Belegwaehrungen lieferte dann zwei Zeilen mit derselben
+    -- Identitaet - gleicher bp_key, gleicher Buchungskreis, gleiches Ist - und die
+    -- finding_id kollidierte (D-027). `cc.currency` haengt funktional am Buchungskreis,
+    -- die Gruppierung bleibt also eine Zeile je (bp_key, company_code).
+    SELECT i.bp_key, i.company_code, cc.currency,
+           SUM(i.amount_signed_local) AS open_local
+    FROM fi_item i
+    JOIN company_code cc ON cc.company_code = i.company_code
+    WHERE i.is_open = TRUE
+    GROUP BY i.bp_key, i.company_code, cc.currency
 )
 SELECT
     bp.bp_key,
