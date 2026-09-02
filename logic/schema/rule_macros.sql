@@ -12,6 +12,10 @@
 -- Ohne locale und ohne float: gruppiert wird über Zeichenketten, damit derselbe Lauf auf
 -- jedem Rechner dieselbe Zeile schreibt (Regel 9). `engine/mdq/formats.py:format_amount`
 -- macht dasselbe in Python für den Run-Report; ein Äquivalenztest hält beide zusammen.
+--
+-- Das kanonische Schema muss beim Einspielen dieser Datei stehen: das letzte Makro
+-- schlägt in `payment_terms` nach, und DuckDB verlangt die Tabelle schon beim Anlegen
+-- (D-206). Im Lauf ist das gegeben – dort ist das Schema das Erste, was geladen wird.
 
 -- Ziffern von rechts in Dreiergruppen: "42100" -> "42.100".
 -- Umgedreht, alle drei Ziffern ein Punkt, wieder umgedreht – RE2 kennt kein Lookahead,
@@ -49,4 +53,26 @@ CREATE OR REPLACE MACRO mdq_date(value) AS (
     CASE WHEN value IS NULL THEN NULL
          ELSE strftime(CAST(value AS DATE), '%d.%m.%Y')
     END
+);
+
+-- Der Text einer Zahlungsbedingung – **eine** Zeile je ZTERM, für den ganzen Lauf gleich.
+--
+-- T052 ist nach Tagesgrenze gestaffelt (ZTAGG): eine Zahlungsbedingung kann mehrere
+-- Zeilen haben, und das kanonische `payment_terms` führt sie alle – zu Recht, es ist
+-- Kundendatenbestand und kein Fehler. Ein `JOIN payment_terms` in einer Regel
+-- vervielfacht damit ihre Findings und lässt deren `finding_id` kollidieren (D-027,
+-- Befund 11). Deshalb steht die Auswahl hier und nicht in einer Regel: **die Variante
+-- ohne Tagesgrenze, sonst die mit der kleinsten `day_limit`, bei Gleichstand die
+-- alphabetisch erste Beschreibung** (Regel 9 – die Wahl muss reproduzierbar sein).
+--
+-- Einmal definiert, weil sie für den Lauf gilt und nicht für eine Regel: AP-LEA-002 und
+-- AR-COM-002 lesen denselben Text, und der Lauf-Hinweis zur Staffelung meint dieselbe
+-- Variante, die beide benutzen (D-206). `coalesce(day_limit, 0)` liest "keine
+-- Tagesgrenze" und "00" als dasselbe – so schreibt SAP es.
+CREATE OR REPLACE MACRO mdq_payment_terms_text(terms) AS (
+    (SELECT t.description
+     FROM payment_terms t
+     WHERE t.terms_key = terms
+     ORDER BY coalesce(t.day_limit, 0), t.description
+     LIMIT 1)
 );

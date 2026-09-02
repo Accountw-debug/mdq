@@ -19,6 +19,7 @@ from mdq import CANONICAL_SCHEMA
 from mdq.canonical import (
     CanonicalError,
     Scope,
+    _staffed_payment_terms,
     _unknown_vat_prefixes,
     build_canonical,
     is_valid_iban,
@@ -687,3 +688,41 @@ def test_hinweis_nennt_keine_steuernummer(canonical_db) -> None:
     _tax_id(canonical_db, "C:0000000001", "US123456789")
     hinweis = _unknown_vat_prefixes(canonical_db)[0]
     assert "123456789" not in hinweis
+
+
+# --- Gestaffelte Zahlungsbedingungen (D-206) ------------------------------------------
+
+
+def _terms(con, terms_key: str, day_limit, description: str) -> None:
+    con.execute(
+        "INSERT INTO payment_terms (terms_key, day_limit, description) VALUES (?, ?, ?)",
+        [terms_key, day_limit, description],
+    )
+
+
+def test_eine_zeile_je_zterm_erzeugt_keinen_hinweis(canonical_db) -> None:
+    _terms(canonical_db, "ZB02", None, "14 Tage 2 % Skonto, 30 Tage netto")
+    _terms(canonical_db, "ZB03", 0, "30 Tage netto")
+    assert _staffed_payment_terms(canonical_db) == []
+
+
+def test_gestaffelte_zterm_wird_mit_anzahl_genannt(canonical_db) -> None:
+    """Kein Fehler, aber eine Auswahl – und die sagt der Lauf (Regel 4, D-101-Linie)."""
+    _terms(canonical_db, "ZB02", None, "14 Tage 2 % Skonto, 30 Tage netto")
+    _terms(canonical_db, "ZB02", 15, "Staffel bis 15.")
+    _terms(canonical_db, "ZB02", 31, "Staffel bis 31.")
+    _terms(canonical_db, "ZB03", 0, "30 Tage netto")
+    hinweise = _staffed_payment_terms(canonical_db)
+    assert len(hinweise) == 1
+    assert "ZB02 (3)" in hinweise[0]
+    assert "ZB03" not in hinweise[0]
+    # Der Hinweis sagt auch, **welche** Variante der Lauf nimmt.
+    assert "kleinsten Tagesgrenze" in hinweise[0]
+
+
+def test_staffel_hinweis_nennt_keinen_partner(canonical_db) -> None:
+    """Eine Zahlungsbedingung ist Customizing, kein Geschaeftspartnerdatum (Regel 8)."""
+    _terms(canonical_db, "ZB02", None, "14 Tage 2 % Skonto, 30 Tage netto")
+    _terms(canonical_db, "ZB02", 15, "Staffel bis 15.")
+    hinweis = _staffed_payment_terms(canonical_db)[0]
+    assert "Staffel bis 15." not in hinweis

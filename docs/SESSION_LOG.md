@@ -184,3 +184,28 @@ Format je Session: Datum · Ziel · Ergebnis · Offen/Nächster Schritt (max. 3 
   ```
   Der CHF-Lauf (`2026-08-28-9fc1c0e1`, 0 Findings) zeigt dieselben zwei Zeilen und keine weitere.
   Nächster Schritt: Paket F4 – Fensterkonformität D-087 und AP-LEA-002 (Befunde 13, 14, 11).
+
+- **2026-09-02 · V-2-Nacharbeit, Paket F4: Fensterkonformität D-087 und AP-LEA-002 (Befunde 13, 14, 11).** Ein Commit. **Befund 13:** `activity_status` maß nur die linke Fenstergrenze – mit `--data-as-of` in der Vergangenheit galt ein Konto als `active`, dessen einzige Bewegung nach dem Datenstand lag. Die Kappung sitzt jetzt in der **Aggregation**: `last_activity_on` ist das späteste Datum über die Bewegungen bis zum Datenstand, der `CASE` bleibt unverändert. Als zusätzliches `OR` im `CASE` wäre ein Konto mit Bewegung **im** Fenster *und* danach fälschlich `dormant` geworden; gekappt wird zudem je Datum, damit eine im Fenster gebuchte und später ausgeglichene Rechnung ihre Buchung behält. **Befund 14:** AP-LEA-002 maß links geschlossen und oben offen; beide CTE stehen jetzt auf `]Datenstand − ${params.months} Monate, Datenstand]`, Klartext mitgezogen. **Befund 11:** `LEFT JOIN payment_terms` traf eine Tabelle ohne Primärschlüssel – eine nach ZTAGG gestaffelte T052 hätte die Findings vervielfacht und ihre `finding_id` kollidieren lassen. Neu `mdq_payment_terms_text()` in `rule_macros.sql`: die Variante ohne Tagesgrenze, sonst die kleinste `day_limit`, bei Gleichstand die alphabetisch erste Beschreibung – **einmal definiert, von AP-LEA-002 und AR-COM-002 gelesen**, dazu ein Lauf-Hinweis aus der kanonischen Stufe, der die gestaffelten ZTERM und die angewandte Regel nennt. Entscheidung: D-206.
+  **Vorabprüfung, gemessen:** 19 AP-Rechnungen liegen genau auf der unteren Grenze, keine nach dem Datenstand. Die Regel einmal mit altem und einmal mit neuem Fenster gegen dieselbe kanonische Datenbank: **8 Findings gegen 8 Findings, dieselben Konten, Beträge und Titel** – keine der 19 gehört zum realisierten Verlust. 0 Partner mit Aktivität nach dem Datenstand; `payment_terms` 5 Zeilen für 5 ZTERM. Kein R3-Fall.
+  **Eine Vorbedingung ist neu:** `rule_macros.sql` setzt das kanonische Schema voraus, weil DuckDB `payment_terms` schon beim Anlegen des Makros verlangt. Im Lauf ohne Belang; drei Testverbindungen in `test_formats.py` laden das Schema jetzt zuerst, und `ensure_rule_macros` sagt es in seiner Docstring.
+  Ergebnis: `uv run pytest` **1083 passed** (vorher 1068), `uv run ruff check .` sauber, Regression **0/0/0**, 208 Findings (AP-LEA-002 8, AR-CON-002 7). **`diff -r` beider Läufe, wörtlich** – der einzige inhaltliche Unterschied sind die acht Zeiger der AP-LEA-002-Findings, wie freigegeben; in `report.txt` kommt der Zeiger nicht vor:
+  ```
+  diff -r n3_demo/2026-08-28-702323b8/findings.json n4_demo/2026-08-28-702323b8/findings.json
+  528c528 · 2834c2834 · 3656c3656 · 3987c3987 · 7083c7083 · 9052c9052 · 11828c11828 · 14125c14125
+  <         "reference": "BSAK 2025-08-28..2026-08-28",
+  ---
+  >         "reference": "BSAK 2025-08-29..2026-08-28",
+  diff -r n3_demo/2026-08-28-702323b8/report.txt n4_demo/2026-08-28-702323b8/report.txt
+  7c7
+  <   Paket-Hash: edc1fa14
+  ---
+  >   Paket-Hash: 89a21dc4
+  diff -r n3_demo/2026-08-28-702323b8/run.json n4_demo/2026-08-28-702323b8/run.json
+  18c18
+  <     "pack_hash": "edc1fa1484e1a89134c84f5e0acc06a20b84081dd49d7604b24fc26c1a83628e",
+  ---
+  >     "pack_hash": "89a21dc46d249dca86b540beb0c1956ee913f768e58386757ae29bc2704e5342",
+  ```
+  Acht geänderte Zeilen bei acht AP-LEA-002-Findings, keine neunte. Der CHF-Lauf (`2026-08-28-9fc1c0e1`, 0 Findings) zeigt nur die zwei Paket-Hash-Zeilen.
+  Damit sind die neun Befunde der Pakete F1–F4 abgearbeitet. **Offen und nicht angefasst:** 5 Befunde für A0 (21, 38, 15, 16, 30), 13 im Sprint, 7 im Backlog – dazu neu im Backlog vermerkt: „As-of-Sicht auf Stammdaten (`created_on > data_as_of`)" aus D-206 und die fehlende Referenzprüfung `fi_item.company_code → company_code` aus D-205.
+  Nächster Schritt: A0 (**nicht** von selbst starten, Freigabe abwarten).

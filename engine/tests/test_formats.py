@@ -6,7 +6,7 @@ from decimal import Decimal
 import duckdb
 import pytest
 
-from mdq import RULE_MACROS
+from mdq import CANONICAL_SCHEMA, RULE_MACROS
 from mdq.formats import (
     INT_MAX,
     INT_MIN,
@@ -27,6 +27,10 @@ def macros_connection():
     """Verbindung mit den Darstellungshilfen aus `logic/schema/rule_macros.sql`."""
     con = duckdb.connect(":memory:")
     try:
+        # Das kanonische Schema zuerst: `mdq_payment_terms_text` schlaegt in
+        # `payment_terms` nach, und DuckDB verlangt die Tabelle schon beim Anlegen
+        # des Makros (D-206).
+        con.execute(CANONICAL_SCHEMA.read_text(encoding="utf-8"))
         con.execute(RULE_MACROS.read_text(encoding="utf-8"))
         yield con
     finally:
@@ -404,6 +408,10 @@ def test_makro_und_python_sind_gleich() -> None:
     ]
     con = duckdb.connect(":memory:")
     try:
+        # Das kanonische Schema zuerst: `mdq_payment_terms_text` schlaegt in
+        # `payment_terms` nach, und DuckDB verlangt die Tabelle schon beim Anlegen
+        # des Makros (D-206).
+        con.execute(CANONICAL_SCHEMA.read_text(encoding="utf-8"))
         con.execute(RULE_MACROS.read_text(encoding="utf-8"))
         for wert in werte:
             try:
@@ -473,6 +481,10 @@ def test_datums_makro_und_python_sind_gleich() -> None:
     ]
     con = duckdb.connect(":memory:")
     try:
+        # Das kanonische Schema zuerst: `mdq_payment_terms_text` schlaegt in
+        # `payment_terms` nach, und DuckDB verlangt die Tabelle schon beim Anlegen
+        # des Makros (D-206).
+        con.execute(CANONICAL_SCHEMA.read_text(encoding="utf-8"))
         con.execute(RULE_MACROS.read_text(encoding="utf-8"))
         for wert in werte:
             aus_sql = con.execute("SELECT mdq_date(CAST(? AS DATE))", [wert]).fetchone()[0]

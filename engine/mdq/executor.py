@@ -147,6 +147,11 @@ def ensure_rule_macros(con: duckdb.DuckDBPyConnection) -> None:
     Tabellen – und sie muessen ueberall dort stehen, wo eine Regel laeuft, auch in einem
     Test, der nur das kanonische Schema geladen hat. ``CREATE OR REPLACE`` macht den
     wiederholten Aufruf billig und die Reihenfolge egal.
+
+    **Das kanonische Schema muss vorher stehen.** ``mdq_payment_terms_text`` schlaegt in
+    ``payment_terms`` nach, und DuckDB verlangt die Tabelle schon beim Anlegen des Makros
+    (D-206). Fuer den Lauf ist das ohne Belang – dort wird das Schema als Erstes geladen –,
+    fuer eine Verbindung, die nur die Makros haben will, ist es eine Vorbedingung.
     """
     con.execute(_rule_macro_sql())
 

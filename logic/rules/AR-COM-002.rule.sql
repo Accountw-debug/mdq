@@ -114,10 +114,13 @@ SELECT
              || b.varianten::VARCHAR || ' Zahlungsbedingungen ohne Mehrheit'
     END                                               AS current_display,
     CASE WHEN b.hat_mehrheit THEN b.haeufigste END    AS proposed_value,
+    -- Der Text kommt aus `mdq_payment_terms_text` und nicht aus einem eigenen
+    -- `max(description)`: T052 kann je ZTERM mehrere Zeilen tragen (ZTAGG-Staffel), und
+    -- welche davon der Lauf meint, wird an einer Stelle entschieden – sonst naehme diese
+    -- Regel eine andere Variante als AP-LEA-002, und der Lauf-Hinweis zur Staffelung
+    -- meinte eine dritte (D-206).
     CASE
-        WHEN b.hat_mehrheit THEN (
-            SELECT max(pt.description) FROM payment_terms pt WHERE pt.terms_key = b.haeufigste
-        )
+        WHEN b.hat_mehrheit THEN mdq_payment_terms_text(b.haeufigste)
     END                                               AS proposed_display,
     -- Ohne Mehrheit gibt es kein Soll und damit kein proposed (D-186); wie sich die
     -- Belege verteilen, steht dann im Ist.

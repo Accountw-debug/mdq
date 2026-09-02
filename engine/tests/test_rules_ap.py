@@ -546,8 +546,13 @@ def test_ap_lea_002_nennt_den_stichtag_des_laufs(regression_run) -> None:
 
     Sonst lieferte derselbe Input morgen andere Findings. Taggenau statt als Monatslabel:
     das Fenster beginnt am Stichtag minus zwoelf Monate, nicht am Monatsersten.
+
+    **Der genannte Tag ist der erste eingeschlossene, nicht die Grenze** (D-206): das
+    Fenster ist links offen (D-087), Stichtag minus zwoelf Monate ist der 28.08.2025, und
+    der erste Beleg, der dazugehoert, ist der vom 29.08.2025. Bis D-206 stand hier die
+    ausgeschlossene Grenze – ein Zeiger, der sich inklusiv liest und exklusiv gemeint ist.
     """
     for finding in findings_of(regression_run, "AP-LEA-002"):
         statistik = next(e for e in finding["evidence"] if e["reference"].startswith("BSAK"))
-        assert statistik["reference"] == "BSAK 2025-08-28..2026-08-28"
+        assert statistik["reference"] == "BSAK 2025-08-29..2026-08-28"
         assert statistik["observed_at"] == "2026-08-28"

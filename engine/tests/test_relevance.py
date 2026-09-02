@@ -203,6 +203,99 @@ def test_konto_ohne_posten_im_fenster_angelegt_ist_nie_bebucht(tmp_path):
     assert relevance(con, "C:0000100001")[4] == "never_posted"
 
 
+# --- Die rechte Fenstergrenze: was nach dem Datenstand liegt, zaehlt nicht (D-206) -----
+
+
+def _bsid_am(tag: str, beleg: str = "0100000050") -> str:
+    """Eine offene Rechnung des Debitors an genau einem Tag."""
+    return (
+        "KUNNR\tBUKRS\tGJAHR\tBELNR\tBUZEI\tBUDAT\tBLART\tSHKZG\tWAERS\tWRBTR\tDMBTR\n"
+        f"0000100001\t1000\t{tag[:4]}\t{beleg}\t001\t{tag}\tDR\tS\tEUR\t50,00\t50,00\n"
+    )
+
+
+def test_bewegung_nach_dem_datenstand_ist_keine_aktivitaet(tmp_path):
+    """`--data-as-of` in der Vergangenheit: was danach gebucht wurde, gab es noch nicht.
+
+    Bis D-206 kannte `activity_status` nur die linke Fenstergrenze; ein Konto, dessen
+    einzige Bewegung nach dem Datenstand lag, galt als `active` – gegen die Definition
+    des Relevanzfensters im Glossar und gegen D-087.
+    """
+    con, _ = build(
+        tmp_path,
+        {"T001": T001, "KNA1": KNA1, "KNB1": KNB1, "BSID": _bsid_am("20261001")},
+        as_of=AS_OF,
+    )
+    zeile = relevance(con, "C:0000100001")
+    assert zeile[3] is None, "die Bewegung liegt nach dem Datenstand und zaehlt nicht"
+    assert zeile[4] == "dormant"
+
+
+def test_bewegung_genau_am_datenstand_zaehlt(tmp_path):
+    """Rechts geschlossen: der Beleg vom Datenstand gehoert noch dazu (D-087)."""
+    con, _ = build(
+        tmp_path,
+        {"T001": T001, "KNA1": KNA1, "KNB1": KNB1, "BSID": _bsid_am("20260828")},
+        as_of=AS_OF,
+    )
+    zeile = relevance(con, "C:0000100001")
+    assert zeile[3] == AS_OF
+    assert zeile[4] == "active"
+
+
+def test_bewegung_genau_am_fensterbeginn_zaehlt_nicht(tmp_path):
+    """Links offen: der Beleg vom Fensterbeginn gehoert schon ins Fenster davor."""
+    con, result = build(
+        tmp_path,
+        {"T001": T001, "KNA1": KNA1, "KNB1": KNB1, "BSID": _bsid_am("20250828")},
+        as_of=AS_OF,
+    )
+    assert result.window_from == date(2025, 8, 28)
+    zeile = relevance(con, "C:0000100001")
+    assert zeile[3] == date(2025, 8, 28)
+    assert zeile[4] == "dormant"
+
+
+def test_bewegung_im_fenster_und_danach_bleibt_aktiv(tmp_path):
+    """Der Fall, an dem eine Kappung im CASE gescheitert waere (Auflage zu D-206).
+
+    Ein Konto mit einer Bewegung **im** Fenster und einer **nach** dem Datenstand ist
+    aktiv – die spaetere macht die fruehere nicht ungeschehen. Deshalb wird `last_activity_on`
+    in der Aggregation gekappt und nicht hinterher im `CASE` verworfen.
+    """
+    con, _ = build(
+        tmp_path,
+        {
+            "T001": T001,
+            "KNA1": KNA1,
+            "KNB1": KNB1,
+            "BSID": _bsid_am("20260601") + _bsid_am("20261001", "0100000051").splitlines()[1] + "\n",
+        },
+        as_of=AS_OF,
+    )
+    zeile = relevance(con, "C:0000100001")
+    assert zeile[3] == date(2026, 6, 1), "die gekappte, nicht die spaetere Bewegung"
+    assert zeile[4] == "active"
+
+
+def test_ausgleich_nach_dem_datenstand_loescht_die_buchung_nicht(tmp_path):
+    """Gekappt wird je Datum, nicht am Ergebnis.
+
+    Eine Rechnung, die im Fenster gebucht und erst nach dem Datenstand ausgeglichen wurde,
+    bleibt mit ihrem **Buchungsdatum** eine Aktivitaet. Eine Kappung am `greatest(...)`
+    haette sie ganz verschluckt.
+    """
+    bsad = (
+        "KUNNR\tBUKRS\tGJAHR\tBELNR\tBUZEI\tBUDAT\tBLART\tSHKZG\tWAERS\tWRBTR\tDMBTR\tAUGDT\tAUGBL\n"
+        "0000100001\t1000\t2026\t0100000060\t001\t20260601\tDR\tS\tEUR\t50,00\t50,00"
+        "\t20261101\t0100000999\n"
+    )
+    con, _ = build(tmp_path, {"T001": T001, "KNA1": KNA1, "KNB1": KNB1, "BSAD": bsad}, as_of=AS_OF)
+    zeile = relevance(con, "C:0000100001")
+    assert zeile[3] == date(2026, 6, 1)
+    assert zeile[4] == "active"
+
+
 def test_jeder_partner_bekommt_eine_zeile(tmp_path):
     """Auch das Konto ohne Posten – sonst waere 'null Umsatz' von 'nicht berechnet'
     nicht zu unterscheiden (Regel 4)."""

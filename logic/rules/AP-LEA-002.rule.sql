@@ -18,8 +18,13 @@ parameters:
   # Laenge des Betrachtungsfensters in Monaten, zurueck vom Datenstand des Laufs.
   months: 12
 plain_logic: >
-  Finding je Kreditor und Buchungskreis, wenn in den letzten zwölf Monaten vor dem
-  Datenstand Skonto verfallen ist. Gezählt wird eine Rechnung als Verlust, wenn sie eine
+  Finding je Kreditor und Buchungskreis, wenn in den letzten `${params.months}` Monaten
+  vor dem Datenstand Skonto verfallen ist. Das Fenster ist **links offen und rechts
+  geschlossen** wie das Relevanzfenster (D-087): `Buchungsdatum > Datenstand −
+  ${params.months} Monate` und `<= Datenstand`. Der Beleg vom Tag der unteren Grenze
+  gehörte sonst in zwei aufeinanderfolgende Fenster, und eine Buchung nach dem Datenstand
+  kann ein Export nicht enthalten – nennt der Lauf einen früheren Datenstand, gehört sie
+  nicht dazu. Gezählt wird eine Rechnung als Verlust, wenn sie eine
   Skontovereinbarung trägt (ZBD1P > 0 mit ZBD1T und Basisdatum ZFBDT), **ausgeglichen**
   ist, **kein** Skonto gezogen wurde (SKNTO = 0) und der Ausgleich nach dem Ende der
   Skontofrist lag. Der Verlust je Rechnung ist Skontobasis × Prozentsatz; der Lauf
@@ -96,7 +101,10 @@ WITH posten AS (
     JOIN company_code cc
       ON cc.company_code = i.company_code
     WHERE i.doc_type IN (${doc_types.AP.invoice})
-      AND i.posting_date >= ${scope.data_as_of} - INTERVAL ${params.months} MONTH
+      -- Links offen, rechts geschlossen wie das Relevanzfenster (D-087, D-206):
+      -- der Beleg vom Tag der unteren Grenze gehoerte sonst in zwei Fenster.
+      AND i.posting_date >  ${scope.data_as_of} - INTERVAL ${params.months} MONTH
+      AND i.posting_date <= ${scope.data_as_of}
       -- Skontobasis und -betrag stehen in Belegwaehrung; nur Hauswaehrungsposten sind
       -- ohne Umrechnung summierbar (Regel 2, D-030). Fremdwaehrung wird nicht
       -- weggelassen, sondern unten gezaehlt und genannt (Regel 4).
@@ -108,7 +116,10 @@ fremd AS (
     JOIN company_code cc
       ON cc.company_code = i.company_code
     WHERE i.doc_type IN (${doc_types.AP.invoice})
-      AND i.posting_date >= ${scope.data_as_of} - INTERVAL ${params.months} MONTH
+      -- Links offen, rechts geschlossen wie das Relevanzfenster (D-087, D-206):
+      -- der Beleg vom Tag der unteren Grenze gehoerte sonst in zwei Fenster.
+      AND i.posting_date >  ${scope.data_as_of} - INTERVAL ${params.months} MONTH
+      AND i.posting_date <= ${scope.data_as_of}
       AND i.currency <> cc.currency
       AND i.cash_disc_pct1 > 0
     GROUP BY i.bp_key, i.company_code
@@ -165,7 +176,7 @@ SELECT
     '0.00'                                        AS current_value,
     k.spaet::VARCHAR || ' von ' || k.rechnungen::VARCHAR
         || ' Rechnungen nach Skontofrist bezahlt (Zahlungsbedingung ' || k.zterm
-        || ': ' || coalesce(t.description, k.skontotage::VARCHAR || ' Tage')  || ')'
+        || ': ' || coalesce(mdq_payment_terms_text(k.zterm), k.skontotage::VARCHAR || ' Tage')  || ')'
                                                   AS current_display,
     -- Kein Soll als Wert: hier ist kein Feld falsch, sondern ein Takt. Der Handlungssatz
     -- ist das Soll (D-186) - und er verspricht nur, was noch zu holen ist.
@@ -190,7 +201,12 @@ SELECT
             'source_type':    'statistics',
             -- Der Zeitraum steht taggenau: "2025-08..2026-08" liest sich wie volle
             -- Monate, das Fenster beginnt aber am Stichtag minus zwoelf Monate.
-            'reference':      'BSAK ' || (${scope.data_as_of} - INTERVAL ${params.months} MONTH)::DATE::VARCHAR
+            -- Genannt wird der **erste eingeschlossene** Tag, nicht die ausgeschlossene
+            -- untere Grenze: das Fenster ist links offen (D-087), und ein Zeiger, der
+            -- sich inklusiv liest, aber exklusiv gemeint ist, ist unwahr (D-206).
+            'reference':      'BSAK '
+                              || (${scope.data_as_of} - INTERVAL ${params.months} MONTH
+                                  + INTERVAL 1 DAY)::DATE::VARCHAR
                               || '..' || ${scope.data_as_of}::VARCHAR,
             'reference_kind': 'statement',
             'value':          k.spaet::VARCHAR || ' Rechnungen, Skontobasis '
@@ -209,7 +225,7 @@ SELECT
         to_json({
             'source_type':    'deterministic',
             'reference':      'T052 ' || k.zterm,
-            'value':          coalesce(t.description, k.skontotage::VARCHAR || ' Tage'),
+            'value':          coalesce(mdq_payment_terms_text(k.zterm), k.skontotage::VARCHAR || ' Tage'),
             'observed_at':    NULL,
             'agrees':         TRUE,
             'note':           'Zahlungsbedingung laut LFB1'
@@ -241,8 +257,6 @@ SELECT
 FROM je_konto k
 JOIN business_partner bp
   ON bp.bp_key = k.bp_key
-LEFT JOIN payment_terms t
-  ON t.terms_key = k.zterm
 LEFT JOIN fremd f
   ON f.bp_key = k.bp_key AND f.company_code = k.company_code
 WHERE bp.role = 'VENDOR'

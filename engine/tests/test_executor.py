@@ -582,6 +582,114 @@ def test_ar_con_002_braucht_den_buchungskreis_stammsatz(db, run_context) -> None
     assert "company_code" in RULES["AR-CON-002"].requires_tables
 
 
+# --- AP-LEA-002: Fenstergrenzen und die Staffel von T052 (D-206) ---------------------
+
+#: Ein Kreditor mit einer einzigen, zu spaet bezahlten Skontorechnung. Der Verlust liegt
+#: mit 2.000,00 ueber `min_loss`, damit ueberhaupt ein Finding entstehen kann; das
+#: Buchungsdatum setzt jeder Test selbst.
+def _ap_lea_002_inserts(buchungsdatum: str, terms: str = "") -> str:
+    return f"""
+INSERT INTO company_code (company_code, name, currency, country)
+VALUES ('1000','Demo Industrie AG','EUR','DE');
+INSERT INTO business_partner (bp_key, role, source_id, country, is_one_time)
+VALUES ('V:0000000009','VENDOR','0000000009','DE',FALSE);
+{terms or "INSERT INTO payment_terms (terms_key, day_limit, description) "
+          "VALUES ('ZB02', NULL, '14 Tage 2 % Skonto, 30 Tage netto');"}
+INSERT INTO fi_item (item_key,bp_key,company_code,fiscal_year,document_no,line_item,
+                     posting_date,document_date,doc_type,debit_credit,currency,
+                     amount_doc,amount_local,amount_signed_local,payment_terms,
+                     baseline_date,cash_disc_days1,cash_disc_pct1,cash_disc_base,
+                     cash_disc_taken,clearing_date,is_open)
+VALUES ('1000|2026|90|1','V:0000000009','1000','2026','90','1',
+        DATE '{buchungsdatum}',DATE '{buchungsdatum}','KR','H','EUR',
+        100000.00,100000.00,-100000.00,'ZB02',
+        DATE '{buchungsdatum}',14,2.000,100000.00,0.00,
+        DATE '{buchungsdatum}' + 40,FALSE);
+"""
+
+
+@pytest.mark.parametrize(
+    ("buchungsdatum", "im_fenster"),
+    [
+        ("2025-08-28", False),  # Tag der unteren Grenze – links offen, also draussen
+        ("2025-08-29", True),   # erster eingeschlossener Tag
+        ("2026-08-28", True),   # Datenstand – rechts geschlossen, also drin
+        ("2026-08-29", False),  # Tag danach – ausserhalb
+    ],
+)
+def test_ap_lea_002_fenstergrenzen(db, run_context, buchungsdatum, im_fenster) -> None:
+    """Die Fenstergrenze als Semantik: ]Datenstand − 12 Monate, Datenstand] (D-087).
+
+    Ob daraus ein Finding wird, entscheidet die Regel; geprueft wird hier, ob die
+    Rechnung im Fenster liegt. Bis D-206 war das Fenster links geschlossen und oben offen –
+    der Beleg vom 28.08.2025 zaehlte mit, der vom 29.08.2026 auch.
+    """
+    findings = _run(db, "AP-LEA-002", _ap_lea_002_inserts(buchungsdatum), run_context)
+    assert bool(findings) is im_fenster
+
+
+def test_ap_lea_002_nennt_den_ersten_eingeschlossenen_tag(db, run_context) -> None:
+    """Der Zeiger nennt den ersten Tag im Fenster, nicht die ausgeschlossene Grenze."""
+    finding = _run(db, "AP-LEA-002", _ap_lea_002_inserts("2026-01-15"), run_context)[0]
+    statistik = next(e for e in finding["evidence"] if e["reference"].startswith("BSAK"))
+    assert statistik["reference"] == "BSAK 2025-08-29..2026-08-28"
+
+
+#: Dieselbe Zahlungsbedingung dreimal, wie SAP sie nach Tagesgrenze staffelt (ZTAGG).
+#: Die Variante ohne Tagesgrenze gewinnt.
+_GESTAFFELTE_TERMS = """
+INSERT INTO payment_terms (terms_key, day_limit, description) VALUES
+ ('ZB02', 31, 'Staffel bis 31.'),
+ ('ZB02', NULL, '14 Tage 2 % Skonto, 30 Tage netto'),
+ ('ZB02', 15, 'Staffel bis 15.');
+"""
+
+
+def test_ap_lea_002_gestaffelte_zahlungsbedingung_ergibt_ein_finding(db, run_context) -> None:
+    """Drei T052-Zeilen je ZTERM – trotzdem **ein** Finding (Befund 11).
+
+    `payment_terms` hat keinen Primaerschluessel, und das ist richtig: SAP staffelt nach
+    Tagesgrenze. Ein `JOIN` auf die Tabelle vervielfachte die Findings, und ihre
+    `finding_id` kollidierte (D-027) – der Lauf waere mit „der Regel fehlt eine
+    finding_key-Spalte" abgebrochen.
+    """
+    findings = _run(
+        db, "AP-LEA-002", _ap_lea_002_inserts("2026-01-15", _GESTAFFELTE_TERMS), run_context
+    )
+    assert len(findings) == 1
+    assert "14 Tage 2 % Skonto, 30 Tage netto" in findings[0]["current"]["display"]
+
+
+def test_beide_regeln_nennen_denselben_zahlungsbedingungstext(db, run_context) -> None:
+    """Die Auswahl gilt fuer den Lauf, nicht fuer eine Regel (D-206).
+
+    AR-COM-002 und AP-LEA-002 zeigen denselben Text derselben ZTERM – sonst sagte der
+    Lauf-Hinweis zur Staffelung „der Lauf nimmt Variante X", und eine der beiden Regeln
+    naehme eine andere.
+    """
+    db.execute(_ap_lea_002_inserts("2026-01-15", _GESTAFFELTE_TERMS))
+    db.execute("""
+        INSERT INTO business_partner (bp_key, role, source_id, country, is_one_time)
+        VALUES ('C:0000000010','CUSTOMER','0000000010','DE',FALSE);
+        INSERT INTO bp_company_code (bp_key, company_code) VALUES ('C:0000000010','1000');
+        INSERT INTO fi_item (item_key,bp_key,company_code,fiscal_year,document_no,line_item,
+                             posting_date,doc_type,debit_credit,currency,
+                             amount_doc,amount_local,amount_signed_local,payment_terms,is_open)
+        VALUES
+         ('1000|2026|91|1','C:0000000010','1000','2026','91','1',DATE '2026-02-01','DR','S',
+          'EUR',10.00,10.00,10.00,'ZB02',TRUE),
+         ('1000|2026|92|1','C:0000000010','1000','2026','92','1',DATE '2026-02-02','DR','S',
+          'EUR',10.00,10.00,10.00,'ZB02',TRUE),
+         ('1000|2026|93|1','C:0000000010','1000','2026','93','1',DATE '2026-02-03','DR','S',
+          'EUR',10.00,10.00,10.00,'ZB02',TRUE);
+    """)
+    ap = execute_rule(db, RULES["AP-LEA-002"], run_context)[0]
+    ar = execute_rule(db, RULES["AR-COM-002"], run_context)[0]
+    text = "14 Tage 2 % Skonto, 30 Tage netto"
+    assert ar["proposed"]["display"] == text
+    assert text in ap["current"]["display"]
+
+
 # --- Belegarten aus dem Woerterbuch (D-084) ------------------------------------------
 
 

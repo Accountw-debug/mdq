@@ -905,6 +905,36 @@ def _unknown_vat_prefixes(con: duckdb.DuckDBPyConnection) -> list[str]:
     ]
 
 
+def _staffed_payment_terms(con: duckdb.DuckDBPyConnection) -> list[str]:
+    """Zahlungsbedingungen mit mehr als einer T052-Zeile (Staffel nach Tagesgrenze).
+
+    Kein Fehler: SAP staffelt Zahlungsbedingungen nach ZTAGG, und ``payment_terms`` fuehrt
+    deshalb bewusst alle Zeilen – die Tabelle hat aus demselben Grund keinen
+    Primaerschluessel. Fuer die Regeln ist es trotzdem eine Auswahl, und die trifft
+    ``mdq_payment_terms_text`` fuer den ganzen Lauf gleich: die Variante ohne Tagesgrenze,
+    sonst die mit der kleinsten ``day_limit`` (D-206). Dass ausgewaehlt wurde, sagt der
+    Lauf – sonst stuende in einem Finding ein Text, dessen Herkunft niemand sieht
+    (Regel 4, dieselbe Linie wie der Praefix-Hinweis in D-101).
+
+    Genannt werden Schluessel und Anzahl. Eine Zahlungsbedingung ist Customizing und keine
+    Geschaeftspartnerangabe (Regel 8).
+    """
+    rows = con.execute(
+        "SELECT terms_key, count(*) AS varianten FROM payment_terms "
+        "GROUP BY 1 HAVING count(*) > 1 ORDER BY 1"
+    ).fetchall()
+    if not rows:
+        return []
+    genannt = ", ".join(f"{terms_key} ({anzahl})" for terms_key, anzahl in rows)
+    return [
+        (
+            f"payment_terms: {len(rows)} Zahlungsbedingung(en) mit mehreren T052-Zeilen: "
+            f"{genannt}. Der Lauf nimmt je Schlüssel die Variante ohne Tagesgrenze, sonst "
+            "die mit der kleinsten Tagesgrenze; Regeln, die den Text zeigen, meinen diese."
+        )
+    ]
+
+
 def build_canonical(
     con: duckdb.DuckDBPyConnection,
     mapping: Mapping,
@@ -992,6 +1022,7 @@ def build_canonical(
         )
 
     warnings.extend(_unknown_vat_prefixes(con))
+    warnings.extend(_staffed_payment_terms(con))
 
     delivered = _delivered_window(con, mapping, available)
     return CanonicalResult(

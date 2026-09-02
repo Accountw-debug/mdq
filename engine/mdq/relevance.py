@@ -13,8 +13,12 @@ Die Definitionen stehen im Glossar und sind hier eins zu eins umgesetzt:
   Gutschrift ist, sagt ``logic/dictionaries/document_types.yaml`` – nicht eine Liste in
   diesem Modul (D-084).
 * ``last_activity_on`` – spaetestes Datum aus Buchungs- und Ausgleichsdatum; ein Konto
-  ohne Posten hat keines (D-062).
-* ``activity_status`` – ``active``, ``dormant`` oder ``never_posted`` nach D-086.
+  ohne Posten hat keines (D-062). Gezaehlt wird nur, was **am Datenstand** schon
+  geschehen war: eine Bewegung nach ``data_as_of`` ist zu diesem Datenstand keine
+  Aktivitaet (D-087, D-206).
+* ``activity_status`` – ``active``, ``dormant`` oder ``never_posted`` nach D-086. Er
+  liest ``last_activity_on`` und misst damit dasselbe Fenster wie ``volume_12m``:
+  ``]window_from, data_as_of]``, links offen, rechts geschlossen.
 
 Beide Betraege stehen in der Fachlogik ihrer Seite: eine Forderung und eine
 Verbindlichkeit sind beide positiv (D-085). Die Waehrung steht daneben und wird nicht
@@ -266,8 +270,17 @@ def build_relevance(
                             AND posting_date <= $as_of
                            THEN side_sign * amount_signed_local ELSE 0
                        END) AS volume_12m,
-                   max(greatest(posting_date, coalesce(clearing_date, posting_date)))
-                       AS last_activity_on
+                   -- Die letzte Aktivitaet **am Datenstand**: eine Bewegung nach dem
+                   -- Datenstand hat es zu diesem Datenstand noch nicht gegeben (D-087).
+                   -- Gekappt wird je Datum und nicht am Ergebnis: eine Rechnung, die im
+                   -- Fenster gebucht und erst nach dem Datenstand ausgeglichen wurde,
+                   -- bleibt mit ihrem Buchungsdatum eine Aktivitaet. `greatest` uebergeht
+                   -- NULL, `max` ebenso - ein Posten ganz jenseits des Datenstands traegt
+                   -- damit gar nichts bei.
+                   max(greatest(
+                       CASE WHEN posting_date <= $as_of THEN posting_date END,
+                       CASE WHEN clearing_date <= $as_of THEN clearing_date END
+                   )) AS last_activity_on
             FROM item
             GROUP BY bp_key
         )
